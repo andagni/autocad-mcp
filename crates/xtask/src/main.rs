@@ -5,6 +5,7 @@ use std::fs::{self, File, Metadata};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::time::Instant;
 
 use release_packager::approval::{
     verify_owner_distribution_approval, verify_preview_clean_host_receipt,
@@ -15,6 +16,7 @@ use sha2::{Digest, Sha256};
 
 mod candidate_seal;
 mod pe_imports;
+mod pre_push_receipt;
 mod preview_e2e;
 mod source_bundle;
 mod windows_preflight;
@@ -319,12 +321,65 @@ enum WindowsNativeTestSuite {
     GuardedRename,
 }
 
+fn repository_root_from(start: &Path) -> Result<PathBuf, String> {
+    let output = git_command(start)
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .map_err(|error| {
+            format!(
+                "failed to launch git from {} to discover the repository root: {error}",
+                start.display()
+            )
+        })?;
+    if !output.status.success() {
+        return Err(format!(
+            "git repository-root discovery from {} failed with {}: {}",
+            start.display(),
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    let stdout = String::from_utf8(output.stdout)
+        .map_err(|error| format!("git repository-root discovery returned non-UTF-8: {error}"))?;
+    let root = stdout
+        .strip_suffix("\r\n")
+        .or_else(|| stdout.strip_suffix('\n'))
+        .unwrap_or(&stdout);
+    if root.is_empty() || root.contains(['\r', '\n']) {
+        return Err("git repository-root discovery returned an invalid path".to_owned());
+    }
+    let root = PathBuf::from(root);
+    if !root.is_absolute() {
+        return Err(format!(
+            "git repository-root discovery returned a non-absolute path: {}",
+            root.display()
+        ));
+    }
+    let root = fs::canonicalize(&root).map_err(|error| {
+        format!(
+            "canonicalize discovered repository root {}: {error}",
+            root.display()
+        )
+    })?;
+    let start = fs::canonicalize(start).map_err(|error| {
+        format!(
+            "canonicalize repository-root discovery start {}: {error}",
+            start.display()
+        )
+    })?;
+    if !start.starts_with(&root) {
+        return Err(format!(
+            "discovered repository root {} does not contain runtime directory {}",
+            root.display(),
+            start.display()
+        ));
+    }
+    Ok(root)
+}
+
 fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("xtask crate must remain under <repository>/crates/xtask")
-        .to_path_buf()
+    let current = std::env::current_dir().expect("resolve current directory for xtask");
+    repository_root_from(&current).unwrap_or_else(|error| panic!("{error}"))
 }
 
 fn discover_local_gate(root: &Path) -> Result<DiscoveredLocalGate, String> {
@@ -557,14 +612,7 @@ fn local_gate_commands(discovered: &DiscoveredLocalGate) -> Vec<LocalGateCommand
 
     commands.push(LocalGateCommand::new(
         "cargo",
-        &[
-            "test",
-            "--locked",
-            "--workspace",
-            "--all-targets",
-            "--",
-            "--test-threads=1",
-        ],
+        &["test", "--locked", "--workspace", "--all-targets"],
     ));
     for profile in discovered.profiles.iter().filter(|profile| profile.test) {
         commands.push(local_gate_profile_command(profile, "test"));
@@ -584,11 +632,10 @@ fn local_gate_profile_command(
         "--all-targets".to_owned(),
         "--features".to_owned(),
         profile.features.join(","),
-        "--".to_owned(),
     ];
     match operation {
-        "clippy" => arguments.extend(["-D".to_owned(), "warnings".to_owned()]),
-        "test" => arguments.push("--test-threads=1".to_owned()),
+        "clippy" => arguments.extend(["--".to_owned(), "-D".to_owned(), "warnings".to_owned()]),
+        "test" => {}
         _ => unreachable!("local-gate profile operation is closed"),
     }
     LocalGateCommand {
@@ -603,24 +650,58 @@ fn render_local_gate_command(command: &LocalGateCommand) -> String {
     format!("{} {arguments}", command.program)
 }
 
-fn run_local_gate(root: &Path) -> Result<(), String> {
-    let discovered = discover_local_gate(root)?;
-    let commands = local_gate_commands(&discovered);
+fn has_required_distribution_evidence_check(discovered: &DiscoveredLocalGate) -> bool {
+    discovered.checks.iter().any(|check| {
+        check
+            .package_spec
+            .split_once('@')
+            .is_some_and(|(name, version)| name == "distribution-evidence" && !version.is_empty())
+            && check.name == "distribution-evidence"
+            && check.bin == "distribution-evidence"
+            && check.arguments == ["check"]
+    })
+}
+
+fn run_local_gate_commands(root: &Path, commands: &[LocalGateCommand]) -> Result<(), String> {
+    let total_started = Instant::now();
     for (index, command) in commands.iter().enumerate() {
         let rendered = render_local_gate_command(command);
         eprintln!("[{}/{}] {rendered}", index + 1, commands.len());
+        let stage_started = Instant::now();
         let status = Command::new(&command.program)
             .args(&command.arguments)
             .current_dir(root)
             .status()
-            .map_err(|error| format!("failed to launch {rendered}: {error}"))?;
+            .map_err(|error| {
+                format!(
+                    "failed to launch {rendered} after {:.3}s: {error}",
+                    stage_started.elapsed().as_secs_f64()
+                )
+            })?;
+        let stage_elapsed = stage_started.elapsed();
         if !status.success() {
             return Err(format!(
-                "local gate command failed with {status}: {rendered}"
+                "local gate command failed with {status} after {:.3}s: {rendered}",
+                stage_elapsed.as_secs_f64()
             ));
         }
+        eprintln!(
+            "[{}/{}] passed in {:.3}s",
+            index + 1,
+            commands.len(),
+            stage_elapsed.as_secs_f64()
+        );
     }
+    eprintln!(
+        "local gate commands passed in {:.3}s total",
+        total_started.elapsed().as_secs_f64()
+    );
     Ok(())
+}
+
+fn run_local_gate(root: &Path) -> Result<(), String> {
+    let discovered = discover_local_gate(root)?;
+    run_local_gate_commands(root, &local_gate_commands(&discovered))
 }
 
 fn parse_windows_native_test_suite(value: &OsStr) -> Result<WindowsNativeTestSuite, String> {
@@ -856,8 +937,152 @@ where
     Ok(has_non_deletion)
 }
 
+#[derive(Debug)]
+struct PreparedPrePush {
+    head_before: String,
+    identity_before: candidate_seal::CandidateIdentity,
+}
+
+fn prepare_pre_push(root: &Path, input: &str) -> Result<Option<PreparedPrePush>, String> {
+    let updates = parse_push_updates(input)?;
+    if updates.iter().all(|update| is_zero_oid(&update.local_oid)) {
+        return Ok(None);
+    }
+
+    let head_before = git_output(root, &["rev-parse", "--verify", "HEAD"])?;
+    ensure_clean_checkout(root)?;
+    let identity_before = candidate_seal::capture_current_identity(root)?;
+    if identity_before.source_commit != head_before {
+        return Err("candidate identity and pushed HEAD disagree before validation".to_owned());
+    }
+    let has_non_deletion = validate_push_updates(&updates, &head_before, |oid| {
+        let revision = format!("{oid}^{{commit}}");
+        git_output(root, &["rev-parse", "--verify", &revision])
+    })?;
+    if !has_non_deletion {
+        return Ok(None);
+    }
+    Ok(Some(PreparedPrePush {
+        head_before,
+        identity_before,
+    }))
+}
+
+fn finish_pre_push(
+    root: &Path,
+    prepared: &PreparedPrePush,
+    sealed: &candidate_seal::CandidateIdentity,
+) -> Result<Option<String>, String> {
+    if sealed != &prepared.identity_before {
+        return Err(format!(
+            "pre-push source seal identity does not match the exact pushed HEAD; expected commit {} tree {}, sealed commit {} tree {}",
+            prepared.identity_before.source_commit,
+            prepared.identity_before.source_tree_oid,
+            sealed.source_commit,
+            sealed.source_tree_oid
+        ));
+    }
+    let head_after = git_output(root, &["rev-parse", "--verify", "HEAD"])?;
+    if head_after != prepared.head_before {
+        return Err(format!(
+            "HEAD changed during pre-push validation ({} -> {head_after}); retry the push",
+            prepared.head_before
+        ));
+    }
+    ensure_clean_checkout(root)?;
+    Ok(Some(prepared.head_before.clone()))
+}
+
 fn run_pre_push(root: &Path, input: &str) -> Result<Option<String>, String> {
-    run_pre_push_with(root, input, run_local_gate, candidate_seal::run_ephemeral)
+    let Some(prepared) = prepare_pre_push(root, input)? else {
+        return Ok(None);
+    };
+    let discovered = discover_local_gate(root)?;
+    if !has_required_distribution_evidence_check(&discovered) {
+        return Err(
+            "pre-push candidate sealing requires the exact package-owned distribution-evidence check"
+                .to_owned(),
+        );
+    }
+    let commands = local_gate_commands(&discovered);
+    let rendered_commands = commands
+        .iter()
+        .map(render_local_gate_command)
+        .collect::<Vec<_>>();
+    let receipt_inputs = match pre_push_receipt::capture_pre_push_receipt_inputs(
+        root,
+        &prepared.identity_before.git_object_format,
+        &prepared.identity_before.source_commit,
+        &prepared.identity_before.source_tree_oid,
+        &rendered_commands,
+    ) {
+        Ok(inputs) => Some(inputs),
+        Err(error) => {
+            eprintln!("advisory pre-push receipt unavailable; running full gate: {error}");
+            None
+        }
+    };
+    if let Some(before) = receipt_inputs.as_ref() {
+        if pre_push_receipt::pre_push_receipt_hit(root, before) {
+            eprintln!(
+                "exact-commit recorded-context local pre-push receipt matched {}; reusing the completed local gate before fresh distribution-evidence and source-candidate checks",
+                prepared.head_before
+            );
+            let sealed = candidate_seal::run_ephemeral(root)?;
+            let after = pre_push_receipt::capture_pre_push_receipt_inputs(
+                root,
+                &prepared.identity_before.git_object_format,
+                &prepared.identity_before.source_commit,
+                &prepared.identity_before.source_tree_oid,
+                &rendered_commands,
+            )
+            .map_err(|error| {
+                format!(
+                    "pre-push receipt inputs could not be recaptured after source-candidate validation: {error}"
+                )
+            })?;
+            if &after != before {
+                return Err(
+                    "pre-push receipt inputs changed during source-candidate validation; retry the push"
+                        .to_owned(),
+                );
+            }
+            return finish_pre_push(root, &prepared, &sealed);
+        }
+    }
+
+    run_local_gate_commands(root, &commands)?;
+    let sealed = candidate_seal::run_ephemeral(root)?;
+
+    if let Some(before) = receipt_inputs {
+        let after = pre_push_receipt::capture_pre_push_receipt_inputs(
+            root,
+            &prepared.identity_before.git_object_format,
+            &prepared.identity_before.source_commit,
+            &prepared.identity_before.source_tree_oid,
+            &rendered_commands,
+        )
+        .map_err(|error| {
+            format!("pre-push gate inputs could not be recaptured after validation: {error}")
+        })?;
+        if after != before {
+            return Err(
+                "pre-push gate inputs changed during validation; retry the push".to_owned(),
+            );
+        }
+        finish_pre_push(root, &prepared, &sealed)?;
+        match pre_push_receipt::record_pre_push_receipt(root, &after) {
+            Ok(path) => {
+                eprintln!("recorded advisory pre-push receipt {}", path.display())
+            }
+            Err(error) => {
+                eprintln!("advisory pre-push receipt was not recorded: {error}")
+            }
+        }
+    } else {
+        finish_pre_push(root, &prepared, &sealed)?;
+    }
+    Ok(Some(prepared.head_before))
 }
 
 fn verify_current_distribution(
@@ -1113,6 +1338,7 @@ fn parse_distribution_mode(value: &OsStr) -> Result<DistributionMode, String> {
     }
 }
 
+#[cfg(test)]
 fn run_pre_push_with<G, S>(
     root: &Path,
     input: &str,
@@ -1123,45 +1349,13 @@ where
     G: FnMut(&Path) -> Result<(), String>,
     S: FnMut(&Path) -> Result<candidate_seal::CandidateIdentity, String>,
 {
-    let updates = parse_push_updates(input)?;
-    if updates.iter().all(|update| is_zero_oid(&update.local_oid)) {
+    let Some(prepared) = prepare_pre_push(root, input)? else {
         return Ok(None);
-    }
-
-    let head_before = git_output(root, &["rev-parse", "--verify", "HEAD"])?;
-    ensure_clean_checkout(root)?;
-    let identity_before = candidate_seal::capture_current_identity(root)?;
-    if identity_before.source_commit != head_before {
-        return Err("candidate identity and pushed HEAD disagree before validation".to_owned());
-    }
-    let has_non_deletion = validate_push_updates(&updates, &head_before, |oid| {
-        let revision = format!("{oid}^{{commit}}");
-        git_output(root, &["rev-parse", "--verify", &revision])
-    })?;
-    if !has_non_deletion {
-        return Ok(None);
-    }
+    };
 
     gate(root)?;
     let sealed = seal_source(root)?;
-    if sealed != identity_before {
-        return Err(format!(
-            "pre-push source seal identity does not match the exact pushed HEAD; expected commit {} tree {}, sealed commit {} tree {}",
-            identity_before.source_commit,
-            identity_before.source_tree_oid,
-            sealed.source_commit,
-            sealed.source_tree_oid
-        ));
-    }
-
-    let head_after = git_output(root, &["rev-parse", "--verify", "HEAD"])?;
-    if head_after != head_before {
-        return Err(format!(
-            "HEAD changed during pre-push validation ({head_before} -> {head_after}); retry the push"
-        ));
-    }
-    ensure_clean_checkout(root)?;
-    Ok(Some(head_before))
+    finish_pre_push(root, &prepared, &sealed)
 }
 
 fn main() -> ExitCode {
@@ -1421,12 +1615,17 @@ fn main() -> ExitCode {
             }
         }
         [command, _remote_name, _remote_location] if command == "pre-push" => {
+            let pre_push_started = Instant::now();
             let mut input = String::new();
             if let Err(error) = std::io::stdin().read_to_string(&mut input) {
                 eprintln!("ERROR: failed to read pre-push records: {error}");
+                eprintln!(
+                    "local pre-push command completed in {:.3}s",
+                    pre_push_started.elapsed().as_secs_f64()
+                );
                 return ExitCode::FAILURE;
             }
-            match run_pre_push(&repository_root(), &input) {
+            let exit_code = match run_pre_push(&repository_root(), &input) {
                 Ok(Some(commit)) => {
                     eprintln!("local pre-push gate passed for {commit}");
                     ExitCode::SUCCESS
@@ -1439,7 +1638,12 @@ fn main() -> ExitCode {
                     eprintln!("ERROR: {error}");
                     ExitCode::FAILURE
                 }
-            }
+            };
+            eprintln!(
+                "local pre-push command completed in {:.3}s",
+                pre_push_started.elapsed().as_secs_f64()
+            );
+            exit_code
         }
         [command, tier2_flag, tier2_manifest, xref_flag, xref_manifest]
             if command == "certification-manifest-preflight"
@@ -1578,6 +1782,65 @@ mod tests {
     }
 
     #[test]
+    fn repository_root_is_discovered_from_the_runtime_checkout() {
+        const CHILD: &str = "AUTOCAD_MCP_XTASK_ROOT_DISCOVERY_TEST_CHILD";
+        const START: &str = "AUTOCAD_MCP_XTASK_ROOT_DISCOVERY_TEST_START";
+        const EXPECTED: &str = "AUTOCAD_MCP_XTASK_ROOT_DISCOVERY_TEST_EXPECTED";
+        const TEST_NAME: &str = "tests::repository_root_is_discovered_from_the_runtime_checkout";
+
+        if std::env::var_os(CHILD).is_some() {
+            let start = PathBuf::from(std::env::var_os(START).expect("child start path"));
+            let expected =
+                PathBuf::from(std::env::var_os(EXPECTED).expect("child expected repository"));
+            let discovered =
+                repository_root_from(&start).expect("discover root under hostile Git environment");
+            assert_eq!(
+                discovered,
+                fs::canonicalize(expected).expect("canonical expected child repository")
+            );
+            return;
+        }
+
+        let repository = test_repository();
+        let nested = repository.path().join("nested/runtime");
+        fs::create_dir_all(&nested).expect("create nested runtime path");
+
+        let discovered =
+            repository_root_from(&nested).expect("discover temporary runtime repository");
+        assert_eq!(
+            fs::canonicalize(discovered).expect("canonical discovered repository"),
+            fs::canonicalize(repository.path()).expect("canonical temporary repository")
+        );
+
+        let foreign = test_repository();
+        let foreign_git_dir =
+            fs::canonicalize(foreign.path().join(".git")).expect("canonical foreign Git directory");
+        let child = Command::new(std::env::current_exe().expect("current xtask test executable"))
+            .args(["--exact", TEST_NAME, "--nocapture"])
+            .env(CHILD, "1")
+            .env(START, &nested)
+            .env(EXPECTED, repository.path())
+            .env("GIT_DIR", &foreign_git_dir)
+            .env("GIT_COMMON_DIR", &foreign_git_dir)
+            .env("GIT_WORK_TREE", foreign.path())
+            .env("GIT_INDEX_FILE", foreign_git_dir.join("index"))
+            .env("GIT_OBJECT_DIRECTORY", foreign_git_dir.join("objects"))
+            .output()
+            .expect("launch hostile-environment root-discovery child");
+        let child_stdout = String::from_utf8_lossy(&child.stdout);
+        let child_stderr = String::from_utf8_lossy(&child.stderr);
+        assert!(
+            child.status.success()
+                && child_stdout.contains("running 1 test")
+                && child_stdout.contains(TEST_NAME),
+            "hostile-environment root-discovery child failed with {}\nstdout:\n{}\nstderr:\n{}",
+            child.status,
+            child_stdout,
+            child_stderr
+        );
+    }
+
+    #[test]
     fn local_gate_discovers_package_owned_checks_and_profiles() {
         let metadata = serde_json::from_value(serde_json::json!({
             "workspace_members": ["path+file:///repo/crates/example#example@1.2.3"],
@@ -1704,14 +1967,7 @@ mod tests {
                 ),
                 LocalGateCommand::new(
                     "cargo",
-                    &[
-                        "test",
-                        "--locked",
-                        "--workspace",
-                        "--all-targets",
-                        "--",
-                        "--test-threads=1",
-                    ],
+                    &["test", "--locked", "--workspace", "--all-targets"],
                 ),
                 LocalGateCommand::new(
                     "cargo",
@@ -1723,16 +1979,63 @@ mod tests {
                         "--all-targets",
                         "--features",
                         "special",
-                        "--",
-                        "--test-threads=1",
                     ],
                 ),
             ]
         );
+        for command in commands.iter().filter(|command| {
+            command.program == "cargo"
+                && command
+                    .arguments
+                    .first()
+                    .is_some_and(|argument| argument == "test")
+        }) {
+            assert!(!command
+                .arguments
+                .iter()
+                .any(|argument| argument == "--test-threads=1"));
+            assert_ne!(command.arguments.last().map(String::as_str), Some("--"));
+        }
         assert_eq!(
             render_local_gate_command(&commands[2]),
             "cargo [\"run\",\"--locked\",\"-p\",\"example@1.2.3\",\"--bin\",\"example-evidence\",\"--\",\"check\",\"path with space\"]"
         );
+    }
+
+    #[test]
+    fn pre_push_evidence_handoff_requires_the_exact_package_owned_check() {
+        let exact = DiscoveredLocalGate {
+            checks: vec![DiscoveredLocalGateCheck {
+                package_spec: "distribution-evidence@0.1.0".to_owned(),
+                name: "distribution-evidence".to_owned(),
+                bin: "distribution-evidence".to_owned(),
+                arguments: vec!["check".to_owned()],
+            }],
+            profiles: Vec::new(),
+        };
+        assert!(has_required_distribution_evidence_check(&exact));
+
+        for changed in [
+            DiscoveredLocalGateCheck {
+                arguments: vec!["write".to_owned()],
+                ..exact.checks[0].clone()
+            },
+            DiscoveredLocalGateCheck {
+                bin: "other".to_owned(),
+                ..exact.checks[0].clone()
+            },
+            DiscoveredLocalGateCheck {
+                package_spec: "other@0.1.0".to_owned(),
+                ..exact.checks[0].clone()
+            },
+        ] {
+            assert!(!has_required_distribution_evidence_check(
+                &DiscoveredLocalGate {
+                    checks: vec![changed],
+                    profiles: Vec::new(),
+                }
+            ));
+        }
     }
 
     #[test]

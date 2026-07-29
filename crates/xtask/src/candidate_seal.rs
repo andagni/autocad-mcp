@@ -7,7 +7,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 const SEAL_SCHEMA_VERSION: u32 = 3;
 const SEAL_ARTIFACT_KIND: &str = "autocad-mcp-source-candidate";
@@ -148,13 +148,21 @@ fn run_internal(
     distribution_evidence::check(repository)
         .map_err(|error| format!("revalidate reviewed distribution evidence: {error}"))?;
     require_current_identity(repository, &before, "distribution evidence validation")?;
+    let prepared = source_bundle::prepare_for_modes(repository, &[package_mode])?;
     run_with_generator_retention(
         repository,
         output_directory,
         before,
         retain_output,
         package_mode,
-        |bundle_path| source_bundle::run_for_mode(repository, bundle_path, package_mode),
+        |bundle_path| {
+            source_bundle::write_prepared_for_mode(
+                &prepared,
+                bundle_path,
+                package_mode,
+                retain_output,
+            )
+        },
     )
 }
 
@@ -300,11 +308,64 @@ fn validate_candidate_directory_inventory(directory: &Path) -> Result<(), String
     }
 }
 
-pub fn run_ephemeral(repository: &Path) -> Result<CandidateIdentity, String> {
+pub(crate) fn run_ephemeral(repository: &Path) -> Result<CandidateIdentity, String> {
+    let total = Instant::now();
+    let phase = Instant::now();
+    populate_locked_sources(repository)?;
+    eprintln!(
+        "candidate seal phase locked-source acquisition passed in {:.3}s",
+        phase.elapsed().as_secs_f64()
+    );
+    let phase = Instant::now();
+    let before = capture_current_identity(repository)?;
+    eprintln!(
+        "candidate seal phase source identity passed in {:.3}s",
+        phase.elapsed().as_secs_f64()
+    );
+    let phase = Instant::now();
+    distribution_evidence::check(repository)
+        .map_err(|error| format!("revalidate reviewed distribution evidence: {error}"))?;
+    require_current_identity(repository, &before, "distribution evidence validation")?;
+    eprintln!(
+        "candidate seal phase distribution evidence passed in {:.3}s",
+        phase.elapsed().as_secs_f64()
+    );
+    let phase = Instant::now();
+    let prepared = source_bundle::prepare_for_modes(
+        repository,
+        &[DistributionMode::Release, DistributionMode::Preview],
+    )?;
+    require_current_identity(repository, &before, "shared source-bundle preparation")?;
+    eprintln!(
+        "candidate seal phase shared source preparation passed in {:.3}s",
+        phase.elapsed().as_secs_f64()
+    );
+
     run_ephemeral_with(|package_mode| {
+        let phase = Instant::now();
         let candidate_directory = visible_scratch_directory(repository)?;
-        run_internal(repository, &candidate_directory, false, package_mode)
-            .map(|summary| summary.candidate)
+        let summary = run_with_generator_retention(
+            repository,
+            &candidate_directory,
+            before.clone(),
+            false,
+            package_mode,
+            |bundle_path| {
+                source_bundle::write_prepared_for_mode(&prepared, bundle_path, package_mode, false)
+            },
+        )?;
+        eprintln!(
+            "candidate seal phase {} emission passed in {:.3}s",
+            package_mode.as_str(),
+            phase.elapsed().as_secs_f64()
+        );
+        Ok(summary.candidate)
+    })
+    .inspect(|_| {
+        eprintln!(
+            "candidate seal passed in {:.3}s",
+            total.elapsed().as_secs_f64()
+        );
     })
 }
 

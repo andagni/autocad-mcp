@@ -6,9 +6,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::sync::Arc;
 
 const WINDOWS_TARGET: &str = "x86_64-pc-windows-msvc";
 const REGISTRY_SOURCE: &str = "registry+https://github.com/rust-lang/crates.io-index";
@@ -158,7 +159,7 @@ struct PackageKey {
     source: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct LockPackage {
     checksum: Option<String>,
 }
@@ -171,7 +172,7 @@ struct RootClosure {
     package_ids: BTreeSet<String>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct IncludedPackage {
     metadata: MetadataPackage,
     scopes: BTreeSet<String>,
@@ -184,16 +185,16 @@ struct TarEntry {
     mode: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct SourceFile {
     relative_path: String,
-    bytes: Vec<u8>,
+    bytes: Arc<[u8]>,
     mode: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct PayloadEntry {
-    bytes: Vec<u8>,
+    bytes: Arc<[u8]>,
     mode: u32,
 }
 
@@ -248,7 +249,7 @@ struct PackageManifest {
     vendor: Option<VendorManifest>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct VendorManifest {
     path: String,
     crate_archive_sha256: String,
@@ -271,7 +272,7 @@ struct FileManifest {
     bytes: usize,
 }
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 struct ExclusionManifest {
     package: String,
     version: String,
@@ -279,6 +280,37 @@ struct ExclusionManifest {
     sha256: String,
     bytes: usize,
     reason: String,
+}
+
+#[derive(Debug)]
+struct PreparedMode {
+    closures: Vec<RootClosure>,
+    included: BTreeMap<PackageKey, IncludedPackage>,
+}
+
+#[derive(Clone, Debug)]
+struct PreparedVendorPackage {
+    manifest: VendorManifest,
+    files: Vec<SourceFile>,
+    exclusions: Vec<ExclusionManifest>,
+    encountered_deny_rules: BTreeSet<usize>,
+    archived_manifest: Arc<[u8]>,
+}
+
+#[derive(Debug)]
+pub(crate) struct PreparedSourceBundles {
+    repository: PathBuf,
+    git_object_format: String,
+    source_commit: String,
+    source_tree_oid: String,
+    lock_sha256: String,
+    lock_packages: BTreeMap<PackageKey, LockPackage>,
+    dependency_input_closure_sha256: String,
+    rust_toolchain_sha256: String,
+    toolchain: String,
+    workspace_files: Vec<SourceFile>,
+    modes: BTreeMap<DistributionMode, PreparedMode>,
+    vendors: BTreeMap<PackageKey, PreparedVendorPackage>,
 }
 
 #[derive(Debug, Serialize)]
@@ -306,6 +338,22 @@ pub fn run_for_mode(
     out_file: &Path,
     package_mode: DistributionMode,
 ) -> Result<SourceBundleSummary, String> {
+    let prepared = prepare_for_modes(repository, &[package_mode])?;
+    write_prepared_for_mode(&prepared, out_file, package_mode, true)
+}
+
+pub(crate) fn prepare_for_modes(
+    repository: &Path,
+    package_modes: &[DistributionMode],
+) -> Result<PreparedSourceBundles, String> {
+    if package_modes.is_empty() {
+        return Err("source-bundle preparation requires at least one package mode".to_owned());
+    }
+    let requested_modes = package_modes.iter().copied().collect::<BTreeSet<_>>();
+    if requested_modes.len() != package_modes.len() {
+        return Err("source-bundle preparation repeats a package mode".to_owned());
+    }
+
     let repository = canonical_repository(repository)?;
     ensure_clean_checkout(&repository)?;
     let source_commit = head_commit(&repository)?;
@@ -331,61 +379,149 @@ pub fn run_for_mode(
     ensure_controlled_cargo_configuration(&repository)?;
     verify_exact_toolchain(&toolchain)?;
 
-    let mut closures = Vec::with_capacity(ROOTS.len());
-    for spec in ROOTS {
-        let (metadata_stdout, metadata) =
-            cargo_metadata(&repository, &toolchain, spec, package_mode)?;
-        validate_metadata_manifests(&repository, &head_blobs, &metadata)?;
-        let package_ids = derive_closure(&metadata, spec)?;
-        closures.push(RootClosure {
-            spec,
-            metadata_stdout,
-            metadata,
-            package_ids,
-        });
+    let mut modes = BTreeMap::new();
+    let mut union = BTreeMap::<PackageKey, IncludedPackage>::new();
+    for package_mode in requested_modes {
+        let mut closures = Vec::with_capacity(ROOTS.len());
+        for spec in ROOTS {
+            let (metadata_stdout, metadata) =
+                cargo_metadata(&repository, &toolchain, spec, package_mode)?;
+            validate_metadata_manifests(&repository, &head_blobs, &metadata)?;
+            let package_ids = derive_closure(&metadata, spec)?;
+            closures.push(RootClosure {
+                spec,
+                metadata_stdout,
+                metadata,
+                package_ids,
+            });
+        }
+        let included = combine_closures(&closures)?;
+        merge_mode_packages_into_union(&mut union, &included)?;
+        modes.insert(package_mode, PreparedMode { closures, included });
     }
-    let included = combine_closures(&closures)?;
-    let mut archive = ArchiveEntries::default();
 
     let workspace_files = workspace_source_files(&tree, &head_blobs)?;
-    let workspace = TreeManifest {
-        path: "workspace".to_owned(),
-        file_count: workspace_files.len(),
-        tree_sha256: tree_digest(&workspace_files),
-        digest_method: "SHA-256 over sorted path, normalized mode, byte length, and content digest",
-    };
-    for file in workspace_files {
-        archive.insert(
-            format!("workspace/{}", file.relative_path),
-            file.bytes,
-            file.mode,
-        )?;
-    }
-
-    let mut package_manifests = Vec::with_capacity(included.len());
-    let mut exclusions = Vec::new();
-    let mut encountered_deny_rules = BTreeSet::new();
-    for package in included.values() {
-        let key = package_key(&package.metadata);
-        let lock = lock_packages.get(&key).ok_or_else(|| {
+    let mut vendors = BTreeMap::new();
+    for (key, package) in &union {
+        if package_key(&package.metadata) != *key {
+            return Err("source-bundle union package key is internally inconsistent".to_owned());
+        }
+        let lock = lock_packages.get(key).ok_or_else(|| {
             format!(
                 "target closure package {} {} source {:?} is absent from Cargo.lock",
                 key.name, key.version, key.source
             )
         })?;
         validate_package_source(&repository, &head_blobs, &package.metadata, lock)?;
-        let vendor = match package.metadata.source.as_deref() {
-            Some(REGISTRY_SOURCE) => Some(vendor_package(
-                &package.metadata,
-                lock,
-                &mut archive,
-                &mut exclusions,
-                &mut encountered_deny_rules,
-            )?),
-            None => None,
+        match package.metadata.source.as_deref() {
+            Some(REGISTRY_SOURCE) => {
+                let prepared = prepare_vendor_package(&package.metadata, lock)?;
+                if vendors.insert(key.clone(), prepared).is_some() {
+                    return Err(format!(
+                        "source-bundle preparation repeats registry package {} {}",
+                        package.metadata.name, package.metadata.version
+                    ));
+                }
+            }
+            None => {}
             Some(source) => {
                 return Err(format!(
                     "target closure package {} {} uses unsupported source {source}",
+                    package.metadata.name, package.metadata.version
+                ))
+            }
+        };
+    }
+    verify_repository_identity(
+        &repository,
+        &git_object_format,
+        &source_commit,
+        &source_tree_oid,
+        &toolchain,
+    )?;
+
+    Ok(PreparedSourceBundles {
+        repository,
+        git_object_format,
+        source_commit,
+        source_tree_oid,
+        lock_sha256,
+        lock_packages,
+        dependency_input_closure_sha256,
+        rust_toolchain_sha256,
+        toolchain,
+        workspace_files,
+        modes,
+        vendors,
+    })
+}
+
+pub(crate) fn write_prepared_for_mode(
+    prepared: &PreparedSourceBundles,
+    out_file: &Path,
+    package_mode: DistributionMode,
+    durable_output: bool,
+) -> Result<SourceBundleSummary, String> {
+    let mode = prepared.modes.get(&package_mode).ok_or_else(|| {
+        format!(
+            "source-bundle preparation did not include {} mode",
+            package_mode.as_str()
+        )
+    })?;
+    verify_repository_identity(
+        &prepared.repository,
+        &prepared.git_object_format,
+        &prepared.source_commit,
+        &prepared.source_tree_oid,
+        &prepared.toolchain,
+    )?;
+
+    let mut archive = ArchiveEntries::default();
+    let workspace = TreeManifest {
+        path: "workspace".to_owned(),
+        file_count: prepared.workspace_files.len(),
+        tree_sha256: tree_digest(&prepared.workspace_files),
+        digest_method: "SHA-256 over sorted path, normalized mode, byte length, and content digest",
+    };
+    for file in &prepared.workspace_files {
+        archive.insert(
+            format!("workspace/{}", file.relative_path),
+            Arc::clone(&file.bytes),
+            file.mode,
+        )?;
+    }
+
+    let mut package_manifests = Vec::with_capacity(mode.included.len());
+    let mut exclusions = Vec::new();
+    let mut encountered_deny_rules = BTreeSet::new();
+    for (key, package) in &mode.included {
+        let lock = prepared.lock_packages.get(key).ok_or_else(|| {
+            format!(
+                "prepared target closure package {} {} source {:?} is absent from Cargo.lock",
+                key.name, key.version, key.source
+            )
+        })?;
+        let vendor = match package.metadata.source.as_deref() {
+            Some(REGISTRY_SOURCE) => {
+                let prepared_vendor = prepared.vendors.get(key).ok_or_else(|| {
+                    format!(
+                        "prepared registry package {} {} is absent",
+                        package.metadata.name, package.metadata.version
+                    )
+                })?;
+                validate_prepared_vendor_manifest(&package.metadata, prepared_vendor)?;
+                apply_prepared_vendor(
+                    prepared_vendor,
+                    &mut archive,
+                    &mut exclusions,
+                    &mut encountered_deny_rules,
+                )?;
+                Some(prepared_vendor.manifest.clone())
+            }
+            None => None,
+            Some(source) => {
+                return Err(format!(
+                    "prepared package {} {} uses unsupported source {source}",
                     package.metadata.name, package.metadata.version
                 ))
             }
@@ -406,11 +542,11 @@ pub fn run_for_mode(
     package_manifests.sort_by(|left, right| {
         (&left.name, &left.version, &left.source).cmp(&(&right.name, &right.version, &right.source))
     });
-    validate_denylist_coverage(&included, &encountered_deny_rules)?;
+    validate_denylist_coverage(&mode.included, &encountered_deny_rules)?;
     exclusions.sort();
 
     let offline_config = offline_cargo_config();
-    let recipe_object_format = match git_object_format.as_str() {
+    let recipe_object_format = match prepared.git_object_format.as_str() {
         "sha1" => GitObjectFormat::Sha1,
         "sha256" => GitObjectFormat::Sha256,
         other => {
@@ -420,9 +556,9 @@ pub fn run_for_mode(
         }
     };
     let build_instructions = render_windows_x86_64_build_recipe(
-        &toolchain,
+        &prepared.toolchain,
         recipe_object_format,
-        &source_commit,
+        &prepared.source_commit,
         package_mode,
     )
     .map_err(|error| format!("render canonical Windows build recipe: {error}"))?;
@@ -438,18 +574,18 @@ pub fn run_for_mode(
         0o644,
     )?;
 
-    let root_manifests = root_manifests(&closures, package_mode)?;
+    let root_manifests = root_manifests(&mode.closures, package_mode)?;
     let manifest = SourceBundleManifest {
         schema_version: 3,
         artifact_kind: "autocad-mcp-windows-x86_64-build-source",
-        git_object_format: git_object_format.clone(),
-        source_commit: source_commit.clone(),
-        source_tree_oid: source_tree_oid.clone(),
-        cargo_lock_sha256: lock_sha256.clone(),
-        dependency_input_closure_sha256: dependency_input_closure_sha256.clone(),
-        rust_toolchain_sha256: rust_toolchain_sha256.clone(),
+        git_object_format: prepared.git_object_format.clone(),
+        source_commit: prepared.source_commit.clone(),
+        source_tree_oid: prepared.source_tree_oid.clone(),
+        cargo_lock_sha256: prepared.lock_sha256.clone(),
+        dependency_input_closure_sha256: prepared.dependency_input_closure_sha256.clone(),
+        rust_toolchain_sha256: prepared.rust_toolchain_sha256.clone(),
         build_recipe_sha256: build_recipe_sha256.clone(),
-        rust_toolchain: toolchain.clone(),
+        rust_toolchain: prepared.toolchain.clone(),
         target: WINDOWS_TARGET,
         profile: "release",
         package_mode,
@@ -475,23 +611,24 @@ pub fn run_for_mode(
     archive.insert(MANIFEST_PATH.to_owned(), manifest_bytes, 0o644)?;
 
     verify_repository_snapshot(
-        &repository,
-        &git_object_format,
-        &source_commit,
-        &source_tree_oid,
-        &toolchain,
-        &closures,
+        &prepared.repository,
+        &prepared.git_object_format,
+        &prepared.source_commit,
+        &prepared.source_tree_oid,
+        &prepared.toolchain,
+        &mode.closures,
         package_mode,
     )?;
-    validate_output_location(&repository, out_file)?;
-    let (archive_sha256, archive_bytes) = write_archive(out_file, &archive.entries)?;
+    validate_output_location(&prepared.repository, out_file)?;
+    let (archive_sha256, archive_bytes) =
+        write_archive(out_file, &archive.entries, durable_output)?;
     if let Err(error) = verify_repository_snapshot(
-        &repository,
-        &git_object_format,
-        &source_commit,
-        &source_tree_oid,
-        &toolchain,
-        &closures,
+        &prepared.repository,
+        &prepared.git_object_format,
+        &prepared.source_commit,
+        &prepared.source_tree_oid,
+        &prepared.toolchain,
+        &mode.closures,
         package_mode,
     ) {
         return Err(remove_invalid_archive(out_file, error));
@@ -503,13 +640,13 @@ pub fn run_for_mode(
         .count();
     Ok(SourceBundleSummary {
         output: out_file.to_path_buf(),
-        git_object_format,
-        source_commit,
-        source_tree_oid,
+        git_object_format: prepared.git_object_format.clone(),
+        source_commit: prepared.source_commit.clone(),
+        source_tree_oid: prepared.source_tree_oid.clone(),
         source_bundle_manifest_sha256,
-        cargo_lock_sha256: lock_sha256,
-        dependency_input_closure_sha256,
-        rust_toolchain_sha256,
+        cargo_lock_sha256: prepared.lock_sha256.clone(),
+        dependency_input_closure_sha256: prepared.dependency_input_closure_sha256.clone(),
+        rust_toolchain_sha256: prepared.rust_toolchain_sha256.clone(),
         build_recipe_sha256,
         package_mode,
         archive_sha256,
@@ -519,6 +656,33 @@ pub fn run_for_mode(
         vendored_packages,
         excluded_files: manifest.exclusions.len(),
     })
+}
+
+fn merge_mode_packages_into_union(
+    union: &mut BTreeMap<PackageKey, IncludedPackage>,
+    included: &BTreeMap<PackageKey, IncludedPackage>,
+) -> Result<(), String> {
+    for (key, package) in included {
+        match union.get_mut(key) {
+            Some(existing) => {
+                if existing.metadata.name != package.metadata.name
+                    || existing.metadata.version != package.metadata.version
+                    || existing.metadata.source != package.metadata.source
+                    || existing.metadata.manifest_path != package.metadata.manifest_path
+                {
+                    return Err(format!(
+                        "Release and Preview metadata disagree about package {} {}",
+                        package.metadata.name, package.metadata.version
+                    ));
+                }
+                existing.scopes.extend(package.scopes.iter().cloned());
+            }
+            None => {
+                union.insert(key.clone(), package.clone());
+            }
+        }
+    }
+    Ok(())
 }
 
 fn canonical_repository(repository: &Path) -> Result<PathBuf, String> {
@@ -766,15 +930,122 @@ fn read_head_blobs(
     repository: &Path,
     tree: &[GitTreeEntry],
 ) -> Result<BTreeMap<String, Vec<u8>>, String> {
-    let mut blobs = BTreeMap::new();
-    for entry in tree {
-        let bytes = git_bytes(repository, &["cat-file", "blob", &entry.object_id])
-            .map_err(|error| format!("read clean HEAD blob for {}: {error}", entry.path))?;
-        if blobs.insert(entry.path.clone(), bytes).is_some() {
-            return Err(format!("clean HEAD repeats blob path {}", entry.path));
+    let mut child = git_command(repository)
+        .args(["cat-file", "--batch"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("launch git cat-file --batch: {error}"))?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "git cat-file --batch has no stdin".to_owned())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "git cat-file --batch has no stdout".to_owned())?;
+    let mut stdout = BufReader::new(stdout);
+    let mut result = (|| {
+        let mut blobs = BTreeMap::new();
+        for entry in tree {
+            // Keep only one request in flight. Writing the complete request
+            // inventory first can deadlock when Git fills stdout with an early
+            // blob while this process is still blocked on its stdin pipe.
+            stdin
+                .write_all(entry.object_id.as_bytes())
+                .and_then(|()| stdin.write_all(b"\n"))
+                .and_then(|()| stdin.flush())
+                .map_err(|error| format!("write git cat-file --batch request: {error}"))?;
+            let mut header = Vec::new();
+            let read = stdout
+                .read_until(b'\n', &mut header)
+                .map_err(|error| format!("read git cat-file header for {}: {error}", entry.path))?;
+            if read == 0 || header.last() != Some(&b'\n') {
+                return Err(format!(
+                    "git cat-file --batch ended before the header for {}",
+                    entry.path
+                ));
+            }
+            header.pop();
+            let header = std::str::from_utf8(&header).map_err(|error| {
+                format!(
+                    "git cat-file header for {} is not UTF-8: {error}",
+                    entry.path
+                )
+            })?;
+            let fields = header.split_ascii_whitespace().collect::<Vec<_>>();
+            if fields.len() != 3
+                || fields[0] != entry.object_id
+                || fields[1] != "blob"
+                || matches!(fields[2].as_bytes().first(), Some(b'+' | b'-'))
+                || !fields[2].bytes().all(|byte| byte.is_ascii_digit())
+            {
+                return Err(format!(
+                    "git cat-file returned unexpected header for {}: {header:?}",
+                    entry.path
+                ));
+            }
+            let size = fields[2].parse::<usize>().map_err(|error| {
+                format!(
+                    "git cat-file blob size for {} is invalid: {error}",
+                    entry.path
+                )
+            })?;
+            let mut bytes = vec![0u8; size];
+            stdout
+                .read_exact(&mut bytes)
+                .map_err(|error| format!("read clean HEAD blob for {}: {error}", entry.path))?;
+            let mut terminator = [0u8; 1];
+            stdout.read_exact(&mut terminator).map_err(|error| {
+                format!("read git cat-file terminator for {}: {error}", entry.path)
+            })?;
+            if terminator[0] != b'\n' {
+                return Err(format!(
+                    "git cat-file blob for {} has an invalid terminator",
+                    entry.path
+                ));
+            }
+            if blobs.insert(entry.path.clone(), bytes).is_some() {
+                return Err(format!("clean HEAD repeats blob path {}", entry.path));
+            }
         }
+        Ok(blobs)
+    })();
+    drop(stdin);
+
+    let mut trailing = Vec::new();
+    match stdout.read_to_end(&mut trailing) {
+        Ok(_) if result.is_ok() && !trailing.is_empty() => {
+            result = Err("git cat-file --batch returned unrequested trailing output".to_owned())
+        }
+        Ok(_) => {}
+        Err(error) if result.is_ok() => {
+            result = Err(format!("read trailing git cat-file output: {error}"))
+        }
+        Err(_) => {}
     }
-    Ok(blobs)
+    drop(stdout);
+
+    let mut stderr = Vec::new();
+    if let Some(mut pipe) = child.stderr.take() {
+        let _ = pipe.read_to_end(&mut stderr);
+    }
+    let status = child
+        .wait()
+        .map_err(|error| format!("wait for git cat-file --batch: {error}"))?;
+    match (result, status.success()) {
+        (Ok(blobs), true) => Ok(blobs),
+        (Ok(_), false) => Err(format!(
+            "git cat-file --batch failed with {status}: {}",
+            String::from_utf8_lossy(&stderr).trim()
+        )),
+        (Err(error), true) => Err(error),
+        (Err(error), false) => Err(format!(
+            "{error}; git cat-file --batch failed with {status}: {}",
+            String::from_utf8_lossy(&stderr).trim()
+        )),
+    }
 }
 
 fn ensure_controlled_cargo_configuration(repository: &Path) -> Result<(), String> {
@@ -1272,6 +1543,38 @@ fn verify_repository_snapshot(
     closures: &[RootClosure],
     package_mode: DistributionMode,
 ) -> Result<(), String> {
+    verify_repository_identity(
+        repository,
+        git_object_format,
+        source_commit,
+        source_tree_oid,
+        toolchain,
+    )?;
+    for closure in closures {
+        let (stdout, _) = cargo_metadata(repository, toolchain, closure.spec, package_mode)?;
+        if stdout != closure.metadata_stdout {
+            return Err(format!(
+                "cargo metadata for {} changed while the source bundle was being prepared",
+                closure.spec.name
+            ));
+        }
+    }
+    verify_repository_identity(
+        repository,
+        git_object_format,
+        source_commit,
+        source_tree_oid,
+        toolchain,
+    )
+}
+
+fn verify_repository_identity(
+    repository: &Path,
+    git_object_format: &str,
+    source_commit: &str,
+    source_tree_oid: &str,
+    toolchain: &str,
+) -> Result<(), String> {
     if head_commit(repository)? != source_commit {
         return Err("HEAD changed while the source bundle was being prepared".to_owned());
     }
@@ -1286,15 +1589,6 @@ fn verify_repository_snapshot(
     ensure_clean_checkout(repository)?;
     ensure_controlled_cargo_configuration(repository)?;
     verify_exact_toolchain(toolchain)?;
-    for closure in closures {
-        let (stdout, _) = cargo_metadata(repository, toolchain, closure.spec, package_mode)?;
-        if stdout != closure.metadata_stdout {
-            return Err(format!(
-                "cargo metadata for {} changed while the source bundle was being prepared",
-                closure.spec.name
-            ));
-        }
-    }
     if head_commit(repository)? != source_commit {
         return Err("HEAD changed during final source-bundle verification".to_owned());
     }
@@ -1506,7 +1800,7 @@ fn workspace_source_files(
         })?;
         files.push(SourceFile {
             relative_path: entry.path.clone(),
-            bytes: bytes.clone(),
+            bytes: Arc::from(bytes.clone()),
             mode: entry.mode,
         });
     }
@@ -1643,13 +1937,10 @@ fn file_manifest(path: &str, bytes: &[u8]) -> FileManifest {
     }
 }
 
-fn vendor_package(
+fn prepare_vendor_package(
     package: &MetadataPackage,
     lock: &LockPackage,
-    archive: &mut ArchiveEntries,
-    exclusions: &mut Vec<ExclusionManifest>,
-    encountered_deny_rules: &mut BTreeSet<usize>,
-) -> Result<VendorManifest, String> {
+) -> Result<PreparedVendorPackage, String> {
     let expected_checksum = lock.checksum.as_deref().ok_or_else(|| {
         format!(
             "registry package {} {} has no Cargo.lock checksum",
@@ -1709,6 +2000,7 @@ fn vendor_package(
                 package.name, package.version
             )
         })?;
+    let archived_manifest = Arc::<[u8]>::from(manifest_bytes);
     let cached_manifest = read_regular_file(
         &package.manifest_path,
         &format!("unpacked manifest for {} {}", package.name, package.version),
@@ -1723,6 +2015,8 @@ fn vendor_package(
     let vendor_dir = format!("vendor/{}-{}", package.name, package.version);
     let mut files = Vec::new();
     let mut checksum_files = BTreeMap::new();
+    let mut exclusions = Vec::new();
+    let mut encountered_deny_rules = BTreeSet::new();
     for entry in tar_entries {
         if entry.relative_path == ".cargo-checksum.json" {
             return Err(format!(
@@ -1774,7 +2068,7 @@ fn vendor_package(
         }
         files.push(SourceFile {
             relative_path: entry.relative_path,
-            bytes: entry.bytes,
+            bytes: Arc::from(entry.bytes),
             mode: entry.mode,
         });
     }
@@ -1797,25 +2091,65 @@ fn vendor_package(
     checksum_bytes.push(b'\n');
     files.push(SourceFile {
         relative_path: ".cargo-checksum.json".to_owned(),
-        bytes: checksum_bytes,
+        bytes: Arc::from(checksum_bytes),
         mode: 0o644,
     });
     files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     let tree_sha256 = tree_digest(&files);
     let file_count = files.len();
-    for file in files {
+    Ok(PreparedVendorPackage {
+        manifest: VendorManifest {
+            path: vendor_dir,
+            crate_archive_sha256: crate_sha256,
+            file_count,
+            tree_sha256,
+        },
+        files,
+        exclusions,
+        encountered_deny_rules,
+        archived_manifest,
+    })
+}
+
+fn validate_prepared_vendor_manifest(
+    package: &MetadataPackage,
+    prepared: &PreparedVendorPackage,
+) -> Result<(), String> {
+    let cached_manifest = read_regular_file(
+        &package.manifest_path,
+        &format!("unpacked manifest for {} {}", package.name, package.version),
+    )?;
+    if cached_manifest.as_slice() != prepared.archived_manifest.as_ref() {
+        return Err(format!(
+            "unpacked registry manifest for {} {} changed after checksum-verified preparation",
+            package.name, package.version
+        ));
+    }
+    Ok(())
+}
+
+fn apply_prepared_vendor(
+    prepared: &PreparedVendorPackage,
+    archive: &mut ArchiveEntries,
+    exclusions: &mut Vec<ExclusionManifest>,
+    encountered_deny_rules: &mut BTreeSet<usize>,
+) -> Result<(), String> {
+    for rule in &prepared.encountered_deny_rules {
+        if !encountered_deny_rules.insert(*rule) {
+            return Err(format!(
+                "prepared source-bundle deny rule {rule} was encountered by more than one package"
+            ));
+        }
+    }
+    exclusions.extend(prepared.exclusions.iter().cloned());
+    for file in &prepared.files {
         archive.insert(
-            format!("{vendor_dir}/{}", file.relative_path),
-            file.bytes,
+            format!("{}/{}", prepared.manifest.path, file.relative_path),
+            Arc::clone(&file.bytes),
             file.mode,
         )?;
     }
-    Ok(VendorManifest {
-        path: vendor_dir,
-        crate_archive_sha256: crate_sha256,
-        file_count,
-        tree_sha256,
-    })
+    Ok(())
 }
 
 fn crate_archive_path(package: &MetadataPackage) -> Result<PathBuf, String> {
@@ -2176,7 +2510,12 @@ fn validate_denylist_coverage(
 }
 
 impl ArchiveEntries {
-    fn insert(&mut self, path: String, bytes: Vec<u8>, mode: u32) -> Result<(), String> {
+    fn insert(
+        &mut self,
+        path: String,
+        bytes: impl Into<Arc<[u8]>>,
+        mode: u32,
+    ) -> Result<(), String> {
         validate_relative_path(&path, false)?;
         if !matches!(mode, 0o644 | 0o755) {
             return Err(format!(
@@ -2187,7 +2526,13 @@ impl ArchiveEntries {
             return Err(format!("archive repeats output path {path}"));
         }
         insert_casefolded_path(&mut self.casefolded_paths, &path)?;
-        self.entries.insert(path, PayloadEntry { bytes, mode });
+        self.entries.insert(
+            path,
+            PayloadEntry {
+                bytes: bytes.into(),
+                mode,
+            },
+        );
         Ok(())
     }
 }
@@ -2492,6 +2837,7 @@ impl<W: Write> Write for HashingWriter<W> {
 fn write_archive(
     out_file: &Path,
     entries: &BTreeMap<String, PayloadEntry>,
+    durable_output: bool,
 ) -> Result<(String, u64), String> {
     let file = OpenOptions::new()
         .write(true)
@@ -2509,17 +2855,21 @@ fn write_archive(
         writer
             .flush()
             .map_err(|error| format!("flush source bundle {}: {error}", out_file.display()))?;
-        let (file, expected_sha256, expected_bytes) = writer.finish();
-        file.sync_all()
-            .map_err(|error| format!("sync source bundle {}: {error}", out_file.display()))?;
-        drop(file);
-        let (actual_sha256, actual_bytes) = hash_file(out_file)?;
-        if actual_sha256 != expected_sha256 || actual_bytes != expected_bytes {
-            return Err(format!(
-                "source bundle read-back mismatch: wrote {expected_bytes} bytes SHA-256 {expected_sha256}, read {actual_bytes} bytes SHA-256 {actual_sha256}"
-            ));
+        let (file, archive_sha256, archive_bytes) = writer.finish();
+        if durable_output {
+            file.sync_all()
+                .map_err(|error| format!("sync source bundle {}: {error}", out_file.display()))?;
         }
-        Ok((actual_sha256, actual_bytes))
+        drop(file);
+        if durable_output {
+            let (actual_sha256, actual_bytes) = hash_file(out_file)?;
+            if actual_sha256 != archive_sha256 || actual_bytes != archive_bytes {
+                return Err(format!(
+                    "source bundle read-back mismatch: wrote {archive_bytes} bytes SHA-256 {archive_sha256}, read {actual_bytes} bytes SHA-256 {actual_sha256}"
+                ));
+            }
+        }
+        Ok((archive_sha256, archive_bytes))
     })();
     if result.is_err() {
         let _ = fs::remove_file(out_file);
@@ -2681,13 +3031,29 @@ fn write_u32<W: Write>(writer: &mut W, position: &mut u64, value: u32) -> Result
 fn crc32(bytes: &[u8]) -> u32 {
     let mut crc = 0xffff_ffffu32;
     for byte in bytes {
-        crc ^= u32::from(*byte);
-        for _ in 0..8 {
-            let mask = 0u32.wrapping_sub(crc & 1);
-            crc = (crc >> 1) ^ (0xedb8_8320 & mask);
-        }
+        let index = ((crc ^ u32::from(*byte)) & 0xff) as usize;
+        crc = (crc >> 8) ^ CRC32_TABLE[index];
     }
     !crc
+}
+
+const CRC32_TABLE: [u32; 256] = crc32_table();
+
+const fn crc32_table() -> [u32; 256] {
+    let mut table = [0u32; 256];
+    let mut index = 0usize;
+    while index < table.len() {
+        let mut value = index as u32;
+        let mut bit = 0;
+        while bit < 8 {
+            let mask = 0u32.wrapping_sub(value & 1);
+            value = (value >> 1) ^ (0xedb8_8320 & mask);
+            bit += 1;
+        }
+        table[index] = value;
+        index += 1;
+    }
+    table
 }
 
 #[cfg(test)]
@@ -2702,6 +3068,28 @@ mod tests {
             source: Some(REGISTRY_SOURCE.to_owned()),
             manifest_path: PathBuf::from(format!("/registry/{id}-1.0.0/Cargo.toml")),
         }
+    }
+
+    fn included_registry_package(
+        name: &str,
+        version: &str,
+        manifest_path: &str,
+        scopes: &[&str],
+    ) -> (PackageKey, IncludedPackage) {
+        let metadata = MetadataPackage {
+            id: format!("{name}-{version}"),
+            name: name.to_owned(),
+            version: version.to_owned(),
+            source: Some(REGISTRY_SOURCE.to_owned()),
+            manifest_path: PathBuf::from(manifest_path),
+        };
+        (
+            package_key(&metadata),
+            IncludedPackage {
+                metadata,
+                scopes: scopes.iter().map(|scope| (*scope).to_owned()).collect(),
+            },
+        )
     }
 
     fn dependency(id: &str, kinds: &[Option<&str>]) -> MetadataDependency {
@@ -2725,6 +3113,237 @@ mod tests {
                 .collect(),
             deps: dependencies,
         }
+    }
+
+    #[test]
+    fn shared_preparation_preserves_mode_membership_and_unifies_common_package() {
+        let (common_key, release_common) = included_registry_package(
+            "common",
+            "1.0.0",
+            "/registry/common-1.0.0/Cargo.toml",
+            &["autolisp-lsp"],
+        );
+        let (_, preview_common) = included_registry_package(
+            "common",
+            "1.0.0",
+            "/registry/common-1.0.0/Cargo.toml",
+            &["autocad-mcp"],
+        );
+        let (release_only_key, release_only) = included_registry_package(
+            "release-only",
+            "1.0.0",
+            "/registry/release-only-1.0.0/Cargo.toml",
+            &["autolisp-lsp"],
+        );
+        let (preview_only_key, preview_only) = included_registry_package(
+            "preview-only",
+            "1.0.0",
+            "/registry/preview-only-1.0.0/Cargo.toml",
+            &["autocad-mcp"],
+        );
+
+        let release = BTreeMap::from([
+            (common_key.clone(), release_common),
+            (release_only_key.clone(), release_only),
+        ]);
+        let preview = BTreeMap::from([
+            (common_key.clone(), preview_common),
+            (preview_only_key.clone(), preview_only),
+        ]);
+        let mut union = BTreeMap::new();
+
+        merge_mode_packages_into_union(&mut union, &release)
+            .expect("merge Release package inventory");
+        merge_mode_packages_into_union(&mut union, &preview)
+            .expect("merge Preview package inventory");
+
+        assert_eq!(union.len(), 3);
+        assert_eq!(
+            union[&common_key].scopes,
+            BTreeSet::from(["autocad-mcp".to_owned(), "autolisp-lsp".to_owned()])
+        );
+        assert_eq!(
+            release[&common_key].scopes,
+            BTreeSet::from(["autolisp-lsp".to_owned()])
+        );
+        assert_eq!(
+            preview[&common_key].scopes,
+            BTreeSet::from(["autocad-mcp".to_owned()])
+        );
+        assert!(release.contains_key(&release_only_key));
+        assert!(!preview.contains_key(&release_only_key));
+        assert!(preview.contains_key(&preview_only_key));
+        assert!(!release.contains_key(&preview_only_key));
+    }
+
+    #[test]
+    fn shared_preparation_rejects_cross_mode_manifest_disagreement() {
+        let (key, release_package) = included_registry_package(
+            "common",
+            "1.0.0",
+            "/release-cache/common-1.0.0/Cargo.toml",
+            &["autolisp-lsp"],
+        );
+        let (_, preview_package) = included_registry_package(
+            "common",
+            "1.0.0",
+            "/preview-cache/common-1.0.0/Cargo.toml",
+            &["autocad-mcp"],
+        );
+        let release = BTreeMap::from([(key.clone(), release_package)]);
+        let preview = BTreeMap::from([(key.clone(), preview_package)]);
+        let mut union = BTreeMap::new();
+
+        merge_mode_packages_into_union(&mut union, &release)
+            .expect("merge Release package inventory");
+        let error = merge_mode_packages_into_union(&mut union, &preview)
+            .expect_err("reject cross-mode metadata disagreement");
+
+        assert!(error.contains("Release and Preview metadata disagree"));
+        assert_eq!(
+            union[&key].metadata.manifest_path,
+            PathBuf::from("/release-cache/common-1.0.0/Cargo.toml")
+        );
+        assert_eq!(
+            union[&key].scopes,
+            BTreeSet::from(["autolisp-lsp".to_owned()])
+        );
+    }
+
+    #[test]
+    fn shared_preparation_reuses_vendor_payload_without_copying() {
+        let payload: Arc<[u8]> = Arc::from(&b"pub fn shared() {}\n"[..]);
+        let exclusion = ExclusionManifest {
+            package: "common".to_owned(),
+            version: "1.0.0".to_owned(),
+            path: "excluded.bin".to_owned(),
+            sha256: "00".repeat(32),
+            bytes: 1,
+            reason: "test exclusion".to_owned(),
+        };
+        let prepared = PreparedVendorPackage {
+            manifest: VendorManifest {
+                path: "vendor/common-1.0.0".to_owned(),
+                crate_archive_sha256: "11".repeat(32),
+                file_count: 1,
+                tree_sha256: "22".repeat(32),
+            },
+            files: vec![SourceFile {
+                relative_path: "src/lib.rs".to_owned(),
+                bytes: Arc::clone(&payload),
+                mode: 0o644,
+            }],
+            exclusions: vec![exclusion.clone()],
+            encountered_deny_rules: BTreeSet::from([0]),
+            archived_manifest: Arc::from(&b"[package]\nname = \"common\"\n"[..]),
+        };
+        let mut release_archive = ArchiveEntries::default();
+        let mut release_exclusions = Vec::new();
+        let mut release_rules = BTreeSet::new();
+        let mut preview_archive = ArchiveEntries::default();
+        let mut preview_exclusions = Vec::new();
+        let mut preview_rules = BTreeSet::new();
+
+        apply_prepared_vendor(
+            &prepared,
+            &mut release_archive,
+            &mut release_exclusions,
+            &mut release_rules,
+        )
+        .expect("apply prepared vendor to Release");
+        apply_prepared_vendor(
+            &prepared,
+            &mut preview_archive,
+            &mut preview_exclusions,
+            &mut preview_rules,
+        )
+        .expect("apply prepared vendor to Preview");
+
+        let path = "vendor/common-1.0.0/src/lib.rs";
+        let release_entry = &release_archive.entries[path];
+        let preview_entry = &preview_archive.entries[path];
+        assert!(Arc::ptr_eq(&payload, &release_entry.bytes));
+        assert!(Arc::ptr_eq(&payload, &preview_entry.bytes));
+        assert!(Arc::ptr_eq(&release_entry.bytes, &preview_entry.bytes));
+        assert_eq!(release_entry.mode, 0o644);
+        assert_eq!(preview_entry.mode, 0o644);
+        assert_eq!(release_exclusions, vec![exclusion.clone()]);
+        assert_eq!(preview_exclusions, vec![exclusion]);
+        assert_eq!(release_rules, BTreeSet::from([0]));
+        assert_eq!(preview_rules, BTreeSet::from([0]));
+    }
+
+    #[test]
+    fn shared_preparation_evaluates_denylist_coverage_per_mode() {
+        let (acadrust_key, acadrust) = included_registry_package(
+            DENY_RULES[0].package,
+            DENY_RULES[0].version,
+            "/registry/acadrust-0.4.1/Cargo.toml",
+            &["autocad-mcp"],
+        );
+        let (flate2_key, flate2) = included_registry_package(
+            DENY_RULES[1].package,
+            DENY_RULES[1].version,
+            "/registry/flate2-1.1.9/Cargo.toml",
+            &["autocad-mcp"],
+        );
+        let release = BTreeMap::from([
+            (acadrust_key.clone(), acadrust.clone()),
+            (flate2_key, flate2),
+        ]);
+        let preview = release.clone();
+        let all_rules = (0..DENY_RULES.len()).collect::<BTreeSet<_>>();
+        let preview_rules = BTreeSet::from([0]);
+
+        validate_denylist_coverage(&release, &all_rules)
+            .expect("Release has complete denylist evidence");
+        let error = validate_denylist_coverage(&preview, &preview_rules)
+            .expect_err("Preview must use its own denylist evidence");
+        assert!(error.contains(DENY_RULES[1].relative_path));
+        validate_denylist_coverage(&release, &all_rules)
+            .expect("Preview failure must not consume Release evidence");
+
+        let preview_without_flate2 = BTreeMap::from([(acadrust_key, acadrust)]);
+        let error = validate_denylist_coverage(&preview_without_flate2, &all_rules)
+            .expect_err("Preview inventory must contain every required package");
+        assert!(error.contains("required denylist package flate2 1.1.9 is absent"));
+    }
+
+    #[test]
+    fn clean_head_blobs_are_read_through_one_batch_protocol() {
+        let repository = tempfile::tempdir().expect("temporary repository");
+        git_bytes(repository.path(), &["init", "--quiet"]).expect("initialize repository");
+        fs::write(repository.path().join("alpha.txt"), b"same bytes\n").expect("write first blob");
+        fs::write(repository.path().join("beta.txt"), b"same bytes\n")
+            .expect("write repeated blob");
+        fs::write(repository.path().join("binary.bin"), [0, 1, 2, 0xff])
+            .expect("write binary blob");
+        git_bytes(repository.path(), &["add", "--", "."]).expect("stage fixture");
+        git_bytes(
+            repository.path(),
+            &[
+                "-c",
+                "user.name=andagni",
+                "-c",
+                "user.email=dev@andagni.invalid",
+                "commit",
+                "--quiet",
+                "-m",
+                "fixture",
+            ],
+        )
+        .expect("commit fixture");
+
+        let repository =
+            fs::canonicalize(repository.path()).expect("canonical temporary repository");
+        let head = head_commit(&repository).expect("read fixture HEAD");
+        let tree = read_head_tree(&repository, &head).expect("read fixture tree");
+        let blobs = read_head_blobs(&repository, &tree).expect("batch-read fixture blobs");
+
+        assert_eq!(blobs.len(), 3);
+        assert_eq!(blobs["alpha.txt"], b"same bytes\n");
+        assert_eq!(blobs["beta.txt"], b"same bytes\n");
+        assert_eq!(blobs["binary.bin"], [0, 1, 2, 0xff]);
     }
 
     #[test]
@@ -2862,7 +3481,7 @@ dependencies = [
         assert_eq!(files.len(), 2);
         for (index, entry) in tree.iter().enumerate() {
             assert_eq!(files[index].relative_path, entry.path);
-            assert_eq!(files[index].bytes, blobs[&entry.path]);
+            assert_eq!(files[index].bytes.as_ref(), blobs[&entry.path].as_slice());
             assert_eq!(files[index].mode, entry.mode);
         }
     }
@@ -2896,7 +3515,7 @@ dependencies = [
         assert_eq!(files.len(), tree.len());
         for (index, entry) in tree.iter().enumerate() {
             assert_eq!(files[index].relative_path, entry.path);
-            assert_eq!(files[index].bytes, blobs[&entry.path]);
+            assert_eq!(files[index].bytes.as_ref(), blobs[&entry.path].as_slice());
         }
     }
 
@@ -3266,14 +3885,14 @@ dependencies = [
             (
                 "b.txt".to_owned(),
                 PayloadEntry {
-                    bytes: b"second".to_vec(),
+                    bytes: Arc::from(b"second".as_slice()),
                     mode: 0o755,
                 },
             ),
             (
                 "a.txt".to_owned(),
                 PayloadEntry {
-                    bytes: b"first".to_vec(),
+                    bytes: Arc::from(b"first".as_slice()),
                     mode: 0o644,
                 },
             ),

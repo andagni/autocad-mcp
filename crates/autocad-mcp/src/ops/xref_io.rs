@@ -762,11 +762,12 @@ mod tests {
         let err = list_xrefs_file(Path::new("relative.xyz")).unwrap_err();
         assert_eq!(err.code(), "drawing_unreadable");
 
-        let missing = std::env::temp_dir().join("missing-xref-fixture.xyz");
+        let directory = tempfile::tempdir().unwrap();
+        let missing = directory.path().join("missing-xref-fixture.xyz");
         let err = list_xrefs_file(&missing).unwrap_err();
         assert_eq!(err.code(), "unsupported_format");
 
-        let missing = std::env::temp_dir().join("missing-xref-fixture.dxf");
+        let missing = directory.path().join("missing-xref-fixture.dxf");
         let err = list_xrefs_file(&missing).unwrap_err();
         assert_eq!(err.code(), "drawing_not_found");
     }
