@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "autocad-mcp": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/autocad-mcp",
+      "args": ["serve"]
+    }
+  }
+}

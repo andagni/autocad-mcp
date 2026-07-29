@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "policy_id": "autocad-mcp-preview-autocad-2021-en-us-v1",
+  "purpose": "preview_candidate_activation",
+  "profile_root": "HKEY_CURRENT_USER\\Software\\Autodesk\\AutoCAD\\R24.0\\ACAD-4101:409\\Profiles\\AutoCAD-MCP Preview AutoCAD 2021 en-US",
+  "profile_name": "AutoCAD-MCP Preview AutoCAD 2021 en-US",
+  "values": [
+    {
+      "relative_key": "",
+      "value_name": "Description",
+      "type": "string",
+      "value": "AutoCAD-MCP Preview candidate activation profile for AutoCAD 2021 en-US; not a support claim"
+    },
+    {
+      "relative_key": "General",
+      "value_name": "EnableStartupDialog",
+      "type": "dword",
+      "value": "00000000"
+    }
+  ]
+}

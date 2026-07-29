@@ -1,0 +1,288 @@
+{
+  "schema_version": 1,
+  "scope_roots": [
+    "tests/corpus",
+    "tests/fixtures"
+  ],
+  "project_rights_holder": "andagni",
+  "project_license": "GPL-3.0-or-later",
+  "artifacts": [
+    {
+      "path": "tests/corpus/autodesk/SOURCES.md",
+      "sha256": "5cb0dd248e01481b64f11732bb57dd5c8a4491fb3e2bb24ecd796e6361903bc4",
+      "artifact_class": "documentation",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "project_authored"
+      }
+    },
+    {
+      "path": "tests/corpus/civil3d/SOURCES.md",
+      "sha256": "5816e03925a77ebfa4806f5985c54b6184e0172a175b42bd978f9c35e6aac18c",
+      "artifact_class": "documentation",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "project_authored"
+      }
+    },
+    {
+      "path": "tests/corpus/open/SOURCES.md",
+      "sha256": "115086c9d6a61a8385b206a29060e063c706a4b1346aa7239a656f46324a7ed3",
+      "artifact_class": "documentation",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "project_authored"
+      }
+    },
+    {
+      "path": "tests/corpus/open/acadsharp/LICENSE",
+      "sha256": "3ca5f3195b1f3056543596f7bb413bb143484c53ca9def699af8f7964f509190",
+      "artifact_class": "license_notice",
+      "license_expression": "MIT",
+      "privacy_disposition": "upstream_public_metadata_reviewed",
+      "origin": {
+        "kind": "upstream_exact",
+        "repository": "https://github.com/DomCR/ACadSharp",
+        "revision": "b7fa6a99c2399b71931d7591a3eded99f6a958ad",
+        "source_path": "LICENSE",
+        "retained_license_path": "tests/corpus/open/acadsharp/LICENSE",
+        "retained_license_sha256": "3ca5f3195b1f3056543596f7bb413bb143484c53ca9def699af8f7964f509190"
+      }
+    },
+    {
+      "path": "tests/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dwg",
+      "sha256": "be1e24ea0cd5194d0c57935b5018123b7cc981331172a1a2ca7cecc2d9a18e4f",
+      "artifact_class": "drawing",
+      "license_expression": "MIT",
+      "privacy_disposition": "upstream_public_metadata_reviewed",
+      "origin": {
+        "kind": "upstream_exact",
+        "repository": "https://github.com/DomCR/ACadSharp",
+        "revision": "b7fa6a99c2399b71931d7591a3eded99f6a958ad",
+        "source_path": "samples/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dwg",
+        "retained_license_path": "tests/corpus/open/acadsharp/LICENSE",
+        "retained_license_sha256": "3ca5f3195b1f3056543596f7bb413bb143484c53ca9def699af8f7964f509190"
+      }
+    },
+    {
+      "path": "tests/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dxf",
+      "sha256": "c615664945db8ccc91b55f77e6359a15da4f7e6f30dbd8800d2d2b94029dffac",
+      "artifact_class": "drawing",
+      "license_expression": "MIT",
+      "privacy_disposition": "upstream_public_metadata_reviewed",
+      "origin": {
+        "kind": "upstream_exact",
+        "repository": "https://github.com/DomCR/ACadSharp",
+        "revision": "b7fa6a99c2399b71931d7591a3eded99f6a958ad",
+        "source_path": "samples/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dxf",
+        "retained_license_path": "tests/corpus/open/acadsharp/LICENSE",
+        "retained_license_sha256": "3ca5f3195b1f3056543596f7bb413bb143484c53ca9def699af8f7964f509190"
+      }
+    },
+    {
+      "path": "tests/corpus/open/manifest.json",
+      "sha256": "9529704b8225e9028117ba9198c9c8e3106b3c41b147a23425f65c05547a99a5",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "tests/corpus_validation.rs",
+        "source_locator": "struct Tier1Manifest"
+      }
+    },
+    {
+      "path": "tests/corpus/open/project/generic-title-block-ascii.dxf",
+      "sha256": "36b87b71d61d8452cd257bb5028b8bb1d879cbda63c02c9951fb966ffa53a86f",
+      "artifact_class": "drawing",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "generated_by_checked_in_recipe",
+        "recipe_path": "tests/corpus_validation.rs",
+        "recipe_id": "regenerate_synthetic_project_profile_fixture",
+        "exact_byte_test_path": "tests/corpus_validation.rs",
+        "exact_byte_test_id": "synthetic_project_profile_recipe_matches_committed_bytes"
+      }
+    },
+    {
+      "path": "tests/fixtures/plugin-example/.claude-plugin/plugin.schema.json",
+      "sha256": "97f4ed74b9a418adf5b37b166a95fac7419a1967bd662d3cc06894bc2ea6eeb6",
+      "artifact_class": "schema",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "plugin/.claude-plugin/plugin.json",
+        "source_locator": "\"name\": \"autocad-mcp\""
+      }
+    },
+    {
+      "path": "tests/fixtures/plugin-example/.lsp.schema.json",
+      "sha256": "34a99dde36b9daccbe260d8b646e3f5fdd0dfdb368834d7332a3c687fd375843",
+      "artifact_class": "schema",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "plugin/.lsp.json",
+        "source_locator": "\"extensionToLanguage\": {"
+      }
+    },
+    {
+      "path": "tests/fixtures/plugin-example/.mcp.schema.json",
+      "sha256": "a9dc5bf76cdd4f33893f7f9834b76f754d3abcaecc4ec58165f445dd7af789b9",
+      "artifact_class": "schema",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "plugin/.mcp.json",
+        "source_locator": "\"mcpServers\": {"
+      }
+    },
+    {
+      "path": "tests/fixtures/plugin-example/skills/skill/SKILL.schema.yaml",
+      "sha256": "94ef97cc6fd2d7f0937471e5f42b9592e0d9fa7ee3254f2e6330ec564b97b472",
+      "artifact_class": "schema",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "plugin/skills/autocad-mcp/SKILL.md",
+        "source_locator": "when_to_use: >"
+      }
+    },
+    {
+      "path": "tests/fixtures/windows_certification/manifest.example.json",
+      "sha256": "a2857add617c9d1b1c5f534a2b70d8b8deab8d43cb7c8ce3e957172860b0a933",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "crates/autocad-mcp/src/certification.rs",
+        "source_locator": "pub struct CertificationManifest"
+      }
+    },
+    {
+      "path": "tests/fixtures/windows_certification/public-development-arg-policy.json",
+      "sha256": "f937351b66e4fd2f421f8bdb8e58370e69d7a6e4f896352cf8da1f13209cb2a4",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "crates/autocad-mcp/src/certified_arg.rs",
+        "source_locator": "pub struct CertifiedArgPolicy"
+      }
+    },
+    {
+      "path": "tests/fixtures/windows_certification/public-development-profile.arg",
+      "sha256": "77c7bcf316b2a5bac231eef67c3acd52954a13bcd74b3eb10466ffd979443e95",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "hand_authored_from_local_contract",
+        "contract_path": "tests/fixtures/windows_certification/public-development-arg-policy.json",
+        "contract_locator": "autocad-mcp-public-development-v1"
+      }
+    },
+    {
+      "path": "tests/fixtures/windows_certification/xref-manifest.example.json",
+      "sha256": "d885c9b97742b144760d1e70d9115839ebadda30cf9fe6fae21d75810df99e87",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "local_schema_projection",
+        "source_path": "crates/autocad-mcp/src/certification.rs",
+        "source_locator": "pub struct XrefCertificationManifest"
+      }
+    },
+    {
+      "path": "tests/fixtures/xrefs/README.md",
+      "sha256": "11d66cbbce1347dce8d5c49f6ce340598098124e07657c4a5839568fba2af169",
+      "artifact_class": "documentation",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "project_authored"
+      }
+    },
+    {
+      "path": "tests/fixtures/xrefs/graph/README.md",
+      "sha256": "883943ccc8b96d55260c9a28f713f0429b68a38a7d40c9d1efaf1e917bcefe9a",
+      "artifact_class": "documentation",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "project_authored"
+      }
+    },
+    {
+      "path": "tests/fixtures/xrefs/graph/cycles-and-diamonds.json",
+      "sha256": "1906adb3c745977835bb0ff3ecfa52596a616c8d84775f960effb25732aec296",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "hand_authored_from_local_contract",
+        "contract_path": "tests/fixtures/xrefs/graph/README.md",
+        "contract_locator": "`cycles-and-diamonds.json`"
+      }
+    },
+    {
+      "path": "tests/fixtures/xrefs/graph/states-and-limits.json",
+      "sha256": "dbb6254185f8a4b0c2585b50f72b59f5ad080114df2ba98219b63ce7f1a7c900",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "hand_authored_from_local_contract",
+        "contract_path": "tests/fixtures/xrefs/graph/README.md",
+        "contract_locator": "`states-and-limits.json`"
+      }
+    },
+    {
+      "path": "tests/fixtures/xrefs/graph/traversal.json",
+      "sha256": "4d15bb9e7d009f52ce853e5a7f1d1f16201d480f9ca62e14411fc4f6c2395384",
+      "artifact_class": "machine_readable_contract",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "hand_authored_from_local_contract",
+        "contract_path": "tests/fixtures/xrefs/graph/README.md",
+        "contract_locator": "`traversal.json`"
+      }
+    },
+    {
+      "path": "tests/fixtures/xrefs/non-utf8-ansi-1252.dxf",
+      "sha256": "e041293367fd3e052a509fe47af8ddf793a8408b26af15eb47ec63f01e191cdd",
+      "artifact_class": "drawing",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "hand_authored_from_local_contract",
+        "contract_path": "tests/fixtures/xrefs/README.md",
+        "contract_locator": "## `non-utf8-ansi-1252.dxf`"
+      }
+    },
+    {
+      "path": "tests/fixtures/xrefs/portable-evidence-ascii.dxf",
+      "sha256": "59a95656c20942822bf2d7f921a2c546713270c1ee41d19e3616798573d7635c",
+      "artifact_class": "drawing",
+      "license_expression": "GPL-3.0-or-later",
+      "privacy_disposition": "project_public_reviewed",
+      "origin": {
+        "kind": "hand_authored_from_local_contract",
+        "contract_path": "tests/fixtures/xrefs/README.md",
+        "contract_locator": "## `portable-evidence-ascii.dxf`"
+      }
+    }
+  ]
+}

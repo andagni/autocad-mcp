@@ -1,0 +1,1819 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://andagni.invalid/schemas/release/owner-distribution-approval-v3.schema.json",
+  "title": "Owner distribution approval",
+  "description": "Closed schema for a detached, exact-artifact project-owner distribution decision. This contract records no legal-review claim and cannot be embedded in the MCPB whose outer digest it binds.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "release_profile",
+    "decision",
+    "project",
+    "source_identity",
+    "evidence_bindings",
+    "artifacts",
+    "distribution_scopes",
+    "source_exclusions",
+    "package_determinations",
+    "invalidation_conditions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "kind": {
+      "const": "owner_distribution_approval"
+    },
+    "release_profile": {
+      "enum": [
+        "initial_windows_public",
+        "initial_windows_preview_public"
+      ]
+    },
+    "decision": {
+      "$ref": "#/$defs/decision"
+    },
+    "project": {
+      "$ref": "#/$defs/project"
+    },
+    "source_identity": {
+      "$ref": "#/$defs/source_identity"
+    },
+    "evidence_bindings": {
+      "$ref": "#/$defs/evidence_bindings"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "role": {
+                "const": "autolisp_lsp_executable"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "role": {
+                "const": "build_attestation"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "role": {
+                "const": "covered_source_archive"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "role": {
+                "const": "mcp_server_executable"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "role": {
+                "const": "mcpb"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "role": {
+                "const": "source_closure_sbom"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "distribution_scopes": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/distribution_scope"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "kind": {
+                "const": "public_binary_distribution"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "kind": {
+                "const": "public_source_distribution"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "source_exclusions": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "prefixItems": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/source_exclusion"
+            },
+            {
+              "properties": {
+                "package_name": {
+                  "const": "acadrust"
+                },
+                "package_version": {
+                  "const": "0.4.1"
+                },
+                "crate_relative_path": {
+                  "const": "src/docs/OpenDesign_Specification_for_.dwg_files.pdf"
+                },
+                "sha256": {
+                  "const": "1ed2e02722862188120da606e4b6a816fa4014c96de68da2f84a2ecda09461e7"
+                },
+                "size_bytes": {
+                  "const": 2399640
+                },
+                "reason": {
+                  "const": "excluded non-source third-party specification PDF from target source bundle"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/source_exclusion"
+            },
+            {
+              "properties": {
+                "package_name": {
+                  "const": "flate2"
+                },
+                "package_version": {
+                  "const": "1.1.9"
+                },
+                "crate_relative_path": {
+                  "const": "tests/corrupt-gz-file.bin"
+                },
+                "sha256": {
+                  "const": "083dd284aa1621916a2d0f66ea048c8d3ba7a722b22d0d618722633f51e7d39c"
+                },
+                "size_bytes": {
+                  "const": 7128
+                },
+                "reason": {
+                  "const": "excluded non-source binary corruption test fixture from target source bundle"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "package_determinations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/package_determination"
+      }
+    },
+    "invalidation_conditions": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "approval_contract_schema_changed"
+        },
+        {
+          "const": "artifact_bytes_or_artifact_set_changed"
+        },
+        {
+          "const": "build_recipe_or_toolchain_changed"
+        },
+        {
+          "const": "cargo_lock_or_dependency_input_closure_changed"
+        },
+        {
+          "const": "distribution_channel_or_target_changed"
+        },
+        {
+          "const": "package_determination_changed"
+        },
+        {
+          "const": "project_license_changed"
+        },
+        {
+          "const": "source_lock_sbom_changed"
+        },
+        {
+          "const": "source_bundle_changed"
+        },
+        {
+          "const": "source_closure_sbom_changed"
+        },
+        {
+          "const": "third_party_notice_or_supplemental_evidence_changed"
+        }
+      ],
+      "items": false,
+      "minItems": 11,
+      "maxItems": 11
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "release_profile": {
+            "const": "initial_windows_preview_public"
+          }
+        },
+        "required": [
+          "release_profile"
+        ]
+      },
+      "then": {
+        "properties": {
+          "project": {
+            "properties": {
+              "release_version": {
+                "pattern": "^0\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+              }
+            }
+          },
+          "source_identity": {
+            "properties": {
+              "package_mode": {
+                "const": "preview"
+              }
+            }
+          },
+          "artifacts": {
+            "allOf": [
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "mcpb"
+                    },
+                    "logical_name": {
+                      "const": "autocad-mcp-windows-x64-preview.mcpb"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "covered_source_archive"
+                    },
+                    "logical_name": {
+                      "const": "autocad-mcp-windows-x64-preview-build-source.zip"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "build_attestation"
+                    },
+                    "logical_name": {
+                      "const": "distribution-evidence/windows-x64-preview-build.json"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "source_closure_sbom"
+                    },
+                    "logical_name": {
+                      "const": "distribution-evidence/windows-x64-preview-source-closure.spdx.json"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            ]
+          },
+          "evidence_bindings": {
+            "properties": {
+              "source_closure_sboms": {
+                "items": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "logical_path": {
+                          "const": "distribution-evidence/windows-x64-preview-source-closure.spdx.json"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "build_attestations": {
+                "items": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "logical_path": {
+                          "const": "distribution-evidence/windows-x64-preview-build.json"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "project": {
+            "properties": {
+              "release_version": {
+                "pattern": "^(?:[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+              }
+            }
+          },
+          "source_identity": {
+            "properties": {
+              "package_mode": {
+                "const": "release"
+              }
+            }
+          },
+          "artifacts": {
+            "allOf": [
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "mcpb"
+                    },
+                    "logical_name": {
+                      "const": "autocad-mcp-windows-x64.mcpb"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "covered_source_archive"
+                    },
+                    "logical_name": {
+                      "const": "autocad-mcp-windows-x64-build-source.zip"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "build_attestation"
+                    },
+                    "logical_name": {
+                      "const": "distribution-evidence/windows-x64-build.json"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "role": {
+                      "const": "source_closure_sbom"
+                    },
+                    "logical_name": {
+                      "const": "distribution-evidence/windows-x64-source-closure.spdx.json"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "logical_name"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            ]
+          },
+          "evidence_bindings": {
+            "properties": {
+              "source_closure_sboms": {
+                "items": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "logical_path": {
+                          "const": "distribution-evidence/windows-x64-source-closure.spdx.json"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "build_attestations": {
+                "items": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "logical_path": {
+                          "const": "distribution-evidence/windows-x64-build.json"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha1_oid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "safe_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "safe_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)(?!.*//$)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "non_control_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "spdx_expression": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/non_control_text"
+        },
+        {
+          "pattern": "^[A-Za-z0-9 .+_():-]+$"
+        }
+      ]
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "authority_kind",
+        "authority_identifier",
+        "decision_id",
+        "decided_utc",
+        "supersedes_decision_id"
+      ],
+      "properties": {
+        "status": {
+          "const": "approved_for_distribution"
+        },
+        "authority_kind": {
+          "const": "project_owner"
+        },
+        "authority_identifier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._-]*$"
+        },
+        "decision_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "pattern": "^[A-Z0-9][A-Z0-9._-]*$"
+        },
+        "decided_utc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "supersedes_decision_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 64,
+              "pattern": "^[A-Z0-9][A-Z0-9._-]*$"
+            }
+          ]
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "release_version",
+        "project_license_expression"
+      ],
+      "properties": {
+        "name": {
+          "const": "AutoCAD-MCP"
+        },
+        "release_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "project_license_expression": {
+          "const": "GPL-3.0-or-later"
+        }
+      }
+    },
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git_object_format",
+        "git_commit_oid",
+        "git_tree_oid",
+        "source_bundle_manifest_sha256",
+        "cargo_lock_sha256",
+        "dependency_input_closure_sha256",
+        "rust_toolchain_sha256",
+        "build_recipe_sha256",
+        "build_profile",
+        "package_mode",
+        "cargo_incremental"
+      ],
+      "properties": {
+        "git_object_format": {
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        },
+        "git_commit_oid": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "git_tree_oid": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "source_bundle_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cargo_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "dependency_input_closure_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "rust_toolchain_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "build_recipe_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "build_profile": {
+          "const": "release"
+        },
+        "package_mode": {
+          "enum": [
+            "release",
+            "preview"
+          ]
+        },
+        "cargo_incremental": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "git_object_format": {
+                "const": "sha1"
+              }
+            },
+            "required": [
+              "git_object_format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "git_commit_oid": {
+                "$ref": "#/$defs/sha1_oid"
+              },
+              "git_tree_oid": {
+                "$ref": "#/$defs/sha1_oid"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "git_commit_oid": {
+                "$ref": "#/$defs/sha256"
+              },
+              "git_tree_oid": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "treatment": {
+                "enum": [
+                  "included_normalized_historical_declaration",
+                  "included_selected_alternative"
+                ]
+              }
+            },
+            "required": [
+              "treatment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reviewed_expression": {
+                "pattern": "(?:^|[ (])OR(?:$|[ )])"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "file_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "logical_path": {
+          "$ref": "#/$defs/safe_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "source_closure_sbom_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_id",
+        "scope_id",
+        "target_triple",
+        "covered_source_archive_artifact_id",
+        "artifact_id",
+        "file"
+      ],
+      "properties": {
+        "binding_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "scope_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "target_triple": {
+          "const": "x86_64-pc-windows-msvc"
+        },
+        "covered_source_archive_artifact_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "file": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "enum": [
+                    "distribution-evidence/windows-x64-source-closure.spdx.json",
+                    "distribution-evidence/windows-x64-preview-source-closure.spdx.json"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "build_attestation_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_id",
+        "scope_id",
+        "target_triple",
+        "describes_artifact_ids",
+        "artifact_id",
+        "file"
+      ],
+      "properties": {
+        "binding_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "scope_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "target_triple": {
+          "const": "x86_64-pc-windows-msvc"
+        },
+        "describes_artifact_ids": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safe_id"
+          }
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "file": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "enum": [
+                    "distribution-evidence/windows-x64-build.json",
+                    "distribution-evidence/windows-x64-preview-build.json"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "supplemental_evidence_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_id",
+        "file"
+      ],
+      "properties": {
+        "binding_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "file": {
+          "$ref": "#/$defs/file_binding"
+        }
+      }
+    },
+    "evidence_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dependency_policy",
+        "source_lock_sbom",
+        "third_party_notices",
+        "dependency_license_provenance",
+        "project_license",
+        "approval_contract_schema",
+        "source_closure_sboms",
+        "build_attestations",
+        "supplemental_license_evidence"
+      ],
+      "properties": {
+        "dependency_policy": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "const": "plugin/dependency-license-policy.json"
+                }
+              }
+            }
+          ]
+        },
+        "source_lock_sbom": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "const": "plugin/dependency-source-lock.spdx.json"
+                }
+              }
+            }
+          ]
+        },
+        "third_party_notices": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "const": "plugin/THIRD_PARTY_LICENSES.txt"
+                }
+              }
+            }
+          ]
+        },
+        "dependency_license_provenance": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "const": "plugin/dependency-license-provenance.json"
+                }
+              }
+            }
+          ]
+        },
+        "project_license": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "const": "plugin/LICENSE"
+                }
+              }
+            }
+          ]
+        },
+        "approval_contract_schema": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "logical_path": {
+                  "const": "crates/distribution/approval/schemas/owner-distribution-approval.schema.json"
+                }
+              }
+            }
+          ]
+        },
+        "source_closure_sboms": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/source_closure_sbom_binding"
+          }
+        },
+        "build_attestations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/build_attestation_binding"
+          }
+        },
+        "supplemental_license_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/supplemental_evidence_binding"
+              },
+              {
+                "properties": {
+                  "binding_id": {
+                    "const": "rmcp-rust-sdk-license-3529c367"
+                  },
+                  "file": {
+                    "properties": {
+                      "logical_path": {
+                        "const": "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "container_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "container_artifact_id",
+        "container_path"
+      ],
+      "properties": {
+        "container_artifact_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "container_path": {
+          "$ref": "#/$defs/safe_path"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "role",
+        "logical_name",
+        "sha256",
+        "size_bytes",
+        "container"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "role": {
+          "enum": [
+            "autolisp_lsp_executable",
+            "build_attestation",
+            "covered_source_archive",
+            "mcp_server_executable",
+            "mcpb",
+            "source_closure_sbom"
+          ]
+        },
+        "logical_name": {
+          "$ref": "#/$defs/safe_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "container": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/container_location"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "autolisp_lsp_executable"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "logical_name": {
+                "const": "plugin/bin/autolisp-lsp.exe"
+              },
+              "container": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/container_location"
+                  },
+                  {
+                    "properties": {
+                      "container_path": {
+                        "const": "plugin/bin/autolisp-lsp.exe"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "covered_source_archive"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "logical_name": {
+                "enum": [
+                  "autocad-mcp-windows-x64-build-source.zip",
+                  "autocad-mcp-windows-x64-preview-build-source.zip"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "mcp_server_executable"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "logical_name": {
+                "const": "plugin/bin/autocad-mcp.exe"
+              },
+              "container": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/container_location"
+                  },
+                  {
+                    "properties": {
+                      "container_path": {
+                        "const": "plugin/bin/autocad-mcp.exe"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "mcpb"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "logical_name": {
+                "enum": [
+                  "autocad-mcp-windows-x64.mcpb",
+                  "autocad-mcp-windows-x64-preview.mcpb"
+                ]
+              },
+              "container": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "build_attestation",
+                  "covered_source_archive",
+                  "source_closure_sbom"
+                ]
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "build_attestation"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "logical_name": {
+                "enum": [
+                  "distribution-evidence/windows-x64-build.json",
+                  "distribution-evidence/windows-x64-preview-build.json"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "source_closure_sbom"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "logical_name": {
+                "enum": [
+                  "distribution-evidence/windows-x64-source-closure.spdx.json",
+                  "distribution-evidence/windows-x64-preview-source-closure.spdx.json"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "source_exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_artifact_id",
+        "package_name",
+        "package_version",
+        "crate_relative_path",
+        "sha256",
+        "size_bytes",
+        "reason"
+      ],
+      "properties": {
+        "source_artifact_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "package_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"
+        },
+        "package_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "crate_relative_path": {
+          "$ref": "#/$defs/safe_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reason": {
+          "$ref": "#/$defs/non_control_text"
+        }
+      }
+    },
+    "distribution_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_id",
+        "kind",
+        "target_triple",
+        "artifact_ids"
+      ],
+      "properties": {
+        "scope_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "kind": {
+          "enum": [
+            "public_binary_distribution",
+            "public_source_distribution"
+          ]
+        },
+        "target_triple": {
+          "const": "x86_64-pc-windows-msvc"
+        },
+        "artifact_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safe_id"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "public_binary_distribution"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "artifact_ids": {
+                "minItems": 5,
+                "maxItems": 5
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "artifact_ids": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "package_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "source",
+        "cargo_package_sha256",
+        "spdx_id"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "source": {
+          "$ref": "#/$defs/non_control_text"
+        },
+        "cargo_package_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "spdx_id": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 256,
+          "pattern": "^SPDXRef-[A-Za-z0-9._-]+$"
+        }
+      }
+    },
+    "notice_disposition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "excluded_with_package"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "retained_in_bound_notices"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "evidence_binding"
+          ],
+          "properties": {
+            "kind": {
+              "const": "supplemental_evidence"
+            },
+            "evidence_binding": {
+              "$ref": "#/$defs/safe_id"
+            }
+          }
+        }
+      ]
+    },
+    "source_disposition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "artifact_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "exact_source_artifact"
+            },
+            "artifact_id": {
+              "$ref": "#/$defs/safe_id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "excluded_with_package"
+            }
+          }
+        }
+      ]
+    },
+    "target_exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_closure_sbom_binding",
+        "dependency_condition"
+      ],
+      "properties": {
+        "source_closure_sbom_binding": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "dependency_condition": {
+          "$ref": "#/$defs/non_control_text"
+        }
+      }
+    },
+    "package_determination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "determination_id",
+        "scope_ids",
+        "packages",
+        "declared_value",
+        "reviewed_expression",
+        "treatment",
+        "distribution_basis_expression",
+        "notice_disposition",
+        "source_disposition",
+        "provenance_source_ids",
+        "obligations",
+        "exclusion"
+      ],
+      "properties": {
+        "determination_id": {
+          "$ref": "#/$defs/safe_id"
+        },
+        "scope_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safe_id"
+          }
+        },
+        "packages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/package_identity"
+          }
+        },
+        "declared_value": {
+          "$ref": "#/$defs/non_control_text"
+        },
+        "reviewed_expression": {
+          "$ref": "#/$defs/spdx_expression"
+        },
+        "treatment": {
+          "enum": [
+            "excluded_by_target_graph",
+            "included_normalized_historical_declaration",
+            "included_preserved_reviewed_expression",
+            "included_reviewed_composite_expression",
+            "included_selected_alternative",
+            "included_single_license"
+          ]
+        },
+        "distribution_basis_expression": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/spdx_expression"
+            }
+          ]
+        },
+        "notice_disposition": {
+          "$ref": "#/$defs/notice_disposition"
+        },
+        "source_disposition": {
+          "$ref": "#/$defs/source_disposition"
+        },
+        "provenance_source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safe_id"
+          }
+        },
+        "obligations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "identify_modifications",
+              "preserve_covered_file_license",
+              "provide_exact_source_code_form",
+              "retain_attribution",
+              "retain_license_text",
+              "retain_notice"
+            ]
+          }
+        },
+        "exclusion": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/target_exclusion"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "treatment": {
+                "const": "excluded_by_target_graph"
+              }
+            },
+            "required": [
+              "treatment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope_ids": {
+                "minItems": 1,
+                "maxItems": 2
+              },
+              "distribution_basis_expression": {
+                "type": "null"
+              },
+              "notice_disposition": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "excluded_with_package"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "source_disposition": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "excluded_with_package"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "obligations": {
+                "maxItems": 0
+              },
+              "provenance_source_ids": {
+                "maxItems": 0
+              },
+              "exclusion": {
+                "$ref": "#/$defs/target_exclusion"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "distribution_basis_expression": {
+                "$ref": "#/$defs/spdx_expression"
+              },
+              "notice_disposition": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "retained_in_bound_notices"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "evidence_binding"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "supplemental_evidence"
+                      },
+                      "evidence_binding": {
+                        "$ref": "#/$defs/safe_id"
+                      }
+                    }
+                  }
+                ]
+              },
+              "source_disposition": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "artifact_id"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "exact_source_artifact"
+                  },
+                  "artifact_id": {
+                    "$ref": "#/$defs/safe_id"
+                  }
+                }
+              },
+              "obligations": {
+                "minItems": 4,
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "provide_exact_source_code_form"
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "const": "retain_attribution"
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "const": "retain_license_text"
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "const": "retain_notice"
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  }
+                ]
+              },
+              "exclusion": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "treatment": {
+                "const": "included_reviewed_composite_expression"
+              }
+            },
+            "required": [
+              "treatment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reviewed_expression": {
+                "pattern": "(?:^|[ (])AND(?:$|[ )])"
+              },
+              "distribution_basis_expression": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/spdx_expression"
+                  },
+                  {
+                    "pattern": "(?:^|[ (])AND(?:$|[ )])"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

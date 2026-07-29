@@ -1,0 +1,33 @@
+{
+  "descriptor_version": 1,
+  "description": "Virtual provider outcomes and deterministic first truncations.",
+  "scenarios": [
+    {
+      "id": "terminal-source-states",
+      "cases": [
+        {"outcome": "missing", "resolution": "not_found", "inspection": "not_resolved", "mutation_error": "xref_source_not_found"},
+        {"outcome": "unreadable", "resolution": "unresolved", "inspection": "not_resolved", "mutation_error": "xref_source_unreadable"},
+        {"outcome": "unsupported_path", "resolution": "unsupported", "inspection": "not_resolved", "mutation_error": "unsupported_xref_source"},
+        {"outcome": "unsupported_children", "resolution": "resolved", "inspection": "unsupported", "mutation_error": "dependency_traversal_incomplete"},
+        {"outcome": "cycle", "resolution": "resolved", "inspection": "cycle", "mutation_error": "circular_xref"}
+      ]
+    },
+    {
+      "id": "max-depth-first-truncation",
+      "max_depth": 0,
+      "max_nodes": 1,
+      "admitted_chains": [["1"]],
+      "next_chain": ["1", "F"],
+      "expected_reason": "max_depth",
+      "note": "Both limits block the next occurrence, so max_depth has precedence."
+    },
+    {
+      "id": "max-nodes-first-truncation",
+      "max_depth": 10,
+      "max_nodes": 2,
+      "admitted_chains": [["1"], ["1", "F"]],
+      "next_chain": ["1", "10"],
+      "expected_reason": "max_nodes"
+    }
+  ]
+}

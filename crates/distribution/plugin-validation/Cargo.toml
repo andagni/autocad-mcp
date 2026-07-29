@@ -1,0 +1,22 @@
+[package]
+name = "plugin-validate"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Dev ship-gate: validate plugin/ documents against path-matched JSON Schemas and check directory structure"
+publish = false
+
+[dependencies]
+jsonschema = "0.46"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "plugin-validate"
+path = "src/main.rs"

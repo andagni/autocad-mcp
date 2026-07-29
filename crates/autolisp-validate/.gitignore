@@ -1,0 +1,19 @@
+# Rust crate source plus the reviewed AutoLISP test inputs.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+!/tests/
+
+/src/**
+!/src/**/
+!/src/*.rs
+!/src/**/*.rs
+
+/tests/**
+!/tests/**/
+!/tests/*.rs
+!/tests/**/*.rs
+!/tests/bad_command.lsp
+!/tests/good_command.lsp
+!/tests/commands/standalone_command.lsp

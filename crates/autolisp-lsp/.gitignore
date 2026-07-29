@@ -1,0 +1,16 @@
+# Rust crate source and tests only.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+!/tests/
+
+/src/**
+!/src/**/
+!/src/*.rs
+!/src/**/*.rs
+
+/tests/**
+!/tests/**/
+!/tests/*.rs
+!/tests/**/*.rs

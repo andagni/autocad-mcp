@@ -1,0 +1,8 @@
+# Whitelist-only distribution tooling policy.
+/*
+!/.gitignore
+!/approval/
+!/evidence/
+!/packager/
+!/plugin-validation/
+!/qualification/

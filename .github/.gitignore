@@ -1,0 +1,8 @@
+# CI metadata is whitelist-only.
+/*
+!/.gitignore
+!/workflows/
+workflows/**
+!/workflows/windows-xref-guarded-rename.yml
+!/workflows/windows-native-harness.yml
+!/workflows/windows-preview-review-candidate.yml

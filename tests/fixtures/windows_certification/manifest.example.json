@@ -1,0 +1,513 @@
+{
+  "schema_version": 3,
+  "release_id": "template-placeholder-not-evidence",
+  "fixture_root": "C:/REPLACE_WITH_PRIVATE_CERTIFICATION_FIXTURES",
+  "runtime": {
+    "activation_target": {
+      "catalogue_sha256": "135b444325de9a20453da898ad1f86a2c78ed9edd98ec90c7e18318fde04a1d4",
+      "target_id": "autocad-2026-r25-1-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2026,
+      "registry_family": "R25.1",
+      "product_language_key": "ACAD-9101:409",
+      "ui_locale": "en-US"
+    },
+    "release_binary_path": "C:/REPLACE_WITH_CERTIFIED_BINARIES/autocad-mcp.exe",
+    "release_binary_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "title_block_profile_registry_sha256": "69b0c455b4730f25f441c321729394c9026ef2ffb05248913cec97649ee7d557",
+    "accoreconsole_path": "C:/Program Files/Autodesk/AutoCAD 2026/accoreconsole.exe",
+    "accoreconsole_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "autocad_product": "autocad",
+    "autocad_version": "2026",
+    "certified_arg_path": "C:/REPLACE_WITH_CERTIFIED_PROFILE/autocad-mcp.arg",
+    "certified_arg_sha256": "89bc4284f84d1ee9c75ef3ce8a39933d1f86e919b3092ba59ce734b2f3216fc6",
+    "certified_arg_policy_id": "autocad-mcp-preview-autocad-2026-en-us-v1",
+    "certified_arg_policy_sha256": "40b3ae0defffde4b96c5affc185775e5393478e9e6f23c1768e8cb0dae915617"
+  },
+  "tier2_drawings": [
+    {
+      "drawing_id": "generic-title-block-tier2",
+      "path": "profiles/generic-title-block.dwg",
+      "source_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "expected_profile_id": "AUTOCAD_MCP_GENERIC",
+      "write_fields": [
+        {
+          "field": "revision",
+          "value": "P02"
+        }
+      ],
+      "plot_layout": "Layout1"
+    }
+  ],
+  "layer_mutation_cases": [
+    {
+      "case_id": "layer-host-owned",
+      "drawing_id": "layer-host-owned",
+      "path": "layers/layer-host-owned.dwg",
+      "source_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "fixture_kind": "host_owned",
+      "referenced_source_fixtures": [],
+      "operations": [
+        {
+          "operation_id": "01-list-expanded-records",
+          "tool": "list_layers",
+          "params": {},
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "expanded_records",
+              "record": {
+                "handle": "2A",
+                "name": "CERT_TARGET",
+                "color_index": 7,
+                "line_type": "Continuous",
+                "line_weight": {
+                  "kind": "default"
+                },
+                "frozen": false,
+                "locked": false,
+                "off": false,
+                "is_plottable": true,
+                "xref_dependent": false,
+                "xref_block_record_handle": null,
+                "xref_name": null,
+                "xref_path": null,
+                "xref_is_overlay": null,
+                "material_handle": null,
+                "plotstyle_handle": null,
+                "is_current": false
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "02-get-expanded-record",
+          "tool": "get_layer",
+          "params": {
+            "handle": "2A"
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "2A",
+                "name": "CERT_TARGET",
+                "color_index": 7,
+                "line_type": "Continuous",
+                "line_weight": {
+                  "kind": "default"
+                },
+                "frozen": false,
+                "locked": false,
+                "off": false,
+                "is_plottable": true,
+                "xref_dependent": false,
+                "xref_block_record_handle": null,
+                "xref_name": null,
+                "xref_path": null,
+                "xref_is_overlay": null,
+                "material_handle": null,
+                "plotstyle_handle": null,
+                "is_current": false
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "03-create-all-properties",
+          "tool": "create_layer",
+          "params": {
+            "name": "CERT_CREATED",
+            "properties": {
+              "color_index": 2,
+              "frozen": false,
+              "locked": true,
+              "off": true,
+              "is_plottable": false,
+              "line_type": "DASHED",
+              "line_weight": {
+                "kind": "by_layer"
+              }
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "name": "CERT_CREATED",
+                "color_index": 2,
+                "frozen": false,
+                "locked": true,
+                "off": true,
+                "is_plottable": false,
+                "line_type": "DASHED",
+                "line_weight": {
+                  "kind": "by_layer"
+                },
+                "xref_dependent": false
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "04-update-lineweight-by-block",
+          "tool": "update_layer",
+          "params": {
+            "handle": "2A",
+            "properties": {
+              "line_weight": {
+                "kind": "by_block"
+              }
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "2A",
+                "line_weight": {
+                  "kind": "by_block"
+                }
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "05-update-lineweight-default",
+          "tool": "update_layer",
+          "params": {
+            "handle": "2A",
+            "properties": {
+              "line_weight": {
+                "kind": "default"
+              }
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "2A",
+                "line_weight": {
+                  "kind": "default"
+                }
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "06-update-lineweight-value",
+          "tool": "update_layer",
+          "params": {
+            "handle": "2A",
+            "properties": {
+              "line_weight": {
+                "kind": "value",
+                "hundredths_mm": 35
+              }
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "2A",
+                "line_weight": {
+                  "kind": "value",
+                  "hundredths_mm": 35
+                }
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "07-rename-layer",
+          "tool": "rename_layer",
+          "params": {
+            "handle": "2C",
+            "new_name": "CERT_RENAMED"
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "2C",
+                "name": "CERT_RENAMED"
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "08-delete-layer",
+          "tool": "delete_layer",
+          "params": {
+            "handle": "2B"
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "deleted_identity",
+              "handle": "2B",
+              "name": "CERT_DELETE"
+            }
+          }
+        },
+        {
+          "operation_id": "09-missing-linetype-fails",
+          "tool": "update_layer",
+          "params": {
+            "handle": "2A",
+            "properties": {
+              "line_type": "NO_SUCH_LTYPE"
+            }
+          },
+          "expected": {
+            "status": "failed",
+            "error_code": "line_type_not_found",
+            "unchanged_layer": {
+              "handle": "2A",
+              "line_type": "Continuous"
+            }
+          }
+        },
+        {
+          "operation_id": "10-invalid-lineweight-fails",
+          "tool": "update_layer",
+          "params": {
+            "handle": "2A",
+            "properties": {
+              "line_weight": {
+                "kind": "value",
+                "hundredths_mm": 999
+              }
+            }
+          },
+          "expected": {
+            "status": "failed",
+            "error_code": "invalid_line_weight",
+            "unchanged_layer": {
+              "handle": "2A",
+              "line_weight": {
+                "kind": "value",
+                "hundredths_mm": 35
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "11-current-layer-freeze-fails",
+          "tool": "update_layer",
+          "params": {
+            "handle": "10",
+            "properties": {
+              "frozen": true
+            }
+          },
+          "expected": {
+            "status": "failed",
+            "error_code": "cannot_freeze_current_layer",
+            "unchanged_layer": {
+              "handle": "10",
+              "frozen": false,
+              "is_current": true
+            }
+          }
+        },
+        {
+          "operation_id": "12-unsupported-property-fails",
+          "tool": "update_layer",
+          "params": {
+            "handle": "2A",
+            "properties": {
+              "plot_style": "Unsupported"
+            }
+          },
+          "expected": {
+            "status": "failed",
+            "error_code": "unsupported_layer_property",
+            "unchanged_layer": {
+              "handle": "2A",
+              "plotstyle_handle": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "layer-xref-dependent",
+      "drawing_id": "layer-xref-dependent",
+      "path": "layers/layer-xref-dependent-host.dwg",
+      "source_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "fixture_kind": "xref_dependent_host",
+      "referenced_source_fixtures": [
+        {
+          "path": "layers/refs/layer-source.dwg",
+          "source_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        }
+      ],
+      "operations": [
+        {
+          "operation_id": "01-update-color-index",
+          "tool": "update_layer",
+          "params": {
+            "handle": "3A",
+            "properties": {
+              "color_index": 2
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "3A",
+                "color_index": 2,
+                "xref_dependent": true
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "02-update-frozen",
+          "tool": "update_layer",
+          "params": {
+            "handle": "3A",
+            "properties": {
+              "frozen": true
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "3A",
+                "frozen": true,
+                "xref_dependent": true
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "03-update-locked",
+          "tool": "update_layer",
+          "params": {
+            "handle": "3A",
+            "properties": {
+              "locked": true
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "3A",
+                "locked": true,
+                "xref_dependent": true
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "04-update-off",
+          "tool": "update_layer",
+          "params": {
+            "handle": "3A",
+            "properties": {
+              "off": true
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "3A",
+                "off": true,
+                "xref_dependent": true
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "05-update-is-plottable",
+          "tool": "update_layer",
+          "params": {
+            "handle": "3A",
+            "properties": {
+              "is_plottable": false
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "3A",
+                "is_plottable": false,
+                "xref_dependent": true
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "06-update-line-type",
+          "tool": "update_layer",
+          "params": {
+            "handle": "3A",
+            "properties": {
+              "line_type": "DASHED"
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "3A",
+                "line_type": "DASHED",
+                "xref_dependent": true
+              }
+            }
+          }
+        },
+        {
+          "operation_id": "07-update-line-weight",
+          "tool": "update_layer",
+          "params": {
+            "handle": "3A",
+            "properties": {
+              "line_weight": {
+                "kind": "value",
+                "hundredths_mm": 25
+              }
+            }
+          },
+          "expected": {
+            "status": "passed",
+            "assertion": {
+              "kind": "layer",
+              "layer": {
+                "handle": "3A",
+                "line_weight": {
+                  "kind": "value",
+                  "hundredths_mm": 25
+                },
+                "xref_dependent": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

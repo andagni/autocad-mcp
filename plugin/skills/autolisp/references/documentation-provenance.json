@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "reference_root": "plugin/skills/autolisp",
+  "copyright_holder": "andagni",
+  "license": "GPL-3.0-or-later",
+  "sources": [
+    {
+      "id": "autodesk-action-tile-2025",
+      "title": "action_tile (AutoLISP/DCL)",
+      "url": "https://help.autodesk.com/view/ACDLT/2025/ENU/?guid=GUID-A9E2C14E-1352-4C7B-89F0-C86D3A86B19D",
+      "version": "AutoCAD LT 2025 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-active-document-2025",
+      "title": "About Accessing the Current Document Object (AutoLISP/ActiveX)",
+      "url": "https://help.autodesk.com/cloudhelp/2025/ENU/AutoCAD-AutoLISP/files/GUID-A2813E1F-8C79-4341-BF07-F44B8305D7E5.htm",
+      "version": "AutoCAD 2025 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-active-x-2024",
+      "title": "vlax-get-acad-object (AutoLISP/ActiveX)",
+      "url": "https://help.autodesk.com/cloudhelp/2024/ENU/AutoCAD-AutoLISP-Reference/files/GUID-53DB599B-641D-45DD-A201-604942A4596C.htm",
+      "version": "AutoCAD 2024 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-active-x-collections-2026",
+      "title": "About Working With Collection Objects (AutoLISP/ActiveX)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-100F8BDB-2852-4986-BC09-53F77AFCDB96.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-command-2026",
+      "title": "command (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP-Reference/files/GUID-1C989B35-2C5A-47EC-A0C9-71998EDFB157.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-coordinate-transformations-2026",
+      "title": "About Coordinate System Transformations (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-0F0B833D-78ED-4491-9918-9481793ED10B.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-copyright-policy-2026",
+      "title": "Permission To Use or Display Autodesk Copyrighted Materials",
+      "url": "https://www.autodesk.com/company/legal-notices-trademarks/intellectual-property/copyright",
+      "version": "Autodesk web policy reviewed 2026-07-26",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-dcl-cluster-tiles-2024",
+      "title": "Cluster Tiles Reference (DCL)",
+      "url": "https://help.autodesk.com/cloudhelp/2024/ENU/AutoCAD-AutoLISP-Reference/files/GUID-B2125253-ABE7-4005-9218-72AAF551F442.htm",
+      "version": "AutoCAD 2024 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-dcl-dialog-sequence-2026",
+      "title": "About the Function Sequence to Display and Work with a Dialog (DCL)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-FD32ADB3-F16E-42AA-BD37-53259B824AAB.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-dcl-tiles-2026",
+      "title": "DCL Tiles Reference (DCL)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP-Reference/files/GUID-F8F5A79B-9A05-4E25-A6FC-9720216BA3E7.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-dictionary-objects-2026",
+      "title": "About Dictionary Objects and Entries (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-24E52678-513E-4322-8070-B23C8945DC3D.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-entget-2026",
+      "title": "entget (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-LT-AutoLISP-Reference/files/GUID-12540DAE-C84B-4BDB-AEEC-DDFE5BE3C42A.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-entity-data-2026",
+      "title": "About Entity Data and Entity Handling (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-B150646B-5F8F-460A-A5D6-AF7BD467B638.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-error-handling-2026",
+      "title": "About Error Handling in AutoLISP Programs",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-027AD2E0-5AC5-48DA-B451-112B7EECE40F.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-functions-reference-2025",
+      "title": "Functions Reference (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2025/ENU/AutoCAD-LT-AutoLISP-Reference/files/GUID-4CEE5072-8817-4920-8A2D-7060F5E16547.htm",
+      "version": "AutoCAD 2025 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-guide-2026",
+      "title": "AutoLISP Developer's Guide",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-265AADB3-FB89-4D34-AA9D-6ADF70FF7D4B.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-nongraphical-objects-2026",
+      "title": "About Non-Graphical Object Types and Organization (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-LT-AutoLISP/files/GUID-984A6964-E801-4C22-8E41-BF3D05CD122F.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-selection-filters-2026",
+      "title": "About Selection Set Filter Lists (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-LT-AutoLISP/files/GUID-7BE77062-C359-4D01-915B-69CF672C653B.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-xdata-2026",
+      "title": "About Extended Data - Xdata (AutoLISP)",
+      "url": "https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-AutoLISP/files/GUID-A94BC605-5517-437F-A6FE-D3EB8116A01A.htm",
+      "version": "AutoCAD 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "autodesk-xrecords-2026",
+      "title": "Xrecords",
+      "url": "https://help.autodesk.com/view/OARX/2026/ENU/?guid=GUID-94F52FE1-941B-483E-B12D-B2AFDC172C20",
+      "version": "ObjectARX 2026 online help",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    },
+    {
+      "id": "comp-cad-autolisp-faq-v2-28",
+      "title": "comp.cad.autocad AutoLISP FAQ",
+      "url": "https://groups.google.com/g/alt.cad.autocad/c/lEV9RPpQV9k",
+      "version": "Version 2.28 archive",
+      "reviewed_on": "2026-07-26",
+      "rights_basis": "facts_only_no_source_expression_redistributed"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "SKILL.md",
+      "sha256": "0c83217f45a6ef681afb8031593bec88f8e9255107ab5f83f141edd9e778bace",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-active-x-2024",
+        "autodesk-dcl-dialog-sequence-2026",
+        "autodesk-functions-reference-2025",
+        "autodesk-guide-2026"
+      ]
+    },
+    {
+      "path": "references/01_core_playbook.md",
+      "sha256": "8d389f3ccc50310b731ec4b1771b88dccfad91eb7b9dae75a46ad03d62fbfb0e",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-command-2026",
+        "autodesk-error-handling-2026",
+        "autodesk-guide-2026"
+      ]
+    },
+    {
+      "path": "references/02_entity_and_selection_cookbook.md",
+      "sha256": "13945a12fc231310ea07ae3bf5a0f501d5e7471a0cac16215ddec86fc8eb0ddd",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-coordinate-transformations-2026",
+        "autodesk-entget-2026",
+        "autodesk-entity-data-2026",
+        "autodesk-selection-filters-2026"
+      ]
+    },
+    {
+      "path": "references/03_pitfalls_and_failure_modes.md",
+      "sha256": "078fc6663ca0865032330053f40c2cad93e57ac283c11e88938d4a020a0aa0b9",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-entity-data-2026",
+        "autodesk-error-handling-2026",
+        "autodesk-guide-2026"
+      ]
+    },
+    {
+      "path": "references/04_object_model_and_internals.md",
+      "sha256": "3438c50e12811026f67c462322b2a2c453b684351fc09a630e1b779363260c5d",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-dictionary-objects-2026",
+        "autodesk-nongraphical-objects-2026",
+        "autodesk-xdata-2026",
+        "autodesk-xrecords-2026"
+      ]
+    },
+    {
+      "path": "references/05_dcl_dialogs.md",
+      "sha256": "8336d0a48b158ff842ebee4349c7a9dfe2a9a9789e6ac89377eaa46c5b6296a4",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-action-tile-2025",
+        "autodesk-dcl-dialog-sequence-2026"
+      ]
+    },
+    {
+      "path": "references/06_execution_contexts_and_headless.md",
+      "sha256": "6b87300ae8add298bf85e888167b91eebcf5931de0fa09639b7f7ac7cbe6dee0",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-active-x-2024"
+      ]
+    },
+    {
+      "path": "references/README.md",
+      "sha256": "4b6d87b1fbe92437aea951e6be91eb910d8346d2967357cb4403ba4cef6a8ab4",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-copyright-policy-2026",
+        "autodesk-dcl-tiles-2026",
+        "autodesk-functions-reference-2025",
+        "autodesk-guide-2026",
+        "comp-cad-autolisp-faq-v2-28"
+      ]
+    },
+    {
+      "path": "references/autolisp-lsp-index.json",
+      "sha256": "72a06823f35c3517d562a4f56087daad5d64b01be22578a279d2d55ee6071a0f",
+      "kind": "autolisp_lsp_index",
+      "disposition": "first_party_curated_index",
+      "source_ids": [
+        "autodesk-active-document-2025",
+        "autodesk-active-x-2024",
+        "autodesk-active-x-collections-2026",
+        "autodesk-functions-reference-2025"
+      ]
+    },
+    {
+      "path": "references/dcl/reference-dcl-summary.md",
+      "sha256": "87cf30695490f06297583e1cb6f5af7f8a940cf34c71239bf7b8be8c9849c4fa",
+      "kind": "markdown",
+      "disposition": "first_party_factual_synthesis",
+      "source_ids": [
+        "autodesk-dcl-cluster-tiles-2024",
+        "autodesk-dcl-dialog-sequence-2026",
+        "autodesk-dcl-tiles-2026"
+      ]
+    }
+  ]
+}

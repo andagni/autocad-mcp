@@ -1,0 +1,30 @@
+[package]
+name = "distribution-evidence"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Deterministic dependency evidence generation for AutoCAD MCP distributions"
+publish = false
+
+[package.metadata.local-gate]
+schema-version = 1
+
+[[package.metadata.local-gate.checks]]
+name = "dependency-evidence"
+bin = "distribution-evidence"
+arguments = ["check"]
+
+[lib]
+name = "distribution_evidence"
+path = "src/lib.rs"
+
+[[bin]]
+name = "distribution-evidence"
+path = "src/main.rs"
+
+[dependencies]
+distribution-approval = { path = "../approval" }
+flate2 = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"

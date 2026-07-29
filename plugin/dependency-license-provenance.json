@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "status": "technical_provenance_only",
+  "legal_effect": {
+    "approval_status": "not_approved",
+    "approval_reference": null,
+    "statement": "This ledger records exact source provenance and package mappings only. It does not select a licence branch, determine notice sufficiency, or approve distribution."
+  },
+  "sources": [
+    {
+      "id": "rmcp-rust-sdk-license-3529c367",
+      "kind": "upstream_git_blob",
+      "repository_url": "https://github.com/modelcontextprotocol/rust-sdk",
+      "git_commit": "3529c3675ff64db805bd947ca6ece6090809e43d",
+      "git_blob_sha1": "4a93985763241755401a10678395303de4e720ba",
+      "repository_path": "LICENSE",
+      "tracked_path": "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt",
+      "byte_length": 12227,
+      "sha256": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a",
+      "root_notice_search": {
+        "git_commit": "3529c3675ff64db805bd947ca6ece6090809e43d",
+        "tree_enumeration": "complete_non_truncated",
+        "root_candidate_names": [
+          "NOTICE",
+          "NOTICE.*"
+        ],
+        "matches": [],
+        "result": "no_root_notice_found_in_complete_non_truncated_tree"
+      },
+      "content_note": "The exact upstream file records an MCP licensing transition and contains Apache-2.0, MIT, and CC-BY-4.0 material. This ledger does not reduce that text to a single concluded licence."
+    },
+    {
+      "id": "tower-lsp-0.20.0-same-commit-license-files",
+      "kind": "checksum_verified_crate_archive_members",
+      "repository_url": "https://github.com/ebkalderon/tower-lsp",
+      "git_commit": "7b580128faa39b907db8f40bc53924181887acde",
+      "source_package": {
+        "name": "tower-lsp",
+        "version": "0.20.0",
+        "archive_sha256": "d4ba052b54a6627628d9b3c34c176e7eda8359b7da9acd497b9f20998d118508"
+      },
+      "archive_members": [
+        {
+          "path": "LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "LICENSE-MIT",
+          "sha256": "b1eb2598599e2a78fdd20f4a6a1d95ce79928a1f9854c16d8305157397dcf265"
+        }
+      ],
+      "content_note": "These members are already retained from the checksum-verified tower-lsp crate archive. Applicability to tower-lsp-macros is supported by the exact shared upstream commit, but no licence branch is selected here."
+    }
+  ],
+  "package_bindings": [
+    {
+      "package": {
+        "name": "rmcp",
+        "version": "1.7.0",
+        "archive_sha256": "0810a9f717d9828f475fe1f629f4c305c8464b7f496c3a854b58d29e65f4058e",
+        "declared_license": "Apache-2.0"
+      },
+      "path_in_vcs": "crates/rmcp",
+      "git_commit": "3529c3675ff64db805bd947ca6ece6090809e43d",
+      "source_id": "rmcp-rust-sdk-license-3529c367",
+      "license_concluded": "NOASSERTION"
+    },
+    {
+      "package": {
+        "name": "rmcp-macros",
+        "version": "1.7.0",
+        "archive_sha256": "6aefac48c364756e97f04c0401ba3231e8607882c7c1d92da0437dc16307904d",
+        "declared_license": "Apache-2.0"
+      },
+      "path_in_vcs": "crates/rmcp-macros",
+      "git_commit": "3529c3675ff64db805bd947ca6ece6090809e43d",
+      "source_id": "rmcp-rust-sdk-license-3529c367",
+      "license_concluded": "NOASSERTION"
+    },
+    {
+      "package": {
+        "name": "tower-lsp-macros",
+        "version": "0.9.0",
+        "archive_sha256": "84fd902d4e0b9a4b27f2f440108dc034e1758628a9b702f8ec61ad66355422fa",
+        "declared_license": "MIT OR Apache-2.0"
+      },
+      "path_in_vcs": "tower-lsp-macros",
+      "git_commit": "7b580128faa39b907db8f40bc53924181887acde",
+      "source_id": "tower-lsp-0.20.0-same-commit-license-files",
+      "license_concluded": "NOASSERTION"
+    }
+  ]
+}

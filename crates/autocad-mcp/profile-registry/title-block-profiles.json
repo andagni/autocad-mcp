@@ -1,0 +1,34 @@
+{
+  "title_block_schema": 1,
+  "profiles": [
+    {
+      "profile_id": "AUTOCAD_MCP_GENERIC",
+      "schema_version": 1,
+      "description": "Generic synthetic title-block profile used by the portable write-path fixture.",
+      "source_evidence": [
+        "tests/corpus/open/project/generic-title-block-ascii.dxf"
+      ],
+      "fingerprint": {
+        "block_name": "AUTOCAD_MCP_GENERIC",
+        "attribute_tags": [
+          "REVISION",
+          "DRAWING_NUMBER",
+          "REFERENCE",
+          "TITLE_LINE_1",
+          "TITLE_LINE_2",
+          "SHEET_NUMBER",
+          "SHEET_COUNT"
+        ]
+      },
+      "fields": {
+        "revision": "REVISION",
+        "drawing_number": "DRAWING_NUMBER",
+        "alternative_reference": "REFERENCE",
+        "drawing_title_big": "TITLE_LINE_1",
+        "drawing_title_med": "TITLE_LINE_2",
+        "sheet": "SHEET_NUMBER",
+        "sheet_total": "SHEET_COUNT"
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "descriptor_version": 1,
+  "description": "Virtual filesystem identities for ancestry-only cycle checks.",
+  "scenarios": [
+    {
+      "id": "root-self-cycle",
+      "root_identity": "root-file-id",
+      "occurrence": {"chain": ["1"], "resolved_identity": "root-file-id"},
+      "expected_inspection": "cycle",
+      "expected_cycle_target_chain": []
+    },
+    {
+      "id": "ancestor-cycle",
+      "root_identity": "root-file-id",
+      "occurrences": [
+        {"chain": ["2"], "resolved_path": "/real/parent.dwg", "resolved_identity": "parent-file-id"},
+        {"chain": ["2", "3"], "resolved_path": "/alias/parent.dwg", "resolved_identity": "parent-file-id"}
+      ],
+      "expected_cycle_chain": ["2", "3"],
+      "expected_cycle_target_chain": ["2"]
+    },
+    {
+      "id": "diamond-repeat",
+      "occurrences": [
+        {"chain": ["1"], "resolved_identity": "shared-file-id"},
+        {"chain": ["2"], "resolved_identity": "shared-file-id"}
+      ],
+      "shared_children": ["3"],
+      "expected_attachment_chains": [
+        ["1"],
+        ["1", "3"],
+        ["2"],
+        ["2", "3"]
+      ],
+      "expected_shared_source_inspections": 2
+    }
+  ]
+}

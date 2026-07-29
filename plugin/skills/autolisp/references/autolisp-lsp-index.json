@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "symbols": [
+    {
+      "name": "defun",
+      "kind": "builtin",
+      "signature": "(defun name (arguments / locals) expression...)",
+      "summary": "Creates a named AutoLISP function.",
+      "detail": "Names following the slash in the parameter list are local bindings. A name beginning with c: defines an AutoCAD command entry point.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "setq",
+      "kind": "builtin",
+      "signature": "(setq symbol value [symbol value]...)",
+      "summary": "Stores values in one or more symbols.",
+      "detail": "Declare temporary symbols as function locals so assignments do not leak into the drawing session.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "if",
+      "kind": "builtin",
+      "signature": "(if test then-expression [else-expression])",
+      "summary": "Chooses between a true branch and an optional false branch.",
+      "detail": "Each branch occupies one expression position; use progn when a branch needs a sequence.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "cond",
+      "kind": "builtin",
+      "signature": "(cond (test expression...) ...)",
+      "summary": "Evaluates the expressions belonging to the first true clause.",
+      "detail": "Use a final T clause when the decision requires a default.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "progn",
+      "kind": "builtin",
+      "signature": "(progn expression...)",
+      "summary": "Treats several expressions as one expression and returns the last result.",
+      "detail": "It is commonly used where if supplies only one expression slot per branch.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "while",
+      "kind": "builtin",
+      "signature": "(while test expression...)",
+      "summary": "Repeats a body while its test is non-nil.",
+      "detail": "Make the body advance every value used by the test so termination remains reviewable.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "repeat",
+      "kind": "builtin",
+      "signature": "(repeat count expression...)",
+      "summary": "Runs a body a fixed number of times.",
+      "detail": "Use repeat when no item binding or condition is needed.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "foreach",
+      "kind": "builtin",
+      "signature": "(foreach symbol list expression...)",
+      "summary": "Evaluates a body once for each list member.",
+      "detail": "The named symbol is rebound to each member in order.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "mapcar",
+      "kind": "builtin",
+      "signature": "(mapcar function list...)",
+      "summary": "Builds a list from applying a function across one or more lists.",
+      "detail": "Use it when the returned list is part of the result rather than incidental loop state.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "command",
+      "kind": "builtin",
+      "signature": "(command argument...)",
+      "summary": "Feeds command names, options, and values to AutoCAD's command processor.",
+      "detail": "Command availability and prompting are host-dependent. Prefix standard command and option strings for language portability.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "princ",
+      "kind": "builtin",
+      "signature": "(princ [expression [file-description]])",
+      "summary": "Prints an expression without adding a newline.",
+      "detail": "A final no-argument call keeps a command from echoing an incidental return value.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "getint",
+      "kind": "builtin",
+      "signature": "(getint [prompt])",
+      "summary": "Requests an integer from the user.",
+      "detail": "Its accepted input is limited to a signed 16-bit range; choose another input path when larger values are valid.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "getreal",
+      "kind": "builtin",
+      "signature": "(getreal [prompt])",
+      "summary": "Requests a real number from the user.",
+      "detail": "Interactive input functions require a host that can prompt.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "getstring",
+      "kind": "builtin",
+      "signature": "(getstring [allow-spaces] [prompt])",
+      "summary": "Requests string input from the user.",
+      "detail": "Set the optional flag when spaces must be accepted, and do not use this prompt in an unattended worker.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "strcat",
+      "kind": "builtin",
+      "signature": "(strcat string...)",
+      "summary": "Returns the concatenation of its string arguments.",
+      "detail": "Convert non-string values explicitly before concatenating them.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "car",
+      "kind": "builtin",
+      "signature": "(car list)",
+      "summary": "Returns the first member of a nonempty list.",
+      "detail": "Check for nil before taking the car of an optional lookup result.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "cdr",
+      "kind": "builtin",
+      "signature": "(cdr list)",
+      "summary": "Returns everything after a list's first member.",
+      "detail": "For a dotted pair returned by assoc, cdr yields the stored value.",
+      "source": "plugin/skills/autolisp/references/02_entity_and_selection_cookbook.md",
+      "completion": true
+    },
+    {
+      "name": "cons",
+      "kind": "builtin",
+      "signature": "(cons first rest)",
+      "summary": "Constructs a pair whose first part and remainder are supplied separately.",
+      "detail": "With a list as the second argument, it prepends one member.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "list",
+      "kind": "builtin",
+      "signature": "(list expression...)",
+      "summary": "Returns a list containing the evaluated arguments.",
+      "detail": "It is useful for fixed-shape argument and entity-data construction.",
+      "source": "plugin/skills/autolisp/references/01_core_playbook.md",
+      "completion": true
+    },
+    {
+      "name": "equal",
+      "kind": "builtin",
+      "signature": "(equal expression1 expression2 [fuzz])",
+      "summary": "Compares two expressions and can apply a numeric tolerance.",
+      "detail": "Supply a tolerance when equality depends on calculated real values.",
+      "source": "plugin/skills/autolisp/references/03_pitfalls_and_failure_modes.md",
+      "completion": true
+    },
+    {
+      "name": "entget",
+      "kind": "builtin",
+      "signature": "(entget entity-name [application-names])",
+      "summary": "Returns the data list for an entity name.",
+      "detail": "Read fields by group-code lookup instead of depending on list position.",
+      "source": "plugin/skills/autolisp/references/02_entity_and_selection_cookbook.md",
+      "completion": true
+    },
+    {
+      "name": "entmod",
+      "kind": "builtin",
+      "signature": "(entmod entity-data)",
+      "summary": "Submits an updated entity-data list to the current drawing.",
+      "detail": "Change only fields whose mutation contract is known, then check the return value and persisted state.",
+      "source": "plugin/skills/autolisp/references/02_entity_and_selection_cookbook.md",
+      "completion": true
+    },
+    {
+      "name": "entmake",
+      "kind": "builtin",
+      "signature": "(entmake [entity-data])",
+      "summary": "Creates a drawing record from supplied entity data.",
+      "detail": "The required group codes depend on the record type; reject an incomplete specification before mutation.",
+      "source": "plugin/skills/autolisp/references/02_entity_and_selection_cookbook.md",
+      "completion": true
+    },
+    {
+      "name": "ssget",
+      "kind": "builtin",
+      "signature": "(ssget [mode [point1 [point2]]] [filter])",
+      "summary": "Builds a selection set from an interaction mode, geometry, or filter.",
+      "detail": "Prompting modes require an interactive host; database-wide filtered selection can be suitable for a worker.",
+      "source": "plugin/skills/autolisp/references/02_entity_and_selection_cookbook.md",
+      "completion": true
+    },
+    {
+      "name": "ssname",
+      "kind": "builtin",
+      "signature": "(ssname selection-set index)",
+      "summary": "Returns the entity name stored at a selection-set index.",
+      "detail": "Use a zero-based index and keep it below sslength.",
+      "source": "plugin/skills/autolisp/references/02_entity_and_selection_cookbook.md",
+      "completion": true
+    },
+    {
+      "name": "sslength",
+      "kind": "builtin",
+      "signature": "(sslength selection-set)",
+      "summary": "Returns the number of entities in a selection set.",
+      "detail": "Capture the count before an index loop and release the set when the worker finishes.",
+      "source": "plugin/skills/autolisp/references/02_entity_and_selection_cookbook.md",
+      "completion": true
+    },
+    {
+      "name": "vlax-get-acad-object",
+      "kind": "builtin",
+      "signature": "(vlax-get-acad-object)",
+      "summary": "Returns the application object for the current full AutoCAD session.",
+      "detail": "This ActiveX function is Windows-only and should not be assumed available in a console worker.",
+      "source": "plugin/skills/autolisp/references/06_execution_contexts_and_headless.md",
+      "completion": true
+    },
+    {
+      "name": "vla-get-activedocument",
+      "kind": "builtin",
+      "signature": "(vla-get-ActiveDocument application-object)",
+      "summary": "Reads the active document from an AutoCAD application object.",
+      "detail": "Load ActiveX support explicitly and keep this call in the interactive Windows adapter.",
+      "source": "plugin/skills/autolisp/references/06_execution_contexts_and_headless.md",
+      "completion": true
+    },
+    {
+      "name": "vlax-for",
+      "kind": "builtin",
+      "signature": "(vlax-for symbol collection expression...)",
+      "summary": "Iterates through members of an ActiveX collection.",
+      "detail": "Its availability follows the ActiveX host boundary and the collection's object model.",
+      "source": "plugin/skills/autolisp/references/04_object_model_and_internals.md",
+      "completion": true
+    }
+  ]
+}

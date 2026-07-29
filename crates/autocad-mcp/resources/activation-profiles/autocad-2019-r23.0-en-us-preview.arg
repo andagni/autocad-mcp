@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Autodesk\AutoCAD\R23.0\ACAD-2001:409\Profiles\AutoCAD-MCP Preview AutoCAD 2019 en-US]
+"Description"="AutoCAD-MCP Preview candidate activation profile for AutoCAD 2019 en-US; not a support claim"
+
+[HKEY_CURRENT_USER\Software\Autodesk\AutoCAD\R23.0\ACAD-2001:409\Profiles\AutoCAD-MCP Preview AutoCAD 2019 en-US\General]
+"EnableStartupDialog"=dword:00000000

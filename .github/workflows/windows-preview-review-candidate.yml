@@ -1,0 +1,1120 @@
+name: Windows Preview signed review candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact main commit to build (must equal this workflow run's commit)
+        required: true
+        type: string
+      signing_certificate_thumbprint:
+        description: Reviewed lowercase 40-hex signer thumbprint
+        required: true
+        type: string
+      protected_environment_configuration_reviewed:
+        description: Confirm the preview-signing Environment scope and protection audit
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-preview-review-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build-preview-inputs:
+    name: Build unsigned Preview inputs without signing access
+    runs-on: windows-2025
+    timeout-minutes: 120
+    outputs:
+      candidate_seal_sha256: ${{ steps.build_inventory.outputs.candidate_seal_sha256 }}
+      source_zip_sha256: ${{ steps.build_inventory.outputs.source_zip_sha256 }}
+      source_closure_sbom_sha256: ${{ steps.build_inventory.outputs.source_closure_sbom_sha256 }}
+      unsigned_preflight_sha256: ${{ steps.build_inventory.outputs.unsigned_preflight_sha256 }}
+      unsigned_server_sha256: ${{ steps.build_inventory.outputs.unsigned_server_sha256 }}
+      unsigned_lsp_sha256: ${{ steps.build_inventory.outputs.unsigned_lsp_sha256 }}
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - name: Require the authorized GitHub execution context
+        shell: pwsh
+        run: |
+          if (
+            $env:GITHUB_REPOSITORY -cne "andagni/autocad-mcp" -or
+            $env:GITHUB_SERVER_URL -cne "https://github.com" -or
+            $env:GITHUB_REF -cne "refs/heads/main" -or
+            $env:GITHUB_EVENT_NAME -cne "workflow_dispatch" -or
+            $env:GITHUB_ACTOR -cne "andagni" -or
+            $env:GITHUB_TRIGGERING_ACTOR -cne "andagni"
+          ) {
+            throw "Preview candidate workflow context is not authorized"
+          }
+
+      - name: Check out the exact projected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require the selected main commit and a clean checkout
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -cne "refs/heads/main") {
+            throw "Preview candidates may be built only from main"
+          }
+          $actualCommit = (git rev-parse --verify HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw "could not resolve the checked-out commit"
+          }
+          if ($env:EXPECTED_SOURCE_COMMIT -cne $actualCommit) {
+            throw "source_commit must exactly equal the checked-out main commit"
+          }
+          $status = git status --short
+          if ($LASTEXITCODE -ne 0 -or $status) {
+            throw "Preview candidate checkout is not clean"
+          }
+
+      - name: Install the repository toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Populate the exact locked dependency sources
+        run: cargo fetch --locked
+
+      - name: Revalidate the reviewed dependency licence evidence
+        run: cargo run --locked -p distribution-evidence -- check
+
+      - name: Seal the Preview build-source candidate
+        run: cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-preview-source-candidate --mode preview
+
+      - name: Build and inspect the native binary set
+        shell: pwsh
+        run: |
+          $summary = & cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-preview-build-preflight
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows build preflight failed"
+          }
+          if ($summary.Count -ne 1) {
+            throw "Windows build preflight did not emit one summary"
+          }
+          $encoding = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText(
+            "target/windows-preview-build-preflight/unsigned-development-preflight.json",
+            "$summary`n",
+            $encoding
+          )
+
+      - name: Assemble and seal the unsigned handoff
+        id: build_inventory
+        shell: pwsh
+        run: |
+          $artifactDirectory = "target/windows-preview-build-input"
+          if (Test-Path -LiteralPath $artifactDirectory) {
+            throw "unsigned handoff directory already exists"
+          }
+          New-Item -ItemType Directory -Path $artifactDirectory | Out-Null
+          $inventory = [ordered]@{
+            "source-candidate/candidate-seal.json" = "target/windows-preview-source-candidate/candidate-seal.json"
+            "source-candidate/source.zip" = "target/windows-preview-source-candidate/source.zip"
+            "unsigned/autocad-mcp.exe" = "target/windows-preview-build-preflight/artifacts/preview/autocad-mcp.exe"
+            "unsigned/autolisp-lsp.exe" = "target/windows-preview-build-preflight/artifacts/release/autolisp-lsp.exe"
+            "dependency-windows-source-closure.spdx.json" = "plugin/dependency-windows-source-closure.spdx.json"
+            "unsigned-development-preflight.json" = "target/windows-preview-build-preflight/unsigned-development-preflight.json"
+          }
+          foreach ($entry in $inventory.GetEnumerator()) {
+            if (-not (Test-Path -LiteralPath $entry.Value -PathType Leaf)) {
+              throw "unsigned handoff input is missing: $($entry.Value)"
+            }
+            $destination = Join-Path $artifactDirectory $entry.Key
+            $parent = Split-Path -Parent $destination
+            if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
+              New-Item -ItemType Directory -Path $parent | Out-Null
+            }
+            Copy-Item -LiteralPath $entry.Value -Destination $destination
+          }
+
+          $checksumLines = foreach ($name in $inventory.Keys) {
+            $hash = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $name"
+          }
+          $encoding = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText(
+            (Join-Path $artifactDirectory "SHA256SUMS.txt"),
+            (($checksumLines -join "`n") + "`n"),
+            $encoding
+          )
+
+          $actual = @(
+            Get-ChildItem -LiteralPath $artifactDirectory -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                  (Resolve-Path -LiteralPath $artifactDirectory).Path,
+                  $_.FullName
+                ).Replace('\', '/')
+              } |
+              Sort-Object
+          )
+          $expected = @($inventory.Keys) + "SHA256SUMS.txt" | Sort-Object
+          if (Compare-Object -ReferenceObject $expected -DifferenceObject $actual -CaseSensitive) {
+            throw "unsigned handoff inventory is not closed"
+          }
+
+          $outputs = [ordered]@{
+            "candidate_seal_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "source-candidate/candidate-seal.json") -Algorithm SHA256).Hash.ToLowerInvariant()
+            "source_zip_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "source-candidate/source.zip") -Algorithm SHA256).Hash.ToLowerInvariant()
+            "source_closure_sbom_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "dependency-windows-source-closure.spdx.json") -Algorithm SHA256).Hash.ToLowerInvariant()
+            "unsigned_preflight_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "unsigned-development-preflight.json") -Algorithm SHA256).Hash.ToLowerInvariant()
+            "unsigned_server_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "unsigned/autocad-mcp.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
+            "unsigned_lsp_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "unsigned/autolisp-lsp.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
+          }
+          foreach ($entry in $outputs.GetEnumerator()) {
+            "$($entry.Key)=$($entry.Value)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+
+      - name: Upload the closed unsigned handoff
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-preview-build-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-build-input/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+  sign-preview-binaries:
+    name: Sign the closed binary handoff without repository code
+    needs: build-preview-inputs
+    environment: preview-signing
+    permissions: {}
+    runs-on: windows-2025
+    timeout-minutes: 30
+    outputs:
+      signed_server_sha256: ${{ steps.sign_and_seal.outputs.signed_server_sha256 }}
+      signed_lsp_sha256: ${{ steps.sign_and_seal.outputs.signed_lsp_sha256 }}
+    steps:
+      - name: Require the authorized GitHub execution context
+        shell: pwsh
+        run: |
+          if (
+            $env:GITHUB_REPOSITORY -cne "andagni/autocad-mcp" -or
+            $env:GITHUB_SERVER_URL -cne "https://github.com" -or
+            $env:GITHUB_REF -cne "refs/heads/main" -or
+            $env:GITHUB_EVENT_NAME -cne "workflow_dispatch" -or
+            $env:GITHUB_ACTOR -cne "andagni" -or
+            $env:GITHUB_TRIGGERING_ACTOR -cne "andagni"
+          ) {
+            throw "Preview candidate workflow context is not authorized"
+          }
+
+      - name: Download the closed unsigned handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: windows-preview-build-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-build-input
+
+      - name: Verify the unsigned handoff before signing
+        shell: pwsh
+        env:
+          EXPECTED_CANDIDATE_SEAL_SHA256: ${{ needs.build-preview-inputs.outputs.candidate_seal_sha256 }}
+          EXPECTED_SOURCE_ZIP_SHA256: ${{ needs.build-preview-inputs.outputs.source_zip_sha256 }}
+          EXPECTED_SOURCE_CLOSURE_SBOM_SHA256: ${{ needs.build-preview-inputs.outputs.source_closure_sbom_sha256 }}
+          EXPECTED_UNSIGNED_PREFLIGHT_SHA256: ${{ needs.build-preview-inputs.outputs.unsigned_preflight_sha256 }}
+          EXPECTED_UNSIGNED_SERVER_SHA256: ${{ needs.build-preview-inputs.outputs.unsigned_server_sha256 }}
+          EXPECTED_UNSIGNED_LSP_SHA256: ${{ needs.build-preview-inputs.outputs.unsigned_lsp_sha256 }}
+        run: |
+          $artifactDirectory = "target/windows-preview-build-input"
+          $expectedFiles = @(
+            "SHA256SUMS.txt",
+            "dependency-windows-source-closure.spdx.json",
+            "source-candidate/candidate-seal.json",
+            "source-candidate/source.zip",
+            "unsigned-development-preflight.json",
+            "unsigned/autocad-mcp.exe",
+            "unsigned/autolisp-lsp.exe"
+          ) | Sort-Object
+          $actualFiles = @(
+            Get-ChildItem -LiteralPath $artifactDirectory -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                  (Resolve-Path -LiteralPath $artifactDirectory).Path,
+                  $_.FullName
+                ).Replace('\', '/')
+              } |
+              Sort-Object
+          )
+          if (Compare-Object -ReferenceObject $expectedFiles -DifferenceObject $actualFiles -CaseSensitive) {
+            throw "downloaded unsigned handoff inventory is not closed"
+          }
+
+          $checksumMap = [System.Collections.Generic.Dictionary[string,string]]::new(
+            [System.StringComparer]::Ordinal
+          )
+          foreach ($line in Get-Content -LiteralPath (Join-Path $artifactDirectory "SHA256SUMS.txt")) {
+            if ($line -cnotmatch '^([0-9a-f]{64})  (.+)$') {
+              throw "unsigned handoff checksum line is malformed"
+            }
+            if ($checksumMap.ContainsKey($Matches[2])) {
+              throw "unsigned handoff checksum inventory contains a duplicate"
+            }
+            $checksumMap[$Matches[2]] = $Matches[1]
+          }
+          foreach ($name in $expectedFiles | Where-Object { $_ -cne "SHA256SUMS.txt" }) {
+            if (-not $checksumMap.ContainsKey($name)) {
+              throw "unsigned handoff checksum inventory is incomplete"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $checksumMap[$name]) {
+              throw "unsigned handoff checksum verification failed"
+            }
+          }
+          if ($checksumMap.Count -ne ($expectedFiles.Count - 1)) {
+            throw "unsigned handoff checksum inventory is not closed"
+          }
+
+          $joins = [ordered]@{
+            "source-candidate/candidate-seal.json" = $env:EXPECTED_CANDIDATE_SEAL_SHA256
+            "source-candidate/source.zip" = $env:EXPECTED_SOURCE_ZIP_SHA256
+            "dependency-windows-source-closure.spdx.json" = $env:EXPECTED_SOURCE_CLOSURE_SBOM_SHA256
+            "unsigned-development-preflight.json" = $env:EXPECTED_UNSIGNED_PREFLIGHT_SHA256
+            "unsigned/autocad-mcp.exe" = $env:EXPECTED_UNSIGNED_SERVER_SHA256
+            "unsigned/autolisp-lsp.exe" = $env:EXPECTED_UNSIGNED_LSP_SHA256
+          }
+          foreach ($entry in $joins.GetEnumerator()) {
+            if ($entry.Value -cnotmatch '^[0-9a-f]{64}$') {
+              throw "unsigned handoff job digest is malformed"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory $entry.Key) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $entry.Value) {
+              throw "unsigned handoff does not match its build-job digest"
+            }
+          }
+
+      - name: Authenticode-sign and seal the isolated binary handoff
+        id: sign_and_seal
+        shell: pwsh
+        env:
+          PROTECTED_ENVIRONMENT_CONFIGURATION_REVIEWED: ${{ inputs.protected_environment_configuration_reviewed }}
+          DISPATCH_SIGNING_CERTIFICATE_THUMBPRINT: ${{ inputs.signing_certificate_thumbprint }}
+          SIGNING_CERTIFICATE_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PFX_BASE64 }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          SIGNING_CERTIFICATE_PFX_SHA256: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_PFX_SHA256 }}
+          SIGNING_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
+          SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
+        run: |
+          if ($env:PROTECTED_ENVIRONMENT_CONFIGURATION_REVIEWED -cne "true") {
+            throw "the dispatcher must confirm the preview-signing configuration audit"
+          }
+          if ($env:DISPATCH_SIGNING_CERTIFICATE_THUMBPRINT -cnotmatch '^[0-9a-f]{40}$') {
+            throw "the dispatched certificate thumbprint must be 40 lowercase hexadecimal characters"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:SIGNING_CERTIFICATE_PFX_BASE64)) {
+            throw "preview-signing is missing the certificate secret"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:SIGNING_CERTIFICATE_PASSWORD)) {
+            throw "preview-signing is missing the certificate password"
+          }
+          if ($env:SIGNING_CERTIFICATE_PFX_SHA256 -cnotmatch '^[0-9a-f]{64}$') {
+            throw "preview-signing certificate SHA-256 must be 64 lowercase hexadecimal characters"
+          }
+          if ($env:SIGNING_CERTIFICATE_THUMBPRINT -cnotmatch '^[0-9a-f]{40}$') {
+            throw "preview-signing certificate thumbprint must be 40 lowercase hexadecimal characters"
+          }
+          if ($env:DISPATCH_SIGNING_CERTIFICATE_THUMBPRINT -cne $env:SIGNING_CERTIFICATE_THUMBPRINT) {
+            throw "the dispatched signer does not match the protected Environment signer"
+          }
+          $timestamp = $null
+          if (-not [Uri]::TryCreate(
+            $env:SIGNING_TIMESTAMP_URL,
+            [UriKind]::Absolute,
+            [ref]$timestamp
+          ) -or $timestamp.Scheme -cne "https") {
+            throw "preview-signing timestamp URL must be absolute HTTPS"
+          }
+
+          $expectedThumbprint = $env:SIGNING_CERTIFICATE_THUMBPRINT
+          $signingDirectory = "target/windows-preview-signing"
+          if (Test-Path -LiteralPath $signingDirectory) {
+            throw "signing directory already exists"
+          }
+          New-Item -ItemType Directory -Path $signingDirectory | Out-Null
+          $pfxPath = Join-Path $signingDirectory "certificate.pfx"
+          $pfxBytes = $null
+          $securePassword = $null
+          $newThumbprints = @()
+          try {
+            try {
+              $securePassword = ConvertTo-SecureString $env:SIGNING_CERTIFICATE_PASSWORD -AsPlainText -Force
+              $pfxBytes = [Convert]::FromBase64String($env:SIGNING_CERTIFICATE_PFX_BASE64)
+            } catch {
+              throw "preview-signing certificate inputs could not be decoded"
+            } finally {
+              Remove-Item Env:SIGNING_CERTIFICATE_PASSWORD -ErrorAction SilentlyContinue
+              Remove-Item Env:SIGNING_CERTIFICATE_PFX_BASE64 -ErrorAction SilentlyContinue
+            }
+            if ($pfxBytes.Length -eq 0) {
+              throw "preview-signing certificate secret decoded to an empty file"
+            }
+            [System.IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
+            $actualPfxSha256 = (Get-FileHash -LiteralPath $pfxPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualPfxSha256 -cne $env:SIGNING_CERTIFICATE_PFX_SHA256) {
+              throw "preview-signing certificate does not match its protected SHA-256"
+            }
+
+            $preexistingThumbprints = @(
+              Get-ChildItem -Path Cert:\CurrentUser\My |
+                ForEach-Object { $_.Thumbprint.ToLowerInvariant() }
+            )
+            if ($preexistingThumbprints -contains $expectedThumbprint) {
+              throw "the expected signing certificate was already present on the isolated runner"
+            }
+            Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword | Out-Null
+            $postImportThumbprints = @(
+              Get-ChildItem -Path Cert:\CurrentUser\My |
+                ForEach-Object { $_.Thumbprint.ToLowerInvariant() }
+            )
+            $newThumbprints = @(
+              $postImportThumbprints |
+                Where-Object { $preexistingThumbprints -notcontains $_ } |
+                Sort-Object -Unique
+            )
+            if ($newThumbprints -notcontains $expectedThumbprint) {
+              throw "the imported PFX did not provide the protected signing certificate"
+            }
+            $signingCertificate = Get-Item -LiteralPath "Cert:\CurrentUser\My\$expectedThumbprint"
+            if (-not $signingCertificate.HasPrivateKey) {
+              throw "the protected signing certificate has no private key"
+            }
+
+            $kitsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/bin"
+            $signTool = Get-ChildItem -LiteralPath $kitsRoot -Filter signtool.exe -File -Recurse |
+              Where-Object { $_.FullName -match '[\\/]x64[\\/]signtool[.]exe$' } |
+              Sort-Object -Property FullName -Descending |
+              Select-Object -First 1
+            if ($null -eq $signTool) {
+              throw "the reviewed Windows runner has no x64 signtool.exe"
+            }
+
+            $binaries = @(
+              "target/windows-preview-build-input/unsigned/autocad-mcp.exe",
+              "target/windows-preview-build-input/unsigned/autolisp-lsp.exe"
+            )
+            foreach ($binary in $binaries) {
+              & $signTool.FullName sign /sha1 $expectedThumbprint /s My /fd SHA256 /tr $timestamp.AbsoluteUri /td SHA256 $binary
+              if ($LASTEXITCODE -ne 0) {
+                throw "Authenticode signing failed"
+              }
+              & $signTool.FullName verify /pa /all $binary
+              if ($LASTEXITCODE -ne 0) {
+                throw "Authenticode verification failed"
+              }
+              $signature = Get-AuthenticodeSignature -LiteralPath $binary
+              if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
+                throw "signed executable does not have a valid Authenticode signature"
+              }
+              if (
+                $null -eq $signature.SignerCertificate -or
+                $signature.SignerCertificate.Thumbprint.ToLowerInvariant() -cne
+                  $expectedThumbprint
+              ) {
+                throw "signed executable does not use the protected signing certificate"
+              }
+              if ($null -eq $signature.TimeStamperCertificate) {
+                throw "signed executable has no authenticated timestamp countersigner"
+              }
+            }
+
+            $signedDirectory = "target/windows-preview-signed"
+            if (Test-Path -LiteralPath $signedDirectory) {
+              throw "signed handoff directory already exists"
+            }
+            New-Item -ItemType Directory -Path $signedDirectory | Out-Null
+            Copy-Item -LiteralPath $binaries[0] -Destination (Join-Path $signedDirectory "autocad-mcp.exe")
+            Copy-Item -LiteralPath $binaries[1] -Destination (Join-Path $signedDirectory "autolisp-lsp.exe")
+            $signedServerSha256 = (Get-FileHash -LiteralPath (Join-Path $signedDirectory "autocad-mcp.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
+            $signedLspSha256 = (Get-FileHash -LiteralPath (Join-Path $signedDirectory "autolisp-lsp.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
+            $encoding = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText(
+              (Join-Path $signedDirectory "SHA256SUMS.txt"),
+              "$signedServerSha256  autocad-mcp.exe`n$signedLspSha256  autolisp-lsp.exe`n",
+              $encoding
+            )
+            $actualSignedFiles = @(
+              Get-ChildItem -LiteralPath $signedDirectory -File -Recurse |
+                ForEach-Object {
+                  [System.IO.Path]::GetRelativePath(
+                    (Resolve-Path -LiteralPath $signedDirectory).Path,
+                    $_.FullName
+                  ).Replace('\', '/')
+                } |
+                Sort-Object
+            )
+            if (Compare-Object -ReferenceObject @("SHA256SUMS.txt", "autocad-mcp.exe", "autolisp-lsp.exe") -DifferenceObject $actualSignedFiles -CaseSensitive) {
+              throw "signed handoff inventory is not closed"
+            }
+            "signed_server_sha256=$signedServerSha256" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "signed_lsp_sha256=$signedLspSha256" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } finally {
+            foreach ($thumbprint in $newThumbprints) {
+              $certificatePath = "Cert:\CurrentUser\My\$thumbprint"
+              if (Test-Path -LiteralPath $certificatePath) {
+                Remove-Item -LiteralPath $certificatePath -DeleteKey -Force
+              }
+            }
+            if (Test-Path -LiteralPath $pfxPath -PathType Leaf) {
+              Remove-Item -LiteralPath $pfxPath -Force
+            }
+            if ($null -ne $pfxBytes) {
+              [Array]::Clear($pfxBytes, 0, $pfxBytes.Length)
+            }
+            if ($null -ne $securePassword) {
+              $securePassword.Dispose()
+            }
+          }
+
+      - name: Upload the closed signed binary handoff
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-preview-signed-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-signed/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+  package-preview-review:
+    name: Package and verify the exact non-publishing review bytes
+    needs:
+      - build-preview-inputs
+      - sign-preview-binaries
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      EXPECTED_SIGNING_CERTIFICATE_THUMBPRINT: ${{ inputs.signing_certificate_thumbprint }}
+      EXPECTED_CANDIDATE_SEAL_SHA256: ${{ needs.build-preview-inputs.outputs.candidate_seal_sha256 }}
+      EXPECTED_SOURCE_ZIP_SHA256: ${{ needs.build-preview-inputs.outputs.source_zip_sha256 }}
+      EXPECTED_SOURCE_CLOSURE_SBOM_SHA256: ${{ needs.build-preview-inputs.outputs.source_closure_sbom_sha256 }}
+      EXPECTED_UNSIGNED_PREFLIGHT_SHA256: ${{ needs.build-preview-inputs.outputs.unsigned_preflight_sha256 }}
+      EXPECTED_SIGNED_SERVER_SHA256: ${{ needs.sign-preview-binaries.outputs.signed_server_sha256 }}
+      EXPECTED_SIGNED_LSP_SHA256: ${{ needs.sign-preview-binaries.outputs.signed_lsp_sha256 }}
+    steps:
+      - name: Require the authorized GitHub execution context
+        shell: pwsh
+        run: |
+          if (
+            $env:GITHUB_REPOSITORY -cne "andagni/autocad-mcp" -or
+            $env:GITHUB_SERVER_URL -cne "https://github.com" -or
+            $env:GITHUB_REF -cne "refs/heads/main" -or
+            $env:GITHUB_EVENT_NAME -cne "workflow_dispatch" -or
+            $env:GITHUB_ACTOR -cne "andagni" -or
+            $env:GITHUB_TRIGGERING_ACTOR -cne "andagni"
+          ) {
+            throw "Preview candidate workflow context is not authorized"
+          }
+
+      - name: Check out the exact projected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require the selected main commit and a clean checkout
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -cne "refs/heads/main") {
+            throw "Preview candidates may be packaged only from main"
+          }
+          $actualCommit = (git rev-parse --verify HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw "could not resolve the checked-out commit"
+          }
+          if ($env:EXPECTED_SOURCE_COMMIT -cne $actualCommit) {
+            throw "source_commit must exactly equal the checked-out main commit"
+          }
+          $status = git status --short
+          if ($LASTEXITCODE -ne 0 -or $status) {
+            throw "Preview candidate checkout is not clean"
+          }
+
+      - name: Install the repository toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Populate the exact locked dependency sources
+        run: cargo fetch --locked
+
+      - name: Download the closed unsigned handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: windows-preview-build-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-build-input
+
+      - name: Download the closed signed binary handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: windows-preview-signed-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-signed
+
+      - name: Verify both handoffs before packaging
+        shell: pwsh
+        run: |
+          if ($env:EXPECTED_SIGNING_CERTIFICATE_THUMBPRINT -cnotmatch '^[0-9a-f]{40}$') {
+            throw "the dispatched signer thumbprint is malformed"
+          }
+          $buildDirectory = "target/windows-preview-build-input"
+          $expectedBuildFiles = @(
+            "SHA256SUMS.txt",
+            "dependency-windows-source-closure.spdx.json",
+            "source-candidate/candidate-seal.json",
+            "source-candidate/source.zip",
+            "unsigned-development-preflight.json",
+            "unsigned/autocad-mcp.exe",
+            "unsigned/autolisp-lsp.exe"
+          ) | Sort-Object
+          $actualBuildFiles = @(
+            Get-ChildItem -LiteralPath $buildDirectory -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                  (Resolve-Path -LiteralPath $buildDirectory).Path,
+                  $_.FullName
+                ).Replace('\', '/')
+              } |
+              Sort-Object
+          )
+          if (Compare-Object -ReferenceObject $expectedBuildFiles -DifferenceObject $actualBuildFiles -CaseSensitive) {
+            throw "downloaded unsigned handoff inventory is not closed"
+          }
+
+          $buildChecksumMap = [System.Collections.Generic.Dictionary[string,string]]::new(
+            [System.StringComparer]::Ordinal
+          )
+          foreach ($line in Get-Content -LiteralPath (Join-Path $buildDirectory "SHA256SUMS.txt")) {
+            if ($line -cnotmatch '^([0-9a-f]{64})  (.+)$') {
+              throw "unsigned handoff checksum line is malformed"
+            }
+            if ($buildChecksumMap.ContainsKey($Matches[2])) {
+              throw "unsigned handoff checksum inventory contains a duplicate"
+            }
+            $buildChecksumMap[$Matches[2]] = $Matches[1]
+          }
+          foreach ($name in $expectedBuildFiles | Where-Object { $_ -cne "SHA256SUMS.txt" }) {
+            if (-not $buildChecksumMap.ContainsKey($name)) {
+              throw "unsigned handoff checksum inventory is incomplete"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $buildDirectory $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $buildChecksumMap[$name]) {
+              throw "unsigned handoff checksum verification failed"
+            }
+          }
+          if ($buildChecksumMap.Count -ne ($expectedBuildFiles.Count - 1)) {
+            throw "unsigned handoff checksum inventory is not closed"
+          }
+
+          $buildJoins = [ordered]@{
+            "source-candidate/candidate-seal.json" = $env:EXPECTED_CANDIDATE_SEAL_SHA256
+            "source-candidate/source.zip" = $env:EXPECTED_SOURCE_ZIP_SHA256
+            "dependency-windows-source-closure.spdx.json" = $env:EXPECTED_SOURCE_CLOSURE_SBOM_SHA256
+            "unsigned-development-preflight.json" = $env:EXPECTED_UNSIGNED_PREFLIGHT_SHA256
+          }
+          foreach ($entry in $buildJoins.GetEnumerator()) {
+            if ($entry.Value -cnotmatch '^[0-9a-f]{64}$') {
+              throw "unsigned handoff job digest is malformed"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $buildDirectory $entry.Key) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $entry.Value) {
+              throw "unsigned handoff does not match its build-job digest"
+            }
+          }
+
+          $signedDirectory = "target/windows-preview-signed"
+          $expectedSignedFiles = @("SHA256SUMS.txt", "autocad-mcp.exe", "autolisp-lsp.exe")
+          $actualSignedFiles = @(
+            Get-ChildItem -LiteralPath $signedDirectory -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                  (Resolve-Path -LiteralPath $signedDirectory).Path,
+                  $_.FullName
+                ).Replace('\', '/')
+              } |
+              Sort-Object
+          )
+          if (Compare-Object -ReferenceObject $expectedSignedFiles -DifferenceObject $actualSignedFiles -CaseSensitive) {
+            throw "downloaded signed handoff inventory is not closed"
+          }
+          $signedChecksumMap = [System.Collections.Generic.Dictionary[string,string]]::new(
+            [System.StringComparer]::Ordinal
+          )
+          foreach ($line in Get-Content -LiteralPath (Join-Path $signedDirectory "SHA256SUMS.txt")) {
+            if ($line -cnotmatch '^([0-9a-f]{64})  (.+)$') {
+              throw "signed handoff checksum line is malformed"
+            }
+            if ($signedChecksumMap.ContainsKey($Matches[2])) {
+              throw "signed handoff checksum inventory contains a duplicate"
+            }
+            $signedChecksumMap[$Matches[2]] = $Matches[1]
+          }
+          $signedJoins = [ordered]@{
+            "autocad-mcp.exe" = $env:EXPECTED_SIGNED_SERVER_SHA256
+            "autolisp-lsp.exe" = $env:EXPECTED_SIGNED_LSP_SHA256
+          }
+          foreach ($entry in $signedJoins.GetEnumerator()) {
+            if ($entry.Value -cnotmatch '^[0-9a-f]{64}$') {
+              throw "signed handoff job digest is malformed"
+            }
+            if (-not $signedChecksumMap.ContainsKey($entry.Key)) {
+              throw "signed handoff checksum inventory is incomplete"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $signedDirectory $entry.Key) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $signedChecksumMap[$entry.Key] -or $actualHash -cne $entry.Value) {
+              throw "signed handoff checksum verification failed"
+            }
+          }
+          if ($signedChecksumMap.Count -ne $signedJoins.Count) {
+            throw "signed handoff checksum inventory is not closed"
+          }
+
+          $kitsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/bin"
+          $signTool = Get-ChildItem -LiteralPath $kitsRoot -Filter signtool.exe -File -Recurse |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]signtool[.]exe$' } |
+            Sort-Object -Property FullName -Descending |
+            Select-Object -First 1
+          if ($null -eq $signTool) {
+            throw "the reviewed Windows runner has no x64 signtool.exe"
+          }
+          foreach ($name in $signedJoins.Keys) {
+            $binary = Join-Path $signedDirectory $name
+            & $signTool.FullName verify /pa /all $binary
+            if ($LASTEXITCODE -ne 0) {
+              throw "downloaded executable failed Authenticode verification"
+            }
+            $signature = Get-AuthenticodeSignature -LiteralPath $binary
+            if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
+              throw "downloaded executable does not have a valid Authenticode signature"
+            }
+            if (
+              $null -eq $signature.SignerCertificate -or
+              $signature.SignerCertificate.Thumbprint.ToLowerInvariant() -cne
+                $env:EXPECTED_SIGNING_CERTIFICATE_THUMBPRINT
+            ) {
+              throw "downloaded executable does not use the dispatched signing certificate"
+            }
+            if ($null -eq $signature.TimeStamperCertificate) {
+              throw "downloaded executable has no authenticated timestamp countersigner"
+            }
+          }
+
+      - name: Verify the exact Preview source candidate
+        run: cargo run --locked -p xtask -- source-candidate-verify --candidate-dir target/windows-preview-build-input/source-candidate --mode preview
+
+      - name: Build the signed Preview MCPB with AutoLISP LSP
+        run: cargo run --locked -p release-packager -- package --target windows-x64 --binary target/windows-preview-signed/autocad-mcp.exe --lsp-binary target/windows-preview-signed/autolisp-lsp.exe --out-dir target/windows-preview-package --preview
+
+      - name: Assemble the exact non-publishing review bytes
+        shell: pwsh
+        run: |
+          $reviewDirectory = "target/windows-preview-review"
+          if (Test-Path -LiteralPath $reviewDirectory) {
+            throw "Preview review directory already exists"
+          }
+          New-Item -ItemType Directory -Path $reviewDirectory | Out-Null
+          $inventory = [ordered]@{
+            "autocad-mcp-windows-x64-preview.mcpb" = "target/windows-preview-package/autocad-mcp-windows-x64-preview.mcpb"
+            "autocad-mcp-windows-x64-preview-build-source.zip" = "target/windows-preview-build-input/source-candidate/source.zip"
+            "distribution-evidence/windows-x64-preview-source-closure.spdx.json" = "target/windows-preview-build-input/dependency-windows-source-closure.spdx.json"
+            "review-only/unsigned-development-preflight.json" = "target/windows-preview-build-input/unsigned-development-preflight.json"
+          }
+          foreach ($entry in $inventory.GetEnumerator()) {
+            if (-not (Test-Path -LiteralPath $entry.Value -PathType Leaf)) {
+              throw "Preview review input is missing: $($entry.Value)"
+            }
+            $destination = Join-Path $reviewDirectory $entry.Key
+            $parent = Split-Path -Parent $destination
+            if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
+              New-Item -ItemType Directory -Path $parent | Out-Null
+            }
+            Copy-Item -LiteralPath $entry.Value -Destination $destination
+          }
+
+      - name: Smoke both signed executables from the exact review MCPB
+        run: cargo run --locked -p release-packager -- smoke --package target/windows-preview-review/autocad-mcp-windows-x64-preview.mcpb --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf --require-executable --require-lsp-executable
+
+      - name: Verify the exact signed review inputs
+        shell: pwsh
+        run: |
+          $reviewDirectory = "target/windows-preview-review"
+          $reviewMcpb = Join-Path $reviewDirectory "autocad-mcp-windows-x64-preview.mcpb"
+          $extractDirectory = "target/windows-preview-review-extracted"
+          if (Test-Path -LiteralPath $extractDirectory) {
+            throw "Preview extraction directory already exists"
+          }
+          New-Item -ItemType Directory -Path $extractDirectory | Out-Null
+          tar -xf $reviewMcpb -C $extractDirectory
+          if ($LASTEXITCODE -ne 0) {
+            throw "could not extract the exact review Preview MCPB"
+          }
+
+          $immutableCopies = [ordered]@{
+            "autocad-mcp-windows-x64-preview-build-source.zip" = $env:EXPECTED_SOURCE_ZIP_SHA256
+            "distribution-evidence/windows-x64-preview-source-closure.spdx.json" = $env:EXPECTED_SOURCE_CLOSURE_SBOM_SHA256
+            "review-only/unsigned-development-preflight.json" = $env:EXPECTED_UNSIGNED_PREFLIGHT_SHA256
+          }
+          foreach ($entry in $immutableCopies.GetEnumerator()) {
+            if ($entry.Value -cnotmatch '^[0-9a-f]{64}$') {
+              throw "review handoff digest is malformed"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $reviewDirectory $entry.Key) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $entry.Value) {
+              throw "review handoff bytes differ from the verified build handoff"
+            }
+          }
+
+          $binaryJoins = @(
+            @(
+              "target/windows-preview-signed/autocad-mcp.exe",
+              (Join-Path $extractDirectory "plugin/bin/autocad-mcp.exe"),
+              $env:EXPECTED_SIGNED_SERVER_SHA256
+            ),
+            @(
+              "target/windows-preview-signed/autolisp-lsp.exe",
+              (Join-Path $extractDirectory "plugin/bin/autolisp-lsp.exe"),
+              $env:EXPECTED_SIGNED_LSP_SHA256
+            )
+          )
+          $kitsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/bin"
+          $signTool = Get-ChildItem -LiteralPath $kitsRoot -Filter signtool.exe -File -Recurse |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]signtool[.]exe$' } |
+            Sort-Object -Property FullName -Descending |
+            Select-Object -First 1
+          if ($null -eq $signTool) {
+            throw "the reviewed Windows runner has no x64 signtool.exe"
+          }
+          foreach ($join in $binaryJoins) {
+            if ($join[2] -cnotmatch '^[0-9a-f]{64}$') {
+              throw "signed binary job digest is malformed"
+            }
+            $sourceHash = (Get-FileHash -LiteralPath $join[0] -Algorithm SHA256).Hash.ToLowerInvariant()
+            $packagedHash = (Get-FileHash -LiteralPath $join[1] -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($sourceHash -cne $join[2] -or $packagedHash -cne $join[2]) {
+              throw "packaged executable bytes differ from the signed handoff"
+            }
+            & $signTool.FullName verify /pa /all $join[1]
+            if ($LASTEXITCODE -ne 0) {
+              throw "packaged executable failed Authenticode verification"
+            }
+            $signature = Get-AuthenticodeSignature -LiteralPath $join[1]
+            if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
+              throw "packaged executable does not have a valid Authenticode signature"
+            }
+            if (
+              $null -eq $signature.SignerCertificate -or
+              $signature.SignerCertificate.Thumbprint.ToLowerInvariant() -cne
+                $env:EXPECTED_SIGNING_CERTIFICATE_THUMBPRINT
+            ) {
+              throw "packaged executable does not use the dispatched signing certificate"
+            }
+            if ($null -eq $signature.TimeStamperCertificate) {
+              throw "packaged executable has no authenticated timestamp countersigner"
+            }
+          }
+
+      - name: Create the final post-signing Preview build attestation
+        env:
+          ATTESTATION_GITHUB_REPOSITORY: ${{ github.repository }}
+          ATTESTATION_GITHUB_SERVER_URL: ${{ github.server_url }}
+          ATTESTATION_GITHUB_REF: ${{ github.ref }}
+          ATTESTATION_GITHUB_EVENT_NAME: ${{ github.event_name }}
+          ATTESTATION_GITHUB_ACTOR: ${{ github.actor }}
+          ATTESTATION_GITHUB_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          cargo run --locked -p release-packager -- create-preview-build-attestation `
+            --source-zip target/windows-preview-review/autocad-mcp-windows-x64-preview-build-source.zip `
+            --mcpb target/windows-preview-review/autocad-mcp-windows-x64-preview.mcpb `
+            --unsigned-preflight target/windows-preview-review/review-only/unsigned-development-preflight.json `
+            --workflow .github/workflows/windows-preview-review-candidate.yml `
+            --run-id ${{ github.run_id }} `
+            --run-attempt ${{ github.run_attempt }} `
+            --github-repository "$env:ATTESTATION_GITHUB_REPOSITORY" `
+            --github-server-url "$env:ATTESTATION_GITHUB_SERVER_URL" `
+            --github-ref "$env:ATTESTATION_GITHUB_REF" `
+            --github-event-name "$env:ATTESTATION_GITHUB_EVENT_NAME" `
+            --github-actor "$env:ATTESTATION_GITHUB_ACTOR" `
+            --github-triggering-actor "$env:ATTESTATION_GITHUB_TRIGGERING_ACTOR" `
+            --output target/windows-preview-review/distribution-evidence/windows-x64-preview-build.json
+
+      - name: Checksum and close the exact upload inventory
+        shell: pwsh
+        run: |
+          $reviewDirectory = "target/windows-preview-review"
+          $retained = @(
+            "autocad-mcp-windows-x64-preview.mcpb",
+            "autocad-mcp-windows-x64-preview-build-source.zip",
+            "distribution-evidence/windows-x64-preview-build.json",
+            "distribution-evidence/windows-x64-preview-source-closure.spdx.json",
+            "review-only/unsigned-development-preflight.json"
+          )
+          $checksumLines = foreach ($name in $retained) {
+            $hash = (Get-FileHash -LiteralPath (Join-Path $reviewDirectory $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $name"
+          }
+          $encoding = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText(
+            (Join-Path $reviewDirectory "SHA256SUMS.txt"),
+            (($checksumLines -join "`n") + "`n"),
+            $encoding
+          )
+          $actual = @(
+            Get-ChildItem -LiteralPath $reviewDirectory -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                  (Resolve-Path -LiteralPath $reviewDirectory).Path,
+                  $_.FullName
+                ).Replace('\', '/')
+              } |
+              Sort-Object
+          )
+          $expected = @($retained) + "SHA256SUMS.txt" | Sort-Object
+          if (Compare-Object -ReferenceObject $expected -DifferenceObject $actual -CaseSensitive) {
+            throw "Preview review artifact inventory is not closed"
+          }
+
+      - name: Upload the signed non-publishing review candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-preview-review-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-review/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+  validate-preview-mcpb:
+    name: Validate the exact review manifest with the pinned official MCPB CLI
+    needs: package-preview-review
+    permissions: {}
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Require the authorized GitHub execution context
+        shell: pwsh
+        run: |
+          if (
+            $env:GITHUB_REPOSITORY -cne "andagni/autocad-mcp" -or
+            $env:GITHUB_SERVER_URL -cne "https://github.com" -or
+            $env:GITHUB_REF -cne "refs/heads/main" -or
+            $env:GITHUB_EVENT_NAME -cne "workflow_dispatch" -or
+            $env:GITHUB_ACTOR -cne "andagni" -or
+            $env:GITHUB_TRIGGERING_ACTOR -cne "andagni"
+          ) {
+            throw "Preview candidate workflow context is not authorized"
+          }
+
+      - name: Download the immutable review candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: windows-preview-review-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-review
+
+      - name: Verify the downloaded review inventory
+        shell: pwsh
+        run: |
+          $reviewDirectory = "target/windows-preview-review"
+          $expectedFiles = @(
+            "SHA256SUMS.txt",
+            "autocad-mcp-windows-x64-preview-build-source.zip",
+            "autocad-mcp-windows-x64-preview.mcpb",
+            "distribution-evidence/windows-x64-preview-build.json",
+            "distribution-evidence/windows-x64-preview-source-closure.spdx.json",
+            "review-only/unsigned-development-preflight.json"
+          ) | Sort-Object
+          $actualFiles = @(
+            Get-ChildItem -LiteralPath $reviewDirectory -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                  (Resolve-Path -LiteralPath $reviewDirectory).Path,
+                  $_.FullName
+                ).Replace('\', '/')
+              } |
+              Sort-Object
+          )
+          if (Compare-Object -ReferenceObject $expectedFiles -DifferenceObject $actualFiles -CaseSensitive) {
+            throw "downloaded Preview review inventory is not closed"
+          }
+
+          $checksumMap = [System.Collections.Generic.Dictionary[string,string]]::new(
+            [System.StringComparer]::Ordinal
+          )
+          foreach ($line in Get-Content -LiteralPath (Join-Path $reviewDirectory "SHA256SUMS.txt")) {
+            if ($line -cnotmatch '^([0-9a-f]{64})  (.+)$') {
+              throw "Preview review checksum line is malformed"
+            }
+            if ($checksumMap.ContainsKey($Matches[2])) {
+              throw "Preview review checksum inventory contains a duplicate"
+            }
+            $checksumMap[$Matches[2]] = $Matches[1]
+          }
+          foreach ($name in $expectedFiles | Where-Object { $_ -cne "SHA256SUMS.txt" }) {
+            if (-not $checksumMap.ContainsKey($name)) {
+              throw "Preview review checksum inventory is incomplete"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $reviewDirectory $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $checksumMap[$name]) {
+              throw "Preview review checksum verification failed"
+            }
+          }
+          if ($checksumMap.Count -ne ($expectedFiles.Count - 1)) {
+            throw "Preview review checksum inventory is not closed"
+          }
+
+      - name: Install the pinned Node runtime without a package-manager cache
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
+          package-manager-cache: false
+
+      - name: Restore the locked official MCPB CLI and validate the extracted manifest
+        shell: pwsh
+        run: |
+          $reviewDirectory = "target/windows-preview-review"
+          $sourceDirectory = "target/windows-preview-validation-source"
+          $mcpbDirectory = "target/windows-preview-validation-mcpb"
+          foreach ($directory in @($sourceDirectory, $mcpbDirectory)) {
+            if (Test-Path -LiteralPath $directory) {
+              throw "independent MCPB validation directory already exists"
+            }
+            New-Item -ItemType Directory -Path $directory | Out-Null
+          }
+
+          tar -xf (Join-Path $reviewDirectory "autocad-mcp-windows-x64-preview-build-source.zip") -C $sourceDirectory
+          if ($LASTEXITCODE -ne 0) {
+            throw "could not extract the exact Preview build source"
+          }
+          tar -xf (Join-Path $reviewDirectory "autocad-mcp-windows-x64-preview.mcpb") -C $mcpbDirectory
+          if ($LASTEXITCODE -ne 0) {
+            throw "could not extract the exact Preview MCPB"
+          }
+
+          $validatorRoot = Join-Path $sourceDirectory "workspace/crates/distribution/packager/tools/mcpb-validator"
+          foreach ($required in @("package.json", "package-lock.json")) {
+            if (-not (Test-Path -LiteralPath (Join-Path $validatorRoot $required) -PathType Leaf)) {
+              throw "the sealed source is missing the locked MCPB validator"
+            }
+          }
+          npm ci --prefix $validatorRoot --include=dev --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) {
+            throw "could not restore the locked official MCPB CLI"
+          }
+          $cli = Join-Path $validatorRoot "node_modules/@anthropic-ai/mcpb/dist/cli/cli.js"
+          if (-not (Test-Path -LiteralPath $cli -PathType Leaf)) {
+            throw "the locked official MCPB CLI entry point is missing"
+          }
+          $version = (& node $cli --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or $version -cne "2.1.2") {
+            throw "the official MCPB CLI version does not match the reviewed lock"
+          }
+          & node $cli validate $mcpbDirectory
+          if ($LASTEXITCODE -ne 0) {
+            throw "the official MCPB CLI rejected the exact Preview manifest"
+          }
+
+  attest-preview-review:
+    name: Attest the exact independently validated review bytes
+    needs:
+      - package-preview-review
+      - validate-preview-mcpb
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Require the authorized GitHub execution context
+        shell: pwsh
+        run: |
+          if (
+            $env:GITHUB_REPOSITORY -cne "andagni/autocad-mcp" -or
+            $env:GITHUB_SERVER_URL -cne "https://github.com" -or
+            $env:GITHUB_REF -cne "refs/heads/main" -or
+            $env:GITHUB_EVENT_NAME -cne "workflow_dispatch" -or
+            $env:GITHUB_ACTOR -cne "andagni" -or
+            $env:GITHUB_TRIGGERING_ACTOR -cne "andagni"
+          ) {
+            throw "Preview candidate workflow context is not authorized"
+          }
+
+      - name: Download the independently validated review candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: windows-preview-review-${{ github.sha }}-${{ github.run_id }}
+          path: target/windows-preview-review
+
+      - name: Verify the downloaded review inventory before attestation
+        shell: pwsh
+        run: |
+          $reviewDirectory = "target/windows-preview-review"
+          $expectedFiles = @(
+            "SHA256SUMS.txt",
+            "autocad-mcp-windows-x64-preview-build-source.zip",
+            "autocad-mcp-windows-x64-preview.mcpb",
+            "distribution-evidence/windows-x64-preview-build.json",
+            "distribution-evidence/windows-x64-preview-source-closure.spdx.json",
+            "review-only/unsigned-development-preflight.json"
+          ) | Sort-Object
+          $actualFiles = @(
+            Get-ChildItem -LiteralPath $reviewDirectory -File -Recurse |
+              ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                  (Resolve-Path -LiteralPath $reviewDirectory).Path,
+                  $_.FullName
+                ).Replace('\', '/')
+              } |
+              Sort-Object
+          )
+          if (Compare-Object -ReferenceObject $expectedFiles -DifferenceObject $actualFiles -CaseSensitive) {
+            throw "downloaded Preview review inventory is not closed"
+          }
+
+          $checksumMap = [System.Collections.Generic.Dictionary[string,string]]::new(
+            [System.StringComparer]::Ordinal
+          )
+          foreach ($line in Get-Content -LiteralPath (Join-Path $reviewDirectory "SHA256SUMS.txt")) {
+            if ($line -cnotmatch '^([0-9a-f]{64})  (.+)$') {
+              throw "Preview review checksum line is malformed"
+            }
+            if ($checksumMap.ContainsKey($Matches[2])) {
+              throw "Preview review checksum inventory contains a duplicate"
+            }
+            $checksumMap[$Matches[2]] = $Matches[1]
+          }
+          foreach ($name in $expectedFiles | Where-Object { $_ -cne "SHA256SUMS.txt" }) {
+            if (-not $checksumMap.ContainsKey($name)) {
+              throw "Preview review checksum inventory is incomplete"
+            }
+            $actualHash = (Get-FileHash -LiteralPath (Join-Path $reviewDirectory $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -cne $checksumMap[$name]) {
+              throw "Preview review checksum verification failed"
+            }
+          }
+          if ($checksumMap.Count -ne ($expectedFiles.Count - 1)) {
+            throw "Preview review checksum inventory is not closed"
+          }
+
+      - name: Create supplemental GitHub provenance for the review bytes
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: |
+            target/windows-preview-review/autocad-mcp-windows-x64-preview.mcpb
+            target/windows-preview-review/autocad-mcp-windows-x64-preview-build-source.zip
+            target/windows-preview-review/distribution-evidence/windows-x64-preview-build.json
+            target/windows-preview-review/distribution-evidence/windows-x64-preview-source-closure.spdx.json
+            target/windows-preview-review/review-only/unsigned-development-preflight.json
+            target/windows-preview-review/SHA256SUMS.txt
+          create-storage-record: false

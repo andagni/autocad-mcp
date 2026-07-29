@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "rows": [
+    {
+      "row_id": "dwg-ac1032-xref-v2",
+      "host_format": "dwg",
+      "drawing_version": "AC1032",
+      "dxf_form": "not_applicable",
+      "code_page": null,
+      "operations": [
+        "attach_xref",
+        "bind_xref",
+        "delete_xref_instance",
+        "detach_xref",
+        "insert_xref_instance",
+        "reload_xref",
+        "unload_xref",
+        "update_xref",
+        "update_xref_instance"
+      ],
+      "preservation_verifier_profile_id": "xref-preservation-v1",
+      "bind_verifier_profile_id": "xref-bind-v1",
+      "clip_policy": "reject",
+      "clip_verifier_profile_id": null
+    },
+    {
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "host_format": "dxf",
+      "drawing_version": "AC1032",
+      "dxf_form": "ascii",
+      "code_page": "ANSI_1252",
+      "operations": [
+        "attach_xref",
+        "bind_xref",
+        "delete_xref_instance",
+        "detach_xref",
+        "insert_xref_instance",
+        "reload_xref",
+        "unload_xref",
+        "update_xref",
+        "update_xref_instance"
+      ],
+      "preservation_verifier_profile_id": "xref-preservation-v1",
+      "bind_verifier_profile_id": "xref-bind-v1",
+      "clip_policy": "reject",
+      "clip_verifier_profile_id": null
+    }
+  ]
+}

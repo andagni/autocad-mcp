@@ -1,0 +1,32 @@
+[package]
+name = "release-packager"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Developer release tool for packaging AutoCAD MCP as MCPB artifacts"
+publish = false
+
+[dependencies]
+anyhow = "1"
+autocad-mcp = { path = "../../autocad-mcp" }
+clap = { version = "4", features = ["derive"] }
+distribution-approval = { path = "../approval" }
+jsonschema = { version = "0.46", default-features = false }
+plugin-validate = { path = "../plugin-validation" }
+release-qualification = { path = "../qualification", features = ["signing"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+walkdir = "2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+] }
+
+[[bin]]
+name = "release-packager"
+path = "src/main.rs"

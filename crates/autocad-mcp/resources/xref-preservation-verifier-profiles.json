@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "profile_id": "xref-preservation-v1",
+      "absolute_tolerance": 1e-12,
+      "relative_tolerance": 1e-12,
+      "object_classes": [
+        {
+          "class_name": "AcDbBlockReference",
+          "fields": [
+            "attachment_handle",
+            "layer",
+            "owner_handle",
+            "position",
+            "rotation",
+            "scale",
+            "visibility"
+          ]
+        },
+        {
+          "class_name": "AcDbLine",
+          "fields": [
+            "end_point",
+            "layer",
+            "owner_handle",
+            "start_point"
+          ]
+        },
+        {
+          "class_name": "AcDbMInsertBlock",
+          "fields": [
+            "attachment_handle",
+            "column_count",
+            "column_spacing",
+            "layer",
+            "owner_handle",
+            "position",
+            "rotation",
+            "row_count",
+            "row_spacing",
+            "scale",
+            "visibility"
+          ]
+        }
+      ],
+      "symbol_types": [
+        {
+          "symbol_type": "block",
+          "fields": [
+            "base_point",
+            "flags",
+            "name",
+            "owner_handle",
+            "saved_path"
+          ]
+        },
+        {
+          "symbol_type": "layer",
+          "fields": [
+            "color_index",
+            "flags",
+            "line_type",
+            "line_weight",
+            "name"
+          ]
+        },
+        {
+          "symbol_type": "linetype",
+          "fields": [
+            "description",
+            "name",
+            "pattern"
+          ]
+        }
+      ],
+      "mapped_identity_fields": [
+        "handle",
+        "owner_handle"
+      ],
+      "authorized_differences": [
+        {
+          "operation": "attach_xref",
+          "fields": [
+            "xref_attachments",
+            "xref_instances"
+          ]
+        },
+        {
+          "operation": "bind_xref",
+          "fields": [
+            "ordinary_blocks",
+            "symbols",
+            "xref_attachments",
+            "xref_instances"
+          ]
+        },
+        {
+          "operation": "delete_xref_instance",
+          "fields": [
+            "xref_instances"
+          ]
+        },
+        {
+          "operation": "detach_xref",
+          "fields": [
+            "xref_attachments",
+            "xref_instances"
+          ]
+        },
+        {
+          "operation": "insert_xref_instance",
+          "fields": [
+            "xref_instances"
+          ]
+        },
+        {
+          "operation": "reload_xref",
+          "fields": [
+            "xref_attachment_content",
+            "xref_load_state"
+          ]
+        },
+        {
+          "operation": "unload_xref",
+          "fields": [
+            "xref_load_state"
+          ]
+        },
+        {
+          "operation": "update_xref",
+          "fields": [
+            "xref_attachments"
+          ]
+        },
+        {
+          "operation": "update_xref_instance",
+          "fields": [
+            "xref_instances"
+          ]
+        }
+      ],
+      "profile_default_unit_states": []
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# Release-tool integrations are whitelist-only.
+/*
+!/.gitignore
+!/mcpb-validator/

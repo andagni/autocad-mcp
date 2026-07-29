@@ -1,0 +1,4 @@
+# Whitelist-only tracked hook policy. Admit reviewed extensionless hooks only.
+/*
+!/.gitignore
+!/pre-push

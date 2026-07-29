@@ -1,0 +1,5 @@
+# Public skills are admitted one directory at a time.
+/*
+!/.gitignore
+!/autocad-mcp/
+!/autolisp/

@@ -1,0 +1,8 @@
+# Closed release-qualification crate source only.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+
+/src/**
+!/src/*.rs

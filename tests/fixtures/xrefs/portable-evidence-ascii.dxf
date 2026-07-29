@@ -1,0 +1,772 @@
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1027
+  9
+$DWGCODEPAGE
+  3
+ANSI_1252
+  9
+$INSUNITS
+ 70
+     6
+  9
+$HANDSEED
+  5
+200
+  0
+ENDSEC
+  0
+SECTION
+  2
+TABLES
+  0
+TABLE
+  2
+LAYER
+  5
+6
+330
+0
+100
+AcDbSymbolTable
+ 70
+     2
+  0
+LAYER
+  5
+8
+330
+6
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+XREF_LAYER
+ 70
+     0
+ 62
+     7
+  6
+Continuous
+  0
+LAYER
+  5
+7
+330
+6
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
+0
+ 70
+     0
+ 62
+     7
+  6
+Continuous
+  0
+ENDTAB
+  0
+TABLE
+  2
+BLOCK_RECORD
+  5
+5
+330
+0
+100
+AcDbSymbolTable
+ 70
+     8
+  0
+BLOCK_RECORD
+  5
+10
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+GRID_OVERLAY
+ 70
+     0
+280
+     6
+281
+     0
+  0
+BLOCK_RECORD
+  5
+A2
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+DETAIL_SYMBOL
+ 70
+     0
+280
+     1
+281
+     0
+  0
+BLOCK_RECORD
+  5
+F
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+SITE_MODEL
+ 70
+     0
+280
+     4
+281
+     0
+  0
+BLOCK_RECORD
+  5
+13
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+PATH_ONLY
+ 70
+     0
+280
+     1
+281
+     0
+  0
+BLOCK_RECORD
+  5
+A0
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+*Model_Space
+ 70
+     0
+280
+     1
+281
+     0
+  0
+BLOCK_RECORD
+  5
+11
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+EMPTY_PATH
+ 70
+     0
+280
+     0
+281
+     0
+  0
+BLOCK_RECORD
+  5
+A1
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+*Paper_Space
+ 70
+     0
+280
+     1
+281
+     0
+  0
+BLOCK_RECORD
+  5
+12
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbBlockTableRecord
+  2
+NESTED_SITE
+ 70
+     0
+280
+     4
+281
+     0
+  0
+ENDTAB
+  0
+ENDSEC
+  0
+SECTION
+  2
+BLOCKS
+  0
+BLOCK
+  5
+B2
+330
+A2
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+DETAIL_SYMBOL
+ 70
+     0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+DETAIL_SYMBOL
+  1
+
+  0
+INSERT
+  5
+F0
+330
+A2
+100
+AcDbEntity
+  8
+XREF_LAYER
+100
+AcDbBlockReference
+  2
+SITE_MODEL
+ 10
+5.0
+ 20
+6.0
+ 30
+7.0
+ 41
+2.0
+ 42
+3.0
+ 43
+4.0
+ 50
+45.0
+210
+0.0
+220
+0.0
+230
+1.0
+ 70
+     1
+ 71
+     1
+ 44
+0.0
+ 45
+0.0
+  0
+ENDBLK
+  5
+C2
+330
+A2
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+B13
+330
+13
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+PATH_ONLY
+ 70
+     0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+PATH_ONLY
+  1
+refs/not-proof.dwg
+  0
+ENDBLK
+  5
+C13
+330
+13
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+B10
+330
+10
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+GRID_OVERLAY
+ 70
+     8
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+GRID_OVERLAY
+  1
+refs/grid.dwg
+  0
+ENDBLK
+  5
+C10
+330
+10
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+BA0
+330
+A0
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Model_Space
+ 70
+     0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Model_Space
+  1
+
+  0
+ENDBLK
+  5
+CA0
+330
+A0
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+BF
+330
+F
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+SITE_MODEL
+ 70
+     4
+ 10
+1.0
+ 20
+2.0
+ 30
+3.0
+  3
+SITE_MODEL
+  1
+refs/site.dwg
+  0
+ENDBLK
+  5
+CF
+330
+F
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+B12
+330
+12
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+NESTED_SITE
+ 70
+    20
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+NESTED_SITE
+  1
+refs/nested.dwg
+  0
+ENDBLK
+  5
+C12
+330
+12
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+B11
+330
+11
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+EMPTY_PATH
+ 70
+     4
+ 10
+-1.0
+ 20
+-2.0
+ 30
+-3.0
+  3
+EMPTY_PATH
+  1
+
+  0
+ENDBLK
+  5
+C11
+330
+11
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+BA1
+330
+A1
+100
+AcDbEntity
+ 67
+     1
+  8
+0
+100
+AcDbBlockBegin
+  2
+*Paper_Space
+ 70
+     0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+*Paper_Space
+  1
+
+  0
+ENDBLK
+  5
+CA1
+330
+A1
+100
+AcDbEntity
+ 67
+     1
+  8
+0
+100
+AcDbBlockEnd
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+INSERT
+  5
+100
+330
+A0
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockReference
+  2
+SITE_MODEL
+ 10
+10.0
+ 20
+20.0
+ 30
+30.0
+ 41
+1.0
+ 42
+1.0
+ 43
+1.0
+ 50
+0.0
+210
+0.0
+220
+0.0
+230
+1.0
+  0
+INSERT
+  5
+30
+330
+A0
+100
+AcDbEntity
+  8
+XREF_LAYER
+ 60
+     1
+100
+AcDbBlockReference
+  2
+EMPTY_PATH
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  0
+INSERT
+  5
+20
+330
+A1
+100
+AcDbEntity
+ 67
+     1
+  8
+XREF_LAYER
+100
+AcDbBlockReference
+  2
+GRID_OVERLAY
+ 10
+100.0
+ 20
+200.0
+ 30
+0.0
+ 41
+1.0
+ 42
+1.0
+ 43
+1.0
+ 50
+90.0
+210
+0.0
+220
+0.0
+230
+1.0
+ 70
+     3
+ 71
+     2
+ 44
+20.0
+ 45
+10.0
+  0
+ENDSEC
+  0
+SECTION
+  2
+OBJECTS
+  0
+LAYOUT
+  5
+D1
+330
+0
+100
+AcDbPlotSettings
+100
+AcDbLayout
+  1
+Sheet A
+ 70
+     1
+ 71
+     1
+ 10
+0.0
+ 20
+0.0
+ 11
+420.0
+ 21
+297.0
+ 12
+0.0
+ 22
+0.0
+ 32
+0.0
+ 14
+0.0
+ 24
+0.0
+ 34
+0.0
+ 15
+0.0
+ 25
+0.0
+ 35
+0.0
+146
+0.0
+ 13
+0.0
+ 23
+0.0
+ 33
+0.0
+ 16
+1.0
+ 26
+0.0
+ 36
+0.0
+ 17
+0.0
+ 27
+1.0
+ 37
+0.0
+ 76
+     0
+330
+A1
+  0
+ENDSEC
+  0
+EOF

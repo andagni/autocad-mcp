@@ -1,0 +1,4 @@
+# Claude plugin metadata is admitted one file at a time.
+/*
+!/.gitignore
+!/plugin.json

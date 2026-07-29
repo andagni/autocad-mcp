@@ -1,0 +1,7 @@
+# Every Markdown file below this public reference root is intended for release.
+/**
+!/.gitignore
+!/**/
+!/**/*.md
+!/autolisp-lsp-index.json
+!/documentation-provenance.json

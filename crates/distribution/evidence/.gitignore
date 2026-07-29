@@ -1,0 +1,8 @@
+# Rust distribution-evidence source only.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+
+/src/**
+!/src/*.rs

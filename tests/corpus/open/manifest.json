@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "tier": 1,
+  "fixtures": [
+    {
+      "path": "tests/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dwg",
+      "sha256": "be1e24ea0cd5194d0c57935b5018123b7cc981331172a1a2ca7cecc2d9a18e4f",
+      "format": "DWG"
+    },
+    {
+      "path": "tests/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dxf",
+      "sha256": "c615664945db8ccc91b55f77e6359a15da4f7e6f30dbd8800d2d2b94029dffac",
+      "format": "DXF"
+    },
+    {
+      "path": "tests/corpus/open/project/generic-title-block-ascii.dxf",
+      "sha256": "36b87b71d61d8452cd257bb5028b8bb1d879cbda63c02c9951fb966ffa53a86f",
+      "format": "DXF"
+    }
+  ]
+}

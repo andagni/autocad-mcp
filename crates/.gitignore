@@ -1,0 +1,10 @@
+# Whitelist-only workspace-crate policy. Add each crate deliberately.
+/*
+!/.gitignore
+!/autocad-mcp/
+!/autocad-reader/
+!/autocad-writer/
+!/autolisp-lsp/
+!/autolisp-validate/
+!/distribution/
+!/xtask/

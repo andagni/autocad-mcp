@@ -1,0 +1,41 @@
+{
+  "descriptor_version": 1,
+  "description": "Virtual graphs for ordering and overlay propagation rules.",
+  "scenarios": [
+    {
+      "id": "numeric-depth-first-preorder",
+      "root_handles_in_provider_order": ["10", "F"],
+      "children_of_10_in_provider_order": ["10", "F"],
+      "expected_attachment_chains": [
+        ["F"],
+        ["10"],
+        ["10", "F"],
+        ["10", "10"]
+      ],
+      "note": "F is hexadecimal 15 and therefore sorts before hexadecimal 10 (16)."
+    },
+    {
+      "id": "direct-overlay-root",
+      "root": {"handle": "A", "reference_type": "overlay"},
+      "resolved_children": [
+        {"handle": "2", "reference_type": "attachment"}
+      ],
+      "expected_states": [
+        {"chain": ["A"], "propagation": "root", "inspection": "inspected"},
+        {"chain": ["A", "2"], "propagation": "propagated", "inspection": "inspected"}
+      ]
+    },
+    {
+      "id": "terminal-nested-overlay",
+      "root": {"handle": "1", "reference_type": "attachment"},
+      "resolved_children": [
+        {"handle": "A", "reference_type": "overlay", "saved_path_outcome": "not_found"}
+      ],
+      "excluded_overlay_raw_descendants": ["B"],
+      "expected_states": [
+        {"chain": ["1", "A"], "propagation": "excluded_overlay", "inspection": "terminal_overlay"}
+      ],
+      "expected_omitted_chains": [["1", "A", "B"]]
+    }
+  ]
+}

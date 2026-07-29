@@ -1,0 +1,862 @@
+{
+  "schema_version": 4,
+  "release_id": "xref-example-not-evidence",
+  "activation_target": {
+    "catalogue_sha256": "135b444325de9a20453da898ad1f86a2c78ed9edd98ec90c7e18318fde04a1d4",
+    "target_id": "autocad-2026-r25-1-en-us-preview-v1",
+    "product": "autocad",
+    "edition": "full",
+    "architecture": "x86_64",
+    "release_year": 2026,
+    "registry_family": "R25.1",
+    "product_language_key": "ACAD-9101:409",
+    "ui_locale": "en-US"
+  },
+  "certified_arg_path": "C:/REPLACE_WITH_CERTIFIED_PROFILE/autocad-mcp.arg",
+  "certified_arg_sha256": "89bc4284f84d1ee9c75ef3ce8a39933d1f86e919b3092ba59ce734b2f3216fc6",
+  "certified_arg_policy_id": "autocad-mcp-preview-autocad-2026-en-us-v1",
+  "certified_arg_policy_sha256": "40b3ae0defffde4b96c5affc185775e5393478e9e6f23c1768e8cb0dae915617",
+  "release_binary_path": "C:/REPLACE_WITH_CERTIFIED_BINARIES/autocad-mcp.exe",
+  "release_binary_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "instrumented_binary_path": "C:/cert/bin/autocad-mcp-xref-failpoints.exe",
+  "instrumented_binary_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "accoreconsole_path": "C:/Program Files/Autodesk/AutoCAD 2026/accoreconsole.exe",
+  "accoreconsole_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "autocad_product": "autocad",
+  "autocad_version": "2026",
+  "matrix_sha256": "c50c8963636913026434afce0263cb9766d1e6acab92522525a5f05590965000",
+  "profile_sha256": {
+    "preservation_verifier_profiles": "4f869dce25dd74b11466c3dcecb8258fe7575ae1bdec2207be5425ceec71c333",
+    "bind_verifier_profiles": "4c6b4842a47a2ca7d6ce71522b1434011463b6b3c4acf3bb643c3fa8adc1c7cc",
+    "clip_verifier_profiles": "5c912e43c93d8a774835f9d938862224d031565c6c83469ff5995b59ac3cb1e8"
+  },
+  "release_cases": [
+    {
+      "case_id": "release-attach-xref",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "attach_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "xref_path": "C:/cert/fixtures/sources/site-ac1032.dwg",
+        "reference_type": "attachment"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-bind-xref",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "bind_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "symbol_strategy": "prefix",
+        "dependency_strategy": "bind_nested"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-delete-xref-instance",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "delete_xref_instance",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "40"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-detach-xref",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "detach_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-insert-xref-instance",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "insert_xref_instance",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "attachment_handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-reload-xref",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "reload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-unload-xref",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "unload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-update-xref",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-update-xref-instance",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref_instance",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "40",
+        "properties": {
+          "visibility": "visible"
+        }
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-bind-merge-bind-nested",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "bind_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "symbol_strategy": "merge",
+        "dependency_strategy": "bind_nested"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "bind_strategies",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-bind-merge-reject-nested",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "bind_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "symbol_strategy": "merge",
+        "dependency_strategy": "reject_nested"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "bind_strategies",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-bind-prefix-bind-nested",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "bind_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "symbol_strategy": "prefix",
+        "dependency_strategy": "bind_nested"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "bind_strategies",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-bind-prefix-reject-nested",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "bind_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "symbol_strategy": "prefix",
+        "dependency_strategy": "reject_nested"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "bind_strategies",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-clips",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "unsupported_xref_clip_data",
+      "failpoint": null,
+      "scenario": "clips",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-guards-match",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "unload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "expected_handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "guards",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-guards-mismatch",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "unload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "expected_handle": "2B"
+      },
+      "expected_status": "failed",
+      "expected_error_code": "expected_handle_mismatch",
+      "failpoint": null,
+      "scenario": "guards",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-host-race",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "concurrent_drawing_modification",
+      "failpoint": null,
+      "scenario": "host_race",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-locked-resources",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref_instance",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "40",
+        "properties": {
+          "visibility": "visible"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "xref_instance_locked",
+      "failpoint": null,
+      "scenario": "locked_resources",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-profile-isolation",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "unload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "profile_isolation",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-source-race",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "reload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A"
+      },
+      "expected_status": "failed",
+      "expected_error_code": "xref_source_changed",
+      "failpoint": null,
+      "scenario": "source_race",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-attach-xref",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "attach_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "xref_path": "C:/cert/fixtures/sources/site-ac1032.dwg",
+        "reference_type": "attachment"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-bind-xref",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "bind_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "2A",
+        "symbol_strategy": "prefix",
+        "dependency_strategy": "bind_nested"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-delete-xref-instance",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "delete_xref_instance",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "40"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-detach-xref",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "detach_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-insert-xref-instance",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "insert_xref_instance",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "attachment_handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-reload-xref",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "reload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-unload-xref",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "unload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-update-xref",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "release-update-xref-instance",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "update_xref_instance",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "40",
+        "properties": {
+          "visibility": "visible"
+        }
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "operation_success",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "scenario-profile-isolation",
+      "row_id": "dxf-ascii-ac1032-ansi-1252-xref-v2",
+      "operation": "unload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032-ansi-1252.dxf",
+        "handle": "2A"
+      },
+      "expected_status": "passed",
+      "expected_error_code": null,
+      "failpoint": null,
+      "scenario": "profile_isolation",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    }
+  ],
+  "instrumented_cases": [
+    {
+      "case_id": "transaction-00-during-source-snapshot",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "reload_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A"
+      },
+      "expected_status": "failed",
+      "expected_error_code": "xref_source_changed",
+      "failpoint": "during_source_snapshot",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-01-before-save",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "write_failed",
+      "failpoint": "before_save",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-02-after-save",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "write_failed",
+      "failpoint": "after_save",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-03-before-verification",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "verification_failed",
+      "failpoint": "before_verification",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-04-after-verification",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "verification_failed",
+      "failpoint": "after_verification",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-05-before-cleanup",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "write_failed",
+      "failpoint": "before_cleanup",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-06-after-cleanup",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "write_failed",
+      "failpoint": "after_cleanup",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-07-before-host-recheck",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "write_failed",
+      "failpoint": "before_host_recheck",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-08-after-host-recheck",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "write_failed",
+      "failpoint": "after_host_recheck",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-09-before-replace",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "write_failed",
+      "failpoint": "before_replace",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-10-after-replace",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "mutation_state_unknown",
+      "failpoint": "after_replace",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-11-before-directory-flush",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "mutation_state_unknown",
+      "failpoint": "before_directory_flush",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-12-after-directory-flush",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "mutation_state_unknown",
+      "failpoint": "after_directory_flush",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    },
+    {
+      "case_id": "transaction-13-before-installed-digest-check",
+      "row_id": "dwg-ac1032-xref-v2",
+      "operation": "update_xref",
+      "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+      "params": {
+        "drawing_path": "C:/cert/fixtures/xref-host-ac1032.dwg",
+        "handle": "2A",
+        "properties": {
+          "xref_path": "sources/site-ac1032.dwg"
+        }
+      },
+      "expected_status": "failed",
+      "expected_error_code": "mutation_state_unknown",
+      "failpoint": "before_installed_digest_check",
+      "scenario": "transaction_failpoint",
+      "source_fixture_paths": [
+        "sources/site-ac1032.dwg"
+      ]
+    }
+  ],
+  "fixture_root": "C:/cert/fixtures"
+}

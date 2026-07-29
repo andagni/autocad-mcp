@@ -1,0 +1,8 @@
+# Rust developer-tool source only.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+
+/src/**
+!/src/*.rs

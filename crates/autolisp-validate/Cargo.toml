@@ -1,0 +1,14 @@
+[package]
+name = "autolisp-validate"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "AutoLISP syntax and convention validator for the autocad-mcp plugin"
+
+[lib]
+name = "autolisp_validate"
+path = "src/lib.rs"
+
+[[bin]]
+name = "autolisp-validate"
+path = "src/main.rs"

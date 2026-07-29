@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Autodesk\AutoCAD\R24.2\ACAD-6101:409\Profiles\AutoCAD-MCP Preview AutoCAD 2023 en-US]
+"Description"="AutoCAD-MCP Preview candidate activation profile for AutoCAD 2023 en-US; not a support claim"
+
+[HKEY_CURRENT_USER\Software\Autodesk\AutoCAD\R24.2\ACAD-6101:409\Profiles\AutoCAD-MCP Preview AutoCAD 2023 en-US\General]
+"EnableStartupDialog"=dword:00000000

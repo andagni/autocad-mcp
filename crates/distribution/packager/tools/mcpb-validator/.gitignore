@@ -1,0 +1,5 @@
+# The validator dependency closure is restored only in CI.
+/*
+!/.gitignore
+!/package.json
+!/package-lock.json

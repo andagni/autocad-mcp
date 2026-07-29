@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "preview_candidate_activation_catalogue",
+  "authority": "candidate_only_no_support_claim",
+  "targets": [
+    {
+      "target_id": "autocad-2018-r22-0-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2018,
+      "registry_family": "R22.0",
+      "product_language_key": "ACAD-1001:409",
+      "ui_locale": "en-US",
+      "maintained_target": false,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2018-r22.0-en-us-preview.arg",
+        "arg_sha256": "35c4b46896eb46d43c81fab2bd10e335a33698ae760c401d174497929878a62e",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2018-r22.0-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2018-en-us-v1",
+        "policy_sha256": "b404fdc9ec4fc626ee9fea186412423aaa858e7ffa2459b6938f797d2a7c0013"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2019-r23-0-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2019,
+      "registry_family": "R23.0",
+      "product_language_key": "ACAD-2001:409",
+      "ui_locale": "en-US",
+      "maintained_target": false,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2019-r23.0-en-us-preview.arg",
+        "arg_sha256": "40dfcdb61a0ff785f53164b2be8562c6137c8aae0e74a7047ad94db25946c1bf",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2019-r23.0-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2019-en-us-v1",
+        "policy_sha256": "45d22b0cabe336c42e92f54560a2fbf83e2fc32a557ee18ee9717c6ad747151e"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2020-r23-1-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2020,
+      "registry_family": "R23.1",
+      "product_language_key": "ACAD-3001:409",
+      "ui_locale": "en-US",
+      "maintained_target": false,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2020-r23.1-en-us-preview.arg",
+        "arg_sha256": "d49d0a0d4d0232f5e9e82f7f0b2b50be4f11f04a566b5bdd0759665bb38f939e",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2020-r23.1-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2020-en-us-v1",
+        "policy_sha256": "36f5417964294b9fa7f26a122eb5eb04ceae2f605f7afddafa66a1ef0d7e8e88"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2021-r24-0-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2021,
+      "registry_family": "R24.0",
+      "product_language_key": "ACAD-4101:409",
+      "ui_locale": "en-US",
+      "maintained_target": false,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2021-r24.0-en-us-preview.arg",
+        "arg_sha256": "cb303316d8eb4a253893f7f6a6fe80ec3410861ebd8e05bd403b0490e9415d1b",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2021-r24.0-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2021-en-us-v1",
+        "policy_sha256": "c5a39700797894e3caf0ffb36a6b05e74e47538c3639c6f0d7bbc690b293edf3"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2022-r24-1-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2022,
+      "registry_family": "R24.1",
+      "product_language_key": "ACAD-5101:409",
+      "ui_locale": "en-US",
+      "maintained_target": false,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2022-r24.1-en-us-preview.arg",
+        "arg_sha256": "20ca45497f006fceac9a916fe2a2bf4017cadffdcc2b63460c99d3987be316a4",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2022-r24.1-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2022-en-us-v1",
+        "policy_sha256": "6e86113f72672a7342956221995b4e8c703c74c650b5ff97efac571b13a13bd4"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2023-r24-2-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2023,
+      "registry_family": "R24.2",
+      "product_language_key": "ACAD-6101:409",
+      "ui_locale": "en-US",
+      "maintained_target": false,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2023-r24.2-en-us-preview.arg",
+        "arg_sha256": "f636edd971ee1ad497e11212af17c2689f7579489df7a95ec6f02f5e6bc6a606",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2023-r24.2-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2023-en-us-v1",
+        "policy_sha256": "59c2ef1660185847339a74dd203af45514540a4a77391fe981b319877738bbec"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2024-r24-3-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2024,
+      "registry_family": "R24.3",
+      "product_language_key": "ACAD-7101:409",
+      "ui_locale": "en-US",
+      "maintained_target": true,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2024-r24.3-en-us-preview.arg",
+        "arg_sha256": "028185637d0c4f7b7df09a922eac2bd3e1e23a964def2539a6db195ea0cbb03f",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2024-r24.3-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2024-en-us-v1",
+        "policy_sha256": "e4961ee433d3a9ee750131c5e1182402df864c899a5dc5ea5f4148eb6495680c"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2025-r25-0-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2025,
+      "registry_family": "R25.0",
+      "product_language_key": "ACAD-8101:409",
+      "ui_locale": "en-US",
+      "maintained_target": true,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2025-r25.0-en-us-preview.arg",
+        "arg_sha256": "473be6d98b9a10b7042e10908fe7c664dd947228cfffac1beda3670bce63356a",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2025-r25.0-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2025-en-us-v1",
+        "policy_sha256": "3cc970a453949c527c5418ab5b235cc170bea910276311dbc25c7d85b01b156e"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2026-r25-1-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2026,
+      "registry_family": "R25.1",
+      "product_language_key": "ACAD-9101:409",
+      "ui_locale": "en-US",
+      "maintained_target": true,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2026-r25.1-en-us-preview.arg",
+        "arg_sha256": "89bc4284f84d1ee9c75ef3ce8a39933d1f86e919b3092ba59ce734b2f3216fc6",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2026-r25.1-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2026-en-us-v1",
+        "policy_sha256": "40b3ae0defffde4b96c5affc185775e5393478e9e6f23c1768e8cb0dae915617"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    },
+    {
+      "target_id": "autocad-2027-r26-0-en-us-preview-v1",
+      "product": "autocad",
+      "edition": "full",
+      "architecture": "x86_64",
+      "release_year": 2027,
+      "registry_family": "R26.0",
+      "product_language_key": "ACAD-A101:409",
+      "ui_locale": "en-US",
+      "maintained_target": true,
+      "profile": {
+        "arg_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2027-r26.0-en-us-preview.arg",
+        "arg_sha256": "8ee60fc5ccf13f3d52d3cbbc5319ebd0150dab0b89261aa78d1692278e4ce0f8",
+        "policy_path": "crates/autocad-mcp/resources/activation-profiles/autocad-2027-r26.0-en-us-preview.policy.json",
+        "policy_id": "autocad-mcp-preview-autocad-2027-en-us-v1",
+        "policy_sha256": "b094364e1785e52ccfbd0542fd5746ae291684a107fe7d781298b4562bae40be"
+      },
+      "operation_families": [
+        "dwg_layer_mutation",
+        "dwg_title_block_mutation",
+        "plot",
+        "xref_mutation"
+      ],
+      "drawing_formats": [
+        "AC1032"
+      ]
+    }
+  ]
+}

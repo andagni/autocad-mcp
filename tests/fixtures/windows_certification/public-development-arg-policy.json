@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "policy_id": "autocad-mcp-public-development-v1",
+  "purpose": "development_fixture",
+  "profile_root": "HKEY_CURRENT_USER\\Software\\Autodesk\\AutoCAD\\R25.1\\ACAD-9101:409\\Profiles\\AutoCAD-MCP Public Development",
+  "profile_name": "AutoCAD-MCP Public Development",
+  "values": [
+    {
+      "relative_key": "",
+      "value_name": "Description",
+      "type": "string",
+      "value": "Synthetic public development fixture; not certified or approved for release or distribution"
+    },
+    {
+      "relative_key": "General",
+      "value_name": "EnableStartupDialog",
+      "type": "dword",
+      "value": "00000000"
+    },
+    {
+      "relative_key": "General",
+      "value_name": "FixturePurpose",
+      "type": "string",
+      "value": "development-only"
+    }
+  ]
+}

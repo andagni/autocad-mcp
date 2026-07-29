@@ -1,0 +1,38 @@
+# Tests are whitelist-only. Binary and third-party fixtures require exact,
+# reviewed file exceptions with provenance recorded alongside them.
+/**
+!/.gitignore
+!/**/
+!/**/*.rs
+
+!/corpus/autodesk/SOURCES.md
+!/corpus/civil3d/SOURCES.md
+!/corpus/open/SOURCES.md
+!/corpus/open/manifest.json
+!/corpus/open/acadsharp/LICENSE
+!/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dwg
+!/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dxf
+!/corpus/open/project/generic-title-block-ascii.dxf
+
+# The schema root contains only the four closed schemas consumed by the
+# shipped plugin. New schema or example bytes require a provenance-ledger row
+# and a matching exact exception.
+!/fixtures/plugin-example/.claude-plugin/plugin.schema.json
+!/fixtures/plugin-example/.lsp.schema.json
+!/fixtures/plugin-example/.mcp.schema.json
+!/fixtures/plugin-example/skills/skill/SKILL.schema.yaml
+!/fixtures/windows_certification/manifest.example.json
+!/fixtures/windows_certification/public-development-arg-policy.json
+!/fixtures/windows_certification/public-development-profile.arg
+!/fixtures/windows_certification/xref-manifest.example.json
+!/fixture-provenance.json
+!/reader-qualification/acadrust-0.4.0-diagnostic-baseline.json
+!/reader-qualification/acadrust-0.4.1-diagnostic-baseline.json
+!/reader-qualification/acadrust-0.4.1-on-0.4.0-fixtures.json
+!/fixtures/xrefs/README.md
+!/fixtures/xrefs/graph/README.md
+!/fixtures/xrefs/graph/cycles-and-diamonds.json
+!/fixtures/xrefs/graph/states-and-limits.json
+!/fixtures/xrefs/graph/traversal.json
+!/fixtures/xrefs/non-utf8-ansi-1252.dxf
+!/fixtures/xrefs/portable-evidence-ascii.dxf

@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://andagni.invalid/schemas/release/preview-publication-handoff-statement-v2.schema.json",
+  "title": "Preview publication handoff statement",
+  "description": "Closed schema for the statement inside a canonical signed preview_publication_handoff envelope. The envelope kind is preview_publication_handoff and its non-serialized signing domain is autocad-mcp.release/preview-publication-handoff/v2. The source identity also binds the authority-local canonical primary source checkout. Envelope parsing, canonical-byte enforcement, signature verification, and owner-key admission are provided externally by release-qualification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_mode",
+    "source_identity",
+    "release_version",
+    "decision_id",
+    "inventory"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "package_mode": {
+      "const": "preview"
+    },
+    "source_identity": {
+      "$ref": "#/$defs/source_identity"
+    },
+    "release_version": {
+      "type": "string",
+      "pattern": "^0\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "decision_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z0-9][A-Z0-9._-]{2,63}$"
+    },
+    "inventory": {
+      "description": "Exactly nine bound files in strict logical-path order. SHA256SUMS.txt covers, in order, the Preview MCPB, root Preview build-source ZIP, Preview source-closure SBOM, final Preview build attestation, Preview clean-host receipt, and owner distribution approval. The current-distribution verification and publication-projection receipts are private bound inputs. The signed envelope is outside this inventory and cannot bind itself.",
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "prefixItems": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "sha256_sums"
+                },
+                "logical_path": {
+                  "const": "SHA256SUMS.txt"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "preview_source_archive"
+                },
+                "logical_path": {
+                  "const": "autocad-mcp-windows-x64-preview-build-source.zip"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "preview_mcpb"
+                },
+                "logical_path": {
+                  "const": "autocad-mcp-windows-x64-preview.mcpb"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "current_distribution_verification"
+                },
+                "logical_path": {
+                  "const": "current-distribution-verification.json"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "preview_build_attestation"
+                },
+                "logical_path": {
+                  "const": "distribution-evidence/windows-x64-preview-build.json"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "preview_clean_host_receipt"
+                },
+                "logical_path": {
+                  "const": "distribution-evidence/windows-x64-preview-clean-host.json"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "preview_source_closure_sbom"
+                },
+                "logical_path": {
+                  "const": "distribution-evidence/windows-x64-preview-source-closure.spdx.json"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "owner_distribution_approval"
+                },
+                "logical_path": {
+                  "const": "owner-distribution-approval.json"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_binding"
+            },
+            {
+              "properties": {
+                "role": {
+                  "const": "publication_projection_receipt"
+                },
+                "logical_path": {
+                  "const": "publication-candidate-receipt.json"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git_object_format",
+        "git_commit_oid",
+        "git_tree_oid",
+        "source_authority_sha256"
+      ],
+      "properties": {
+        "git_object_format": {
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        },
+        "git_commit_oid": {
+          "type": "string",
+          "pattern": "^[0-9a-f]+$"
+        },
+        "git_tree_oid": {
+          "type": "string",
+          "pattern": "^[0-9a-f]+$"
+        },
+        "source_authority_sha256": {
+          "description": "Authority-local SHA-256 binding the canonical primary source checkout, common Git directory identity, authoritative main ref, object format, source commit, and source tree.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "git_object_format": {
+                "const": "sha1"
+              }
+            },
+            "required": [
+              "git_object_format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "git_commit_oid": {
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "git_tree_oid": {
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "git_object_format": {
+                "const": "sha256"
+              }
+            },
+            "required": [
+              "git_object_format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "git_commit_oid": {
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "git_tree_oid": {
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "file_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "logical_path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "current_distribution_verification",
+            "owner_distribution_approval",
+            "preview_build_attestation",
+            "preview_clean_host_receipt",
+            "preview_mcpb",
+            "preview_source_archive",
+            "preview_source_closure_sbom",
+            "publication_projection_receipt",
+            "sha256_sums"
+          ]
+        },
+        "logical_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+[package]
+name = "autolisp-lsp"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "AutoLISP language server for the AutoCAD MCP plugin"
+publish = false
+
+[dependencies]
+autolisp-validate = { path = "../autolisp-validate" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tower-lsp = "0.20"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "autolisp-lsp"
+path = "src/main.rs"

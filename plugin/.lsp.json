@@ -1,0 +1,10 @@
+{
+  "autolisp-lsp": {
+    "command": "${CLAUDE_PLUGIN_ROOT}/bin/autolisp-lsp",
+    "args": [],
+    "extensionToLanguage": {
+      ".lsp": "autolisp"
+    },
+    "transport": "stdio"
+  }
+}

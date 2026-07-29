@@ -1,0 +1,7 @@
+# Do not admit a weaker or unrelated release schema by extension.
+/*
+!/.gitignore
+!/owner-distribution-approval.schema.json
+!/preview-clean-host-receipt.schema.json
+!/preview-publication-handoff.schema.json
+!/windows-preview-build-attestation.schema.json

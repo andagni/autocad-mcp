@@ -1,0 +1,9 @@
+{
+  "name": "autocad-mcp",
+  "description": "A Rust-backed AutoLISP MCP server with bundled CAD skills",
+  "version": "0.0.1",
+  "license": "GPL-3.0-or-later",
+  "author": {
+    "name": "andagni"
+  }
+}

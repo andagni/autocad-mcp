@@ -1,0 +1,17 @@
+# Whitelist-only repository policy. New root paths are ignored until reviewed.
+/*
+!/.github/
+!/.gitattributes
+!/.githooks/
+!/.gitignore
+!/Cargo.lock
+!/Cargo.toml
+!/LICENSE
+!/README.md
+!/crates/
+!/plugin/
+!/tests/
+!/rust-toolchain.toml
+
+# Specifications remain local-only and must never enter the public tree.
+/crates/**/docs/

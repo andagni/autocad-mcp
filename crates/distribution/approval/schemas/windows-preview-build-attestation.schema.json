@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://andagni.invalid/schemas/release/windows-preview-build-attestation-v1.schema.json",
+  "title": "Windows Preview build attestation",
+  "description": "Closed post-signing contract binding the exact Preview source, native Windows build identity, unsigned development preflight, and final distribution subjects. Each final executable SHA-256 must differ semantically from its corresponding unsigned_preflight digest, proving that the required signing transition changed the bytes. It records build provenance and byte joins; it is not owner distribution approval or clean-host acceptance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "package_mode",
+    "target_triple",
+    "build_profile",
+    "cargo_incremental",
+    "source_identity",
+    "native_build",
+    "unsigned_preflight",
+    "subjects"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "windows_preview_build_attestation"
+    },
+    "package_mode": {
+      "const": "preview"
+    },
+    "target_triple": {
+      "const": "x86_64-pc-windows-msvc"
+    },
+    "build_profile": {
+      "const": "release"
+    },
+    "cargo_incremental": {
+      "const": false
+    },
+    "source_identity": {
+      "$ref": "#/$defs/source_identity"
+    },
+    "native_build": {
+      "$ref": "#/$defs/native_build"
+    },
+    "unsigned_preflight": {
+      "$ref": "#/$defs/unsigned_preflight"
+    },
+    "subjects": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/source_archive_subject"
+        },
+        {
+          "$ref": "#/$defs/windows_lsp_subject"
+        },
+        {
+          "$ref": "#/$defs/windows_server_subject"
+        }
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "sha1_oid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "positive_u64": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18446744073709551615
+    },
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git_object_format",
+        "git_commit_oid",
+        "git_tree_oid",
+        "source_bundle_manifest_sha256",
+        "cargo_lock_sha256",
+        "dependency_input_closure_sha256",
+        "rust_toolchain_sha256",
+        "build_recipe_sha256"
+      ],
+      "properties": {
+        "git_object_format": {
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        },
+        "git_commit_oid": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "git_tree_oid": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "source_bundle_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cargo_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "dependency_input_closure_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "rust_toolchain_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "build_recipe_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "git_object_format": {
+                "const": "sha1"
+              }
+            },
+            "required": [
+              "git_object_format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "git_commit_oid": {
+                "$ref": "#/$defs/sha1_oid"
+              },
+              "git_tree_oid": {
+                "$ref": "#/$defs/sha1_oid"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "git_commit_oid": {
+                "$ref": "#/$defs/sha256"
+              },
+              "git_tree_oid": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "native_build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "repository",
+        "workflow_path",
+        "workflow_sha256",
+        "run_id",
+        "run_attempt",
+        "runner_os",
+        "runner_arch",
+        "compiler",
+        "preview_build_id",
+        "certified_arg_sha256",
+        "certified_arg_policy_id",
+        "certified_arg_policy_sha256",
+        "crt_linkage",
+        "pe_import_policy_id"
+      ],
+      "properties": {
+        "authority": {
+          "const": "github_actions_windows_preview_review"
+        },
+        "repository": {
+          "const": "andagni/autocad-mcp"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/windows-preview-review-candidate.yml"
+        },
+        "workflow_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "run_id": {
+          "$ref": "#/$defs/positive_u64"
+        },
+        "run_attempt": {
+          "$ref": "#/$defs/positive_u64"
+        },
+        "runner_os": {
+          "const": "Windows"
+        },
+        "runner_arch": {
+          "const": "X64"
+        },
+        "compiler": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^rustc 1[.]97[.]0 [ -~]*host: x86_64-pc-windows-msvc[ -~]*$"
+        },
+        "preview_build_id": {
+          "$ref": "#/$defs/sha256"
+        },
+        "certified_arg_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "certified_arg_policy_id": {
+          "const": "autocad-mcp-public-development-v1"
+        },
+        "certified_arg_policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "crt_linkage": {
+          "const": "static"
+        },
+        "pe_import_policy_id": {
+          "const": "pe-no-vc-runtime-imports-v1"
+        }
+      }
+    },
+    "unsigned_preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "preview_binary_sha256",
+        "lsp_binary_sha256"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "preview_binary_sha256": {
+          "description": "SHA-256 of the selected pre-signing Preview MCP server bytes.",
+          "$ref": "#/$defs/sha256"
+        },
+        "lsp_binary_sha256": {
+          "description": "SHA-256 of the selected pre-signing AutoLISP LSP bytes.",
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "source_archive_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "source-archive"
+        },
+        "sha256": {
+          "description": "SHA-256 of the exact deterministic Preview build-source ZIP.",
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/positive_u64"
+        }
+      }
+    },
+    "windows_lsp_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "sha256",
+        "size_bytes",
+        "unsigned_sha256"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "windows-lsp"
+        },
+        "sha256": {
+          "description": "SHA-256 of the final signed AutoLISP LSP bytes. Semantic validation requires this to differ from unsigned_sha256.",
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/positive_u64"
+        },
+        "unsigned_sha256": {
+          "description": "SHA-256 of the selected pre-signing AutoLISP LSP bytes; must differ semantically from sha256.",
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "windows_server_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "sha256",
+        "size_bytes",
+        "unsigned_sha256"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "windows-server"
+        },
+        "sha256": {
+          "description": "SHA-256 of the final signed Preview MCP server bytes. Semantic validation requires this to differ from unsigned_sha256.",
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/positive_u64"
+        },
+        "unsigned_sha256": {
+          "description": "SHA-256 of the selected pre-signing Preview MCP server bytes; must differ semantically from sha256.",
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

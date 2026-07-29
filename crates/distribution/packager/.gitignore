@@ -1,0 +1,17 @@
+# Rust crate source and tests only. Generated packages remain ignored.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+!/tests/
+!/tools/
+
+/src/**
+!/src/**/
+!/src/*.rs
+!/src/**/*.rs
+
+/tests/**
+!/tests/**/
+!/tests/*.rs
+!/tests/**/*.rs

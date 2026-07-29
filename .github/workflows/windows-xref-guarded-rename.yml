@@ -1,0 +1,64 @@
+name: Windows-only XREF rename feasibility
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  windows-xref-rename-feasibility:
+    name: Native filesystem feasibility characterization
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      AUTOCAD_MCP_WINDOWS_GUARDED_RENAME_FEASIBILITY_EVIDENCE: target/xref-windows-guarded-rename-feasibility-evidence.json
+      CARGO_INCREMENTAL: "0"
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the repository toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Restore the shared locked Cargo dependency cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: cargo-registry-v1-windows-2025-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-v1-windows-2025-${{ runner.arch }}-
+
+      - name: Populate the exact locked dependency sources
+        run: cargo fetch --locked
+
+      - name: Install the pinned shared compiler cache
+        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: "v0.15.0"
+
+      - name: Run the Windows-only feasibility probe
+        run: cargo run --locked -p xtask -- windows-native-tests --suite guarded-rename
+        env:
+          RUSTC_WRAPPER: sccache
+          SCCACHE_BASEDIRS: ${{ github.workspace }}
+          SCCACHE_GHA_ENABLED: "true"
+
+      - name: Upload feasibility evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: xref-windows-guarded-rename-feasibility-${{ github.sha }}
+          path: target/xref-windows-guarded-rename-feasibility-evidence.json
+          if-no-files-found: error
+          retention-days: 14

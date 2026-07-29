@@ -1,0 +1,21 @@
+[package]
+name = "autocad-writer"
+version = "0.0.1"
+edition = "2021"
+license.workspace = true
+description = "Internal candidate-generation boundary for AutoCAD-MCP drawing mutations"
+publish = false
+
+[dependencies]
+acadrust = "=0.4.1"
+autocad-reader = { path = "../autocad-reader" }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lib]
+path = "src/mod.rs"

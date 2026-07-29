@@ -1,0 +1,20 @@
+[package]
+name = "autocad-reader"
+version = "0.0.1"
+edition = "2021"
+license.workspace = true
+description = "Internal immutable-snapshot reader boundary for AutoCAD-MCP"
+publish = false
+
+[dependencies]
+acadrust = "=0.4.1"
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+
+[lib]
+path = "src/mod.rs"

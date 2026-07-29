@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/autolisp-lsp",
+    "crates/autolisp-validate",
+    "crates/autocad-mcp",
+    "crates/autocad-reader",
+    "crates/autocad-writer",
+    "crates/distribution/approval",
+    "crates/distribution/evidence",
+    "crates/distribution/packager",
+    "crates/distribution/plugin-validation",
+    "crates/distribution/qualification",
+    "crates/xtask",
+]
+
+[workspace.package]
+license = "GPL-3.0-or-later"

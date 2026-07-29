@@ -1,0 +1,15 @@
+{
+  "name": "autocad-mcp-mcpb-validator",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pinned supplemental MCPB manifest validator for release review",
+  "engines": {
+    "node": "24.18.0"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2"
+  },
+  "overrides": {
+    "tmp": "0.2.7"
+  }
+}

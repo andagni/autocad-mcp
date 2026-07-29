@@ -1,0 +1,10 @@
+# Rust crate source only.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+
+/src/**
+!/src/**/
+!/src/*.rs
+!/src/**/*.rs

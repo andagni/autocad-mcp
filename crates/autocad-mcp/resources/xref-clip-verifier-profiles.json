@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "profile_id": "xref-clip-v1",
+      "absolute_tolerance": 1e-12,
+      "relative_tolerance": 1e-12,
+      "mapped_identity_fields": [
+        "owner_handle",
+        "spatial_filter_handle"
+      ],
+      "profile_default_unit_states": [],
+      "clip_fields": [
+        "associated_instance_transform",
+        "back_distance",
+        "back_plane_enabled",
+        "block_transform",
+        "boundary_ocs_points",
+        "enabled",
+        "front_distance",
+        "front_plane_enabled",
+        "inverse_block_transform",
+        "inverted",
+        "local_origin",
+        "normal",
+        "owner_handle",
+        "spatial_filter_handle"
+      ]
+    }
+  ]
+}

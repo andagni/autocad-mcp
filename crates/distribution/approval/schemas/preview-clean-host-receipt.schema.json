@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://andagni.invalid/schemas/release/preview-clean-host-receipt-v1.schema.json",
+  "title": "Preview Claude Desktop clean-host acceptance receipt",
+  "description": "Closed, privacy-safe acceptance receipt for one exact Preview MCPB on Claude Desktop for Windows x86_64. The receipt contains no paths, user or host identifiers, free text, or logs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "result",
+    "package",
+    "client",
+    "host",
+    "fixtures",
+    "observed_tool_count",
+    "passed_checks",
+    "completed_utc",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "claude_desktop_clean_host_acceptance"
+    },
+    "result": {
+      "const": "accepted"
+    },
+    "package": {
+      "$ref": "#/$defs/package"
+    },
+    "client": {
+      "$ref": "#/$defs/client"
+    },
+    "host": {
+      "$ref": "#/$defs/host"
+    },
+    "fixtures": {
+      "$ref": "#/$defs/fixtures"
+    },
+    "observed_tool_count": {
+      "const": 51
+    },
+    "passed_checks": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "prefixItems": [
+        {
+          "const": "clean_profile"
+        },
+        {
+          "const": "pre_install_absent"
+        },
+        {
+          "const": "install"
+        },
+        {
+          "const": "enabled_connected"
+        },
+        {
+          "const": "tool_discovery"
+        },
+        {
+          "const": "dxf_read"
+        },
+        {
+          "const": "dwg_read"
+        },
+        {
+          "const": "shutdown_no_process"
+        },
+        {
+          "const": "restart_reconnect"
+        },
+        {
+          "const": "uninstall"
+        },
+        {
+          "const": "post_uninstall_absent"
+        }
+      ],
+      "items": false
+    },
+    "completed_utc": {
+      "type": "string",
+      "pattern": "^(?:(?:[0-9]{3}[1-9]|[0-9]{2}[1-9][0-9]|[0-9][1-9][0-9]{2}|[1-9][0-9]{3})-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "const": "preview_evidence_only"
+        },
+        {
+          "const": "not_release_certification"
+        },
+        {
+          "const": "not_signing_evidence"
+        }
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "concrete_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,9})(\\.(0|[1-9][0-9]{0,9})){2,3}$"
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "target_triple",
+        "mcpb_sha256",
+        "mcpb_size_bytes",
+        "mcp_server_sha256",
+        "autolisp_lsp_sha256"
+      ],
+      "properties": {
+        "mode": {
+          "const": "preview"
+        },
+        "target_triple": {
+          "const": "x86_64-pc-windows-msvc"
+        },
+        "mcpb_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "mcpb_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "mcp_server_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "autolisp_lsp_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product",
+        "version"
+      ],
+      "properties": {
+        "product": {
+          "const": "claude_desktop"
+        },
+        "version": {
+          "$ref": "#/$defs/concrete_version"
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operating_system",
+        "architecture",
+        "os_version"
+      ],
+      "properties": {
+        "operating_system": {
+          "const": "windows"
+        },
+        "architecture": {
+          "const": "x86_64"
+        },
+        "os_version": {
+          "$ref": "#/$defs/concrete_version"
+        }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "sha256"
+      ],
+      "properties": {
+        "fixture_id": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "fixtures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dxf",
+        "dwg"
+      ],
+      "properties": {
+        "dxf": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/fixture"
+            },
+            {
+              "properties": {
+                "fixture_id": {
+                  "const": "tier1_acadsharp_blockvisibilityparameter_dxf"
+                },
+                "sha256": {
+                  "const": "c615664945db8ccc91b55f77e6359a15da4f7e6f30dbd8800d2d2b94029dffac"
+                }
+              }
+            }
+          ]
+        },
+        "dwg": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/fixture"
+            },
+            {
+              "properties": {
+                "fixture_id": {
+                  "const": "tier1_acadsharp_blockvisibilityparameter_dwg"
+                },
+                "sha256": {
+                  "const": "be1e24ea0cd5194d0c57935b5018123b7cc981331172a1a2ca7cecc2d9a18e4f"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

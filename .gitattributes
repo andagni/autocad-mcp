@@ -1,0 +1,59 @@
+# Corpus drawings are exact-byte fixtures. Never normalize line endings or
+# attempt textual merge/diff handling, including for ASCII DXF files.
+LICENSE text eol=lf
+plugin/LICENSE text eol=lf
+plugin/dependency-license-policy.json text eol=lf
+plugin/dependency-license-provenance.json text eol=lf
+plugin/dependency-source-lock.spdx.json text eol=lf
+plugin/dependency-windows-source-closure.spdx.json text eol=lf
+crates/distribution/approval/schemas/owner-distribution-approval.schema.json text eol=lf
+crates/distribution/approval/schemas/preview-clean-host-receipt.schema.json text eol=lf
+crates/distribution/approval/schemas/preview-publication-handoff.schema.json text eol=lf
+crates/distribution/approval/schemas/windows-preview-build-attestation.schema.json text eol=lf
+# The notice bundle preserves the exact fetched licence-file bytes, including
+# their original line endings, inside a deterministic framed text bundle.
+plugin/THIRD_PARTY_LICENSES.txt binary
+plugin/dependency-license-supplements/* binary
+.githooks/pre-push text eol=lf
+.github/workflows/windows-native-harness.yml text eol=lf
+.github/workflows/windows-preview-review-candidate.yml text eol=lf
+.github/workflows/windows-xref-guarded-rename.yml text eol=lf
+Cargo.lock text eol=lf
+Cargo.toml text eol=lf
+rust-toolchain.toml text eol=lf
+crates/**/Cargo.toml text eol=lf
+crates/**/*.rs text eol=lf
+tests/**/*.rs text eol=lf
+crates/autocad-mcp/Cargo.toml text eol=lf
+crates/autocad-mcp/build.rs text eol=lf
+crates/autocad-mcp/src/**/*.rs text eol=lf
+crates/autocad-mcp/resources/*.json text eol=lf
+crates/autocad-mcp/resources/activation-profiles/*.arg binary
+crates/autocad-mcp/resources/activation-profiles/*.policy.json text eol=lf
+crates/autocad-mcp/profile-registry/*.json text eol=lf
+crates/distribution/evidence/src/lib.rs text eol=lf
+crates/xtask/src/source_bundle.rs text eol=lf
+crates/distribution/approval/Cargo.toml text eol=lf
+crates/distribution/approval/src/**/*.rs text eol=lf
+crates/distribution/qualification/Cargo.toml text eol=lf
+crates/distribution/qualification/src/**/*.rs text eol=lf
+plugin/skills/autolisp/SKILL.md text eol=lf
+plugin/skills/autolisp/references/*.md text eol=lf
+plugin/skills/autolisp/references/**/*.md text eol=lf
+plugin/skills/autolisp/references/autolisp-lsp-index.json text eol=lf
+plugin/skills/autolisp/references/documentation-provenance.json text eol=lf
+tests/fixture-provenance.json text eol=lf
+tests/reader-qualification/*.json text eol=lf
+tests/corpus/**/*.md text eol=lf
+tests/corpus/**/LICENSE text eol=lf
+tests/corpus/**/*.json text eol=lf
+tests/fixtures/**/*.md text eol=lf
+tests/fixtures/**/*.json text eol=lf
+tests/fixtures/**/*.yaml text eol=lf
+tests/fixtures/windows_certification/public-development-arg-policy.json text eol=lf
+tests/fixtures/windows_certification/public-development-profile.arg binary
+tests/fixtures/xrefs/*.dxf binary
+tests/corpus/**/*.dwg binary
+tests/corpus/**/*.dxf binary
+tests/corpus/**/*.dwf binary
+crates/distribution/packager/tools/mcpb-validator/*.json text eol=lf

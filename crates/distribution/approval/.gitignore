@@ -1,0 +1,9 @@
+# Closed owner-distribution approval crate source only.
+/*
+!/.gitignore
+!/Cargo.toml
+!/schemas/
+!/src/
+
+/src/**
+!/src/*.rs

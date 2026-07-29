@@ -1,0 +1,8 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Autodesk\AutoCAD\R25.1\ACAD-9101:409\Profiles\AutoCAD-MCP Public Development]
+"Description"="Synthetic public development fixture; not certified or approved for release or distribution"
+
+[HKEY_CURRENT_USER\Software\Autodesk\AutoCAD\R25.1\ACAD-9101:409\Profiles\AutoCAD-MCP Public Development\General]
+"EnableStartupDialog"=dword:00000000
+"FixturePurpose"="development-only"
