@@ -85,7 +85,7 @@ jobs:
       - name: Populate the exact locked dependency sources
         run: cargo fetch --locked
 
-      - name: Revalidate the reviewed dependency licence evidence
+      - name: Revalidate source-closure and third-party licence evidence
         run: cargo run --locked -p distribution-evidence -- check
 
       - name: Seal the Preview build-source candidate
@@ -122,7 +122,7 @@ jobs:
             "source-candidate/source.zip" = "target/windows-preview-source-candidate/source.zip"
             "unsigned/autocad-mcp.exe" = "target/windows-preview-build-preflight/artifacts/preview/autocad-mcp.exe"
             "unsigned/autolisp-lsp.exe" = "target/windows-preview-build-preflight/artifacts/release/autolisp-lsp.exe"
-            "dependency-windows-source-closure.spdx.json" = "plugin/dependency-windows-source-closure.spdx.json"
+            "source-closure-windows.spdx.json" = "plugin/.third-party/source-closure-windows.spdx.json"
             "unsigned-development-preflight.json" = "target/windows-preview-build-preflight/unsigned-development-preflight.json"
           }
           foreach ($entry in $inventory.GetEnumerator()) {
@@ -166,7 +166,7 @@ jobs:
           $outputs = [ordered]@{
             "candidate_seal_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "source-candidate/candidate-seal.json") -Algorithm SHA256).Hash.ToLowerInvariant()
             "source_zip_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "source-candidate/source.zip") -Algorithm SHA256).Hash.ToLowerInvariant()
-            "source_closure_sbom_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "dependency-windows-source-closure.spdx.json") -Algorithm SHA256).Hash.ToLowerInvariant()
+            "source_closure_sbom_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "source-closure-windows.spdx.json") -Algorithm SHA256).Hash.ToLowerInvariant()
             "unsigned_preflight_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "unsigned-development-preflight.json") -Algorithm SHA256).Hash.ToLowerInvariant()
             "unsigned_server_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "unsigned/autocad-mcp.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
             "unsigned_lsp_sha256" = (Get-FileHash -LiteralPath (Join-Path $artifactDirectory "unsigned/autolisp-lsp.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -230,7 +230,7 @@ jobs:
           $artifactDirectory = "target/windows-preview-build-input"
           $expectedFiles = @(
             "SHA256SUMS.txt",
-            "dependency-windows-source-closure.spdx.json",
+            "source-closure-windows.spdx.json",
             "source-candidate/candidate-seal.json",
             "source-candidate/source.zip",
             "unsigned-development-preflight.json",
@@ -279,7 +279,7 @@ jobs:
           $joins = [ordered]@{
             "source-candidate/candidate-seal.json" = $env:EXPECTED_CANDIDATE_SEAL_SHA256
             "source-candidate/source.zip" = $env:EXPECTED_SOURCE_ZIP_SHA256
-            "dependency-windows-source-closure.spdx.json" = $env:EXPECTED_SOURCE_CLOSURE_SBOM_SHA256
+            "source-closure-windows.spdx.json" = $env:EXPECTED_SOURCE_CLOSURE_SBOM_SHA256
             "unsigned-development-preflight.json" = $env:EXPECTED_UNSIGNED_PREFLIGHT_SHA256
             "unsigned/autocad-mcp.exe" = $env:EXPECTED_UNSIGNED_SERVER_SHA256
             "unsigned/autolisp-lsp.exe" = $env:EXPECTED_UNSIGNED_LSP_SHA256
@@ -571,7 +571,7 @@ jobs:
           $buildDirectory = "target/windows-preview-build-input"
           $expectedBuildFiles = @(
             "SHA256SUMS.txt",
-            "dependency-windows-source-closure.spdx.json",
+            "source-closure-windows.spdx.json",
             "source-candidate/candidate-seal.json",
             "source-candidate/source.zip",
             "unsigned-development-preflight.json",
@@ -620,7 +620,7 @@ jobs:
           $buildJoins = [ordered]@{
             "source-candidate/candidate-seal.json" = $env:EXPECTED_CANDIDATE_SEAL_SHA256
             "source-candidate/source.zip" = $env:EXPECTED_SOURCE_ZIP_SHA256
-            "dependency-windows-source-closure.spdx.json" = $env:EXPECTED_SOURCE_CLOSURE_SBOM_SHA256
+            "source-closure-windows.spdx.json" = $env:EXPECTED_SOURCE_CLOSURE_SBOM_SHA256
             "unsigned-development-preflight.json" = $env:EXPECTED_UNSIGNED_PREFLIGHT_SHA256
           }
           foreach ($entry in $buildJoins.GetEnumerator()) {
@@ -727,7 +727,7 @@ jobs:
           $inventory = [ordered]@{
             "autocad-mcp-windows-x64-preview.mcpb" = "target/windows-preview-package/autocad-mcp-windows-x64-preview.mcpb"
             "autocad-mcp-windows-x64-preview-build-source.zip" = "target/windows-preview-build-input/source-candidate/source.zip"
-            "distribution-evidence/windows-x64-preview-source-closure.spdx.json" = "target/windows-preview-build-input/dependency-windows-source-closure.spdx.json"
+            "distribution-evidence/windows-x64-preview-source-closure.spdx.json" = "target/windows-preview-build-input/source-closure-windows.spdx.json"
             "review-only/unsigned-development-preflight.json" = "target/windows-preview-build-input/unsigned-development-preflight.json"
           }
           foreach ($entry in $inventory.GetEnumerator()) {

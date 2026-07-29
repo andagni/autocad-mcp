@@ -5,11 +5,7 @@
 !/.gitignore
 !/.lsp.json
 !/.mcp.json
-!/dependency-license-policy.json
-!/dependency-license-provenance.json
-!/dependency-source-lock.spdx.json
-!/dependency-windows-source-closure.spdx.json
-!/dependency-license-supplements/
+!/.third-party/
 !/CHANGELOG.md
 !/LICENSE
 !/THIRD_PARTY_LICENSES.txt

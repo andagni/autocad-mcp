@@ -9,10 +9,10 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const SEAL_SCHEMA_VERSION: u32 = 2;
+const SEAL_SCHEMA_VERSION: u32 = 3;
 const SEAL_ARTIFACT_KIND: &str = "autocad-mcp-source-candidate";
 const SEAL_SCOPE: &str = "source_only_development";
-const DEPENDENCY_EVIDENCE_STATUS: &str = "reviewed_bytes_revalidated";
+const DISTRIBUTION_EVIDENCE_STATUS: &str = "reviewed_bytes_revalidated";
 const SCRATCH_ROOT: &str = "target";
 const SOURCE_BUNDLE_FILENAME: &str = "source.zip";
 const SEAL_FILENAME: &str = "candidate-seal.json";
@@ -68,7 +68,7 @@ struct SourceCandidateSeal {
     artifact_kind: String,
     scope: String,
     release_authority: bool,
-    dependency_evidence_status: String,
+    distribution_evidence_status: String,
     package_mode: DistributionMode,
     candidate: CandidateIdentity,
     source_bundle: SourceBundleBinding,
@@ -146,8 +146,8 @@ fn run_internal(
     populate_locked_sources(repository)?;
     let before = capture_current_identity(repository)?;
     distribution_evidence::check(repository)
-        .map_err(|error| format!("revalidate reviewed dependency evidence: {error}"))?;
-    require_current_identity(repository, &before, "dependency evidence validation")?;
+        .map_err(|error| format!("revalidate reviewed distribution evidence: {error}"))?;
+    require_current_identity(repository, &before, "distribution evidence validation")?;
     run_with_generator_retention(
         repository,
         output_directory,
@@ -165,11 +165,11 @@ pub fn verify(
     let (verification, seal) = verify_recorded_candidate(repository, candidate_directory)?;
     populate_locked_sources(repository)?;
     distribution_evidence::check(repository)
-        .map_err(|error| format!("revalidate reviewed dependency evidence: {error}"))?;
+        .map_err(|error| format!("revalidate reviewed distribution evidence: {error}"))?;
     require_current_identity(
         repository,
         &verification.candidate,
-        "candidate dependency revalidation",
+        "candidate distribution-evidence revalidation",
     )?;
 
     let regenerated_directory = visible_scratch_directory(repository)?;
@@ -435,7 +435,7 @@ where
             artifact_kind: SEAL_ARTIFACT_KIND.to_owned(),
             scope: SEAL_SCOPE.to_owned(),
             release_authority: false,
-            dependency_evidence_status: DEPENDENCY_EVIDENCE_STATUS.to_owned(),
+            distribution_evidence_status: DISTRIBUTION_EVIDENCE_STATUS.to_owned(),
             package_mode,
             candidate: expected.clone(),
             source_bundle: source_bundle_binding(bundle_summary),
@@ -506,7 +506,7 @@ fn validate_seal_shape(seal: &SourceCandidateSeal) -> Result<(), String> {
         || seal.artifact_kind != SEAL_ARTIFACT_KIND
         || seal.scope != SEAL_SCOPE
         || seal.release_authority
-        || seal.dependency_evidence_status != DEPENDENCY_EVIDENCE_STATUS
+        || seal.distribution_evidence_status != DISTRIBUTION_EVIDENCE_STATUS
     {
         return Err("candidate seal has an unsupported authority or schema".to_owned());
     }

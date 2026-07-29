@@ -1,13 +1,12 @@
 use crate::manifest::{
     read_plugin_metadata, title_block_profiles_environment, validate_manifest,
-    validate_plugin_license, validate_source_dependency_evidence, McpbManifest, PackageMode,
+    validate_plugin_license, validate_source_distribution_evidence, McpbManifest, PackageMode,
     PackageTarget, PREVIEW_READ_ONLY_TOOL_COUNT,
 };
 #[cfg(test)]
 use crate::manifest::{
-    DEPENDENCY_LICENSE_POLICY, DEPENDENCY_LICENSE_PROVENANCE, DEPENDENCY_SOURCE_LOCK_SBOM,
-    DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM, OWNER_DISTRIBUTION_APPROVAL_SCHEMA,
-    THIRD_PARTY_LICENSES,
+    OWNER_DISTRIBUTION_APPROVAL_SCHEMA, SOURCE_LOCK_SBOM, THIRD_PARTY_LICENSES,
+    THIRD_PARTY_LICENSE_POLICY, THIRD_PARTY_LICENSE_PROVENANCE, WINDOWS_SOURCE_CLOSURE_SBOM,
 };
 use crate::package::{
     embedded_preview_activation_files, is_package_archive_file_path, reject_release_gitignore,
@@ -623,7 +622,7 @@ pub struct SmokeOptions {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DependencyEvidenceMode {
+enum DistributionEvidenceMode {
     ExactCompiled,
     ApprovalBound,
 }
@@ -712,7 +711,7 @@ pub fn smoke_package(options: SmokeOptions) -> Result<SmokeReport> {
     extract_package(&options.package_path, temp.path())?;
     let package = validate_extracted_package(
         temp.path(),
-        DependencyEvidenceMode::ExactCompiled,
+        DistributionEvidenceMode::ExactCompiled,
         options.require_lsp_executable,
         None,
     )?;
@@ -831,7 +830,7 @@ pub fn prepare_preview_evaluation_package(
     extract_mcpb_from_open_file(&mut package_file, extraction_root)?;
     let package = validate_extracted_package(
         extraction_root,
-        DependencyEvidenceMode::ExactCompiled,
+        DistributionEvidenceMode::ExactCompiled,
         true,
         Some(ModeRequirement::Required(PackageMode::Preview)),
     )?;
@@ -875,8 +874,9 @@ fn sha256_open_file(file: &mut File) -> Result<String> {
 }
 
 /// Validate an approval-bound MCPB extracted from the verifier's already-open
-/// artifact handle. Dependency bytes are reconciled by the approval verifier;
-/// every other static package policy is shared with ordinary package smoke.
+/// artifact handle. Distribution-evidence bytes are reconciled by the approval
+/// verifier; every other static package policy is shared with ordinary package
+/// smoke.
 pub(crate) fn validate_approval_package(
     root: &Path,
     expected_release_version: &str,
@@ -884,7 +884,7 @@ pub(crate) fn validate_approval_package(
 ) -> Result<PackageTarget> {
     let package = validate_extracted_package(
         root,
-        DependencyEvidenceMode::ApprovalBound,
+        DistributionEvidenceMode::ApprovalBound,
         true,
         Some(ModeRequirement::OwnerApproval(expected_mode)),
     )?;
@@ -900,7 +900,7 @@ pub(crate) fn validate_approval_package(
 pub(crate) fn validate_unbound_preview_package(root: &Path) -> Result<PackageTarget> {
     validate_extracted_package(
         root,
-        DependencyEvidenceMode::ApprovalBound,
+        DistributionEvidenceMode::ApprovalBound,
         true,
         Some(ModeRequirement::Required(PackageMode::Preview)),
     )
@@ -909,7 +909,7 @@ pub(crate) fn validate_unbound_preview_package(root: &Path) -> Result<PackageTar
 
 fn validate_extracted_package(
     root: &Path,
-    dependency_evidence: DependencyEvidenceMode,
+    distribution_evidence: DistributionEvidenceMode,
     require_lsp: bool,
     mode_requirement: Option<ModeRequirement>,
 ) -> Result<StaticPackage> {
@@ -943,7 +943,7 @@ fn validate_extracted_package(
         root,
         &manifest,
         target,
-        dependency_evidence,
+        distribution_evidence,
         require_lsp,
         mode,
     )?;
@@ -1420,7 +1420,7 @@ fn validate_static_contents(
     root: &Path,
     manifest: &McpbManifest,
     package_target: PackageTarget,
-    dependency_evidence: DependencyEvidenceMode,
+    distribution_evidence: DistributionEvidenceMode,
     require_lsp: bool,
     package_mode: PackageMode,
 ) -> Result<()> {
@@ -1431,10 +1431,13 @@ fn validate_static_contents(
         require_file(root, "plugin/.lsp.json")?;
     }
     require_file(root, "plugin/LICENSE")?;
-    require_file(root, "plugin/dependency-license-policy.json")?;
-    require_file(root, "plugin/dependency-license-provenance.json")?;
-    require_file(root, "plugin/dependency-source-lock.spdx.json")?;
-    require_file(root, "plugin/dependency-windows-source-closure.spdx.json")?;
+    require_file(root, "plugin/.third-party/third-party-license-policy.json")?;
+    require_file(
+        root,
+        "plugin/.third-party/third-party-license-provenance.json",
+    )?;
+    require_file(root, "plugin/.third-party/source-lock.spdx.json")?;
+    require_file(root, "plugin/.third-party/source-closure-windows.spdx.json")?;
     require_file(root, "plugin/THIRD_PARTY_LICENSES.txt")?;
     require_file(root, "plugin/owner-distribution-approval.schema.json")?;
     require_file(root, "plugin/CHANGELOG.md")?;
@@ -1455,8 +1458,8 @@ fn validate_static_contents(
     let plugin_metadata = read_plugin_metadata(&plugin_dir)
         .context("read packaged plugin metadata for license validation")?;
     validate_plugin_license(&plugin_dir, &plugin_metadata)?;
-    if dependency_evidence == DependencyEvidenceMode::ExactCompiled {
-        validate_source_dependency_evidence(&plugin_dir)?;
+    if distribution_evidence == DistributionEvidenceMode::ExactCompiled {
+        validate_source_distribution_evidence(&plugin_dir)?;
     }
     let provenance_errors = validate_documentation_provenance(&plugin_dir);
     if !provenance_errors.is_empty() {
@@ -1471,7 +1474,7 @@ fn validate_static_contents(
         ));
     }
     validate_manifest_plugin_identity(manifest, &plugin_metadata, package_mode)?;
-    if dependency_evidence == DependencyEvidenceMode::ApprovalBound {
+    if distribution_evidence == DistributionEvidenceMode::ApprovalBound {
         validate_approval_manifest_environment(manifest, package_target, package_mode)?;
     }
     validate_mcp_contents(root, package_target)?;
@@ -4263,7 +4266,7 @@ mod tests {
                 zip.write_all(b"{}\n").unwrap();
             }
         }
-        write_test_dependency_evidence(&mut zip, options);
+        write_test_distribution_evidence(&mut zip, options);
         if matches!(documentation, DocumentationFixture::EmbeddedOwnerApproval) {
             zip.start_file("plugin/release-approval.json", options)
                 .unwrap();
@@ -4290,26 +4293,31 @@ mod tests {
         zip.finish().unwrap();
     }
 
-    fn write_test_dependency_evidence(
+    fn write_test_distribution_evidence(
         zip: &mut zip::ZipWriter<std::fs::File>,
         options: FileOptions,
     ) {
-        zip.start_file("plugin/dependency-license-policy.json", options)
-            .unwrap();
-        zip.write_all(DEPENDENCY_LICENSE_POLICY).unwrap();
-        zip.start_file("plugin/dependency-source-lock.spdx.json", options)
-            .unwrap();
-        zip.write_all(DEPENDENCY_SOURCE_LOCK_SBOM).unwrap();
         zip.start_file(
-            "plugin/dependency-windows-source-closure.spdx.json",
+            "plugin/.third-party/third-party-license-policy.json",
             options,
         )
         .unwrap();
-        zip.write_all(DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM)
+        zip.write_all(THIRD_PARTY_LICENSE_POLICY).unwrap();
+        zip.start_file("plugin/.third-party/source-lock.spdx.json", options)
             .unwrap();
-        zip.start_file("plugin/dependency-license-provenance.json", options)
-            .unwrap();
-        zip.write_all(DEPENDENCY_LICENSE_PROVENANCE).unwrap();
+        zip.write_all(SOURCE_LOCK_SBOM).unwrap();
+        zip.start_file(
+            "plugin/.third-party/source-closure-windows.spdx.json",
+            options,
+        )
+        .unwrap();
+        zip.write_all(WINDOWS_SOURCE_CLOSURE_SBOM).unwrap();
+        zip.start_file(
+            "plugin/.third-party/third-party-license-provenance.json",
+            options,
+        )
+        .unwrap();
+        zip.write_all(THIRD_PARTY_LICENSE_PROVENANCE).unwrap();
         zip.start_file("plugin/THIRD_PARTY_LICENSES.txt", options)
             .unwrap();
         zip.write_all(THIRD_PARTY_LICENSES).unwrap();
@@ -6505,7 +6513,7 @@ cat >/dev/null
 
         let error = validate_extracted_package(
             root.path(),
-            DependencyEvidenceMode::ExactCompiled,
+            DistributionEvidenceMode::ExactCompiled,
             true,
             Some(ModeRequirement::Required(PackageMode::Release)),
         )

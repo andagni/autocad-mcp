@@ -1,6 +1,6 @@
 use crate::manifest::{
     manifest_for_mode, read_plugin_metadata, validate_manifest, validate_plugin_license,
-    validate_source_dependency_evidence, McpbManifest, PackageMode, PackageTarget,
+    validate_source_distribution_evidence, McpbManifest, PackageMode, PackageTarget,
     OWNER_DISTRIBUTION_APPROVAL_SCHEMA, OWNER_DISTRIBUTION_APPROVAL_SCHEMA_FILE,
     PREVIEW_READ_ONLY_TOOL_COUNT,
 };
@@ -184,7 +184,7 @@ pub fn create_package(options: PackageOptions) -> Result<PathBuf> {
 
     let metadata = read_plugin_metadata(&staged_plugin)?;
     validate_plugin_license(&staged_plugin, &metadata)?;
-    validate_source_dependency_evidence(&staged_plugin)?;
+    validate_source_distribution_evidence(&staged_plugin)?;
     let manifest = manifest_for_mode(options.target, options.mode, &metadata);
     let validated_mode = validate_manifest(&manifest, options.target)?;
     if validated_mode != options.mode {
@@ -621,6 +621,7 @@ pub(crate) fn is_package_plugin_source_path(rel: &Path, is_directory: bool) -> b
         return matches!(
             components.as_slice(),
             [".claude-plugin"]
+                | [".third-party"]
                 | ["skills"]
                 | ["skills", "autocad-mcp"]
                 | ["skills", "autolisp"]
@@ -629,16 +630,12 @@ pub(crate) fn is_package_plugin_source_path(rel: &Path, is_directory: bool) -> b
     }
 
     match components.as_slice() {
-        [".lsp.json"
-        | ".mcp.json"
-        | "CHANGELOG.md"
-        | "LICENSE"
-        | "THIRD_PARTY_LICENSES.txt"
-        | "dependency-license-policy.json"
-        | "dependency-license-provenance.json"
-        | "dependency-source-lock.spdx.json"
-        | "dependency-windows-source-closure.spdx.json"]
+        [".lsp.json" | ".mcp.json" | "CHANGELOG.md" | "LICENSE" | "THIRD_PARTY_LICENSES.txt"]
         | [".claude-plugin", "plugin.json"]
+        | [".third-party", "third-party-license-policy.json"]
+        | [".third-party", "third-party-license-provenance.json"]
+        | [".third-party", "source-lock.spdx.json"]
+        | [".third-party", "source-closure-windows.spdx.json"]
         | ["skills", "autocad-mcp", "SKILL.md"]
         | ["skills", "autolisp", "SKILL.md"]
         | ["skills", "autolisp", "references", "documentation-provenance.json"]
@@ -903,8 +900,8 @@ fn write_mcpb_archive(staging_root: &Path, package_path: &Path) -> Result<()> {
 mod tests {
     use super::*;
     use crate::manifest::{
-        DEPENDENCY_LICENSE_POLICY, DEPENDENCY_LICENSE_PROVENANCE, DEPENDENCY_SOURCE_LOCK_SBOM,
-        DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM, PROJECT_LICENSE_TEXT, THIRD_PARTY_LICENSES,
+        PROJECT_LICENSE_TEXT, SOURCE_LOCK_SBOM, THIRD_PARTY_LICENSES, THIRD_PARTY_LICENSE_POLICY,
+        THIRD_PARTY_LICENSE_PROVENANCE, WINDOWS_SOURCE_CLOSURE_SBOM,
     };
     use crate::smoke::{smoke_package, SmokeOptions};
     use std::io::Read;
@@ -1048,24 +1045,25 @@ mod tests {
             &plugin.join("LICENSE"),
             std::str::from_utf8(PROJECT_LICENSE_TEXT).unwrap(),
         );
+        std::fs::create_dir_all(plugin.join(".third-party")).unwrap();
         std::fs::write(
-            plugin.join("dependency-license-policy.json"),
-            DEPENDENCY_LICENSE_POLICY,
+            plugin.join(".third-party/third-party-license-policy.json"),
+            THIRD_PARTY_LICENSE_POLICY,
         )
         .unwrap();
         std::fs::write(
-            plugin.join("dependency-source-lock.spdx.json"),
-            DEPENDENCY_SOURCE_LOCK_SBOM,
+            plugin.join(".third-party/source-lock.spdx.json"),
+            SOURCE_LOCK_SBOM,
         )
         .unwrap();
         std::fs::write(
-            plugin.join("dependency-windows-source-closure.spdx.json"),
-            DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM,
+            plugin.join(".third-party/source-closure-windows.spdx.json"),
+            WINDOWS_SOURCE_CLOSURE_SBOM,
         )
         .unwrap();
         std::fs::write(
-            plugin.join("dependency-license-provenance.json"),
-            DEPENDENCY_LICENSE_PROVENANCE,
+            plugin.join(".third-party/third-party-license-provenance.json"),
+            THIRD_PARTY_LICENSE_PROVENANCE,
         )
         .unwrap();
         std::fs::write(
@@ -1143,10 +1141,11 @@ mod tests {
             ("CHANGELOG.md", false),
             ("LICENSE", false),
             ("THIRD_PARTY_LICENSES.txt", false),
-            ("dependency-license-policy.json", false),
-            ("dependency-license-provenance.json", false),
-            ("dependency-source-lock.spdx.json", false),
-            ("dependency-windows-source-closure.spdx.json", false),
+            (".third-party", true),
+            (".third-party/third-party-license-policy.json", false),
+            (".third-party/third-party-license-provenance.json", false),
+            (".third-party/source-lock.spdx.json", false),
+            (".third-party/source-closure-windows.spdx.json", false),
             ("skills", true),
             ("skills/autocad-mcp", true),
             ("skills/autocad-mcp/SKILL.md", false),
@@ -1176,13 +1175,31 @@ mod tests {
             ("bin/autocad-mcp", false),
             ("LICENSE/private.txt", false),
             ("THIRD_PARTY_LICENSES.txt/private.txt", false),
-            ("dependency-license-policy.json/private.txt", false),
-            ("dependency-license-provenance.json/private.txt", false),
-            ("dependency-source-lock.spdx.json/private.txt", false),
             (
-                "dependency-windows-source-closure.spdx.json/private.txt",
+                ".third-party/third-party-license-policy.json/private.txt",
                 false,
             ),
+            (
+                ".third-party/third-party-license-provenance.json/private.txt",
+                false,
+            ),
+            (".third-party/source-lock.spdx.json/private.txt", false),
+            (
+                ".third-party/source-closure-windows.spdx.json/private.txt",
+                false,
+            ),
+            (".third-party/license-supplements", true),
+            (
+                ".third-party/license-supplements/rmcp-1.7.0-LICENSE.txt",
+                false,
+            ),
+            (".third-party/private.json", false),
+            (".third-party/private", true),
+            (".third-party/private/secret.txt", false),
+            ("dependency-license-policy.json", false),
+            ("dependency-license-provenance.json", false),
+            ("dependency-source-lock.spdx.json", false),
+            ("dependency-windows-source-closure.spdx.json", false),
             ("dependency-license-supplements", true),
             (
                 "dependency-license-supplements/rmcp-1.7.0-LICENSE.txt",
@@ -1827,14 +1844,14 @@ mod tests {
                 "manifest.json",
                 "plugin/.claude-plugin/plugin.json",
                 "plugin/.mcp.json",
+                "plugin/.third-party/source-closure-windows.spdx.json",
+                "plugin/.third-party/source-lock.spdx.json",
+                "plugin/.third-party/third-party-license-policy.json",
+                "plugin/.third-party/third-party-license-provenance.json",
                 "plugin/CHANGELOG.md",
                 "plugin/LICENSE",
                 "plugin/THIRD_PARTY_LICENSES.txt",
                 "plugin/bin/autocad-mcp",
-                "plugin/dependency-license-policy.json",
-                "plugin/dependency-license-provenance.json",
-                "plugin/dependency-source-lock.spdx.json",
-                "plugin/dependency-windows-source-closure.spdx.json",
                 "plugin/owner-distribution-approval.schema.json",
                 "plugin/skills/autocad-mcp/SKILL.md",
                 "plugin/skills/autolisp/SKILL.md",
@@ -1854,24 +1871,32 @@ mod tests {
             PROJECT_LICENSE_TEXT
         );
         assert_eq!(
-            read_zip_file(&package, "plugin/dependency-license-policy.json").as_bytes(),
-            DEPENDENCY_LICENSE_POLICY
+            read_zip_file(
+                &package,
+                "plugin/.third-party/third-party-license-policy.json"
+            )
+            .as_bytes(),
+            THIRD_PARTY_LICENSE_POLICY
         );
         assert_eq!(
-            read_zip_file(&package, "plugin/dependency-source-lock.spdx.json").as_bytes(),
-            DEPENDENCY_SOURCE_LOCK_SBOM
+            read_zip_file(&package, "plugin/.third-party/source-lock.spdx.json").as_bytes(),
+            SOURCE_LOCK_SBOM
         );
         assert_eq!(
             read_zip_file(
                 &package,
-                "plugin/dependency-windows-source-closure.spdx.json"
+                "plugin/.third-party/source-closure-windows.spdx.json"
             )
             .as_bytes(),
-            DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM
+            WINDOWS_SOURCE_CLOSURE_SBOM
         );
         assert_eq!(
-            read_zip_file(&package, "plugin/dependency-license-provenance.json").as_bytes(),
-            DEPENDENCY_LICENSE_PROVENANCE
+            read_zip_file(
+                &package,
+                "plugin/.third-party/third-party-license-provenance.json"
+            )
+            .as_bytes(),
+            THIRD_PARTY_LICENSE_PROVENANCE
         );
         assert_eq!(
             read_zip_file(&package, "plugin/owner-distribution-approval.schema.json").as_bytes(),

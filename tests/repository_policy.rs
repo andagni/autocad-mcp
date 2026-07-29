@@ -17,9 +17,9 @@ const CANONICAL_GPLV3_SHA256: &str =
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
     "7fd1d8eb909b0edbcff58221b9daaf511b38afe8149d7ab4819b88ce6ad621b9";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "335e9abe7c9b6325d9f09e4180edbb8f0e8a2f18cf6aa7944a39e7c9cbe0f08c";
+    "cbc0efcb64e4718b79173e1349dc9a2d237a6932160da9d82bf57748d914925f";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
-    "f3d2682a28982de7578b5580a913edc8eb4f02c8a630d2dcfd072a5888208174";
+    "b247c7c233c58ba997d0a63664adab8d057e0f80721e042705da777ef7da8709";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
     "ff8efca13765d492da22711f73935d09f95871dfa30d2275844f6ec182956240";
 const MCPB_VALIDATOR_LOCK_SHA256: &str =
@@ -2430,9 +2430,13 @@ fn whitelist_admits_reviewed_shapes_and_denies_unreviewed_paths() {
         "crates/distribution/qualification/src/lib.rs",
         "crates/xtask/src/main.rs",
         "plugin/.lsp.json",
-        "plugin/dependency-license-provenance.json",
-        "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt",
-        "plugin/dependency-windows-source-closure.spdx.json",
+        "plugin/.third-party/.gitignore",
+        "plugin/.third-party/third-party-license-policy.json",
+        "plugin/.third-party/third-party-license-provenance.json",
+        "plugin/.third-party/source-lock.spdx.json",
+        "plugin/.third-party/license-supplements/.gitignore",
+        "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt",
+        "plugin/.third-party/source-closure-windows.spdx.json",
         "plugin/skills/autolisp/references/new-public-reference.md",
         "plugin/skills/autolisp/references/dcl/new-public-reference.md",
         "plugin/skills/autolisp/references/documentation-provenance.json",
@@ -2497,7 +2501,13 @@ fn whitelist_admits_reviewed_shapes_and_denies_unreviewed_paths() {
         "docs/plans/unreviewed.md",
         "plugin/README.md",
         "plugin/private/secret.md",
-        "plugin/dependency-license-supplements/unreviewed.txt",
+        "plugin/.third-party/private.json",
+        "plugin/.third-party/license-supplements/unreviewed.txt",
+        "plugin/dependency-license-policy.json",
+        "plugin/dependency-license-provenance.json",
+        "plugin/dependency-source-lock.spdx.json",
+        "plugin/dependency-windows-source-closure.spdx.json",
+        "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt",
         "plugin/skills/autolisp/references/private.json",
         "tests/corpus/open/unreviewed.dwg",
         "tests/corpus/open/unreviewed.dxf",
@@ -2841,9 +2851,11 @@ fn public_development_arg_is_exact_byte_bound_and_policy_closed() {
         "crates/distribution/qualification/Cargo.toml text eol=lf",
         "crates/distribution/qualification/src/**/*.rs text eol=lf",
         "crates/xtask/src/source_bundle.rs text eol=lf",
-        "plugin/dependency-license-provenance.json text eol=lf",
-        "plugin/dependency-windows-source-closure.spdx.json text eol=lf",
-        "plugin/dependency-license-supplements/* binary",
+        "plugin/.third-party/third-party-license-policy.json text eol=lf",
+        "plugin/.third-party/third-party-license-provenance.json text eol=lf",
+        "plugin/.third-party/source-lock.spdx.json text eol=lf",
+        "plugin/.third-party/source-closure-windows.spdx.json text eol=lf",
+        "plugin/.third-party/license-supplements/* binary",
         "crates/distribution/approval/schemas/owner-distribution-approval.schema.json text eol=lf",
         "crates/distribution/approval/schemas/preview-clean-host-receipt.schema.json text eol=lf",
         "crates/distribution/approval/schemas/preview-publication-handoff.schema.json text eol=lf",

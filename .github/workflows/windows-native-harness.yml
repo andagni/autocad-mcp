@@ -63,7 +63,7 @@ jobs:
           SCCACHE_BASEDIRS: ${{ github.workspace }}
           SCCACHE_GHA_ENABLED: "true"
 
-      - name: Revalidate the reviewed dependency licence evidence
+      - name: Revalidate source-closure and third-party licence evidence
         run: cargo run --locked -p distribution-evidence -- check
 
       - name: Seal the deterministic Windows target source candidate

@@ -24,7 +24,7 @@ pub use build_attestation::{
 pub use build_recipe::{
     render_windows_x86_64_build_recipe, BuildRecipeError, WINDOWS_X86_64_TARGET,
 };
-pub use evidence::{BoundDependencyEvidence, SupplementalEvidenceBytes};
+pub use evidence::{BoundDistributionEvidence, SupplementalEvidenceBytes};
 pub use preview_clean_host::{
     parse_preview_clean_host_receipt, PreviewCleanHostArchitecture, PreviewCleanHostCheck,
     PreviewCleanHostClient, PreviewCleanHostClientProduct, PreviewCleanHostFixture,
@@ -49,7 +49,7 @@ pub use preview_publication_handoff::{
     PREVIEW_PUBLICATION_SOURCE_ARCHIVE_PATH, PREVIEW_PUBLICATION_SOURCE_CLOSURE_SBOM_PATH,
 };
 
-pub const APPROVAL_SCHEMA_VERSION: u32 = 3;
+pub const APPROVAL_SCHEMA_VERSION: u32 = 4;
 pub const APPROVAL_KIND: &str = "owner_distribution_approval";
 
 const INITIAL_WINDOWS_TARGET: &str = "x86_64-pc-windows-msvc";
@@ -60,10 +60,11 @@ const INITIAL_WINDOWS_PREVIEW_SOURCE_ARCHIVE: &str =
     "autocad-mcp-windows-x64-preview-build-source.zip";
 const MCP_SERVER_CONTAINER_PATH: &str = "plugin/bin/autocad-mcp.exe";
 const AUTOLISP_LSP_CONTAINER_PATH: &str = "plugin/bin/autolisp-lsp.exe";
-const DEPENDENCY_POLICY_PATH: &str = "plugin/dependency-license-policy.json";
-const SOURCE_LOCK_SBOM_PATH: &str = "plugin/dependency-source-lock.spdx.json";
+const THIRD_PARTY_LICENSE_POLICY_PATH: &str = "plugin/.third-party/third-party-license-policy.json";
+const SOURCE_LOCK_SBOM_PATH: &str = "plugin/.third-party/source-lock.spdx.json";
 const THIRD_PARTY_NOTICES_PATH: &str = "plugin/THIRD_PARTY_LICENSES.txt";
-const DEPENDENCY_PROVENANCE_PATH: &str = "plugin/dependency-license-provenance.json";
+const THIRD_PARTY_LICENSE_PROVENANCE_PATH: &str =
+    "plugin/.third-party/third-party-license-provenance.json";
 const PROJECT_LICENSE_PATH: &str = "plugin/LICENSE";
 const APPROVAL_CONTRACT_SCHEMA_PATH: &str =
     "crates/distribution/approval/schemas/owner-distribution-approval.schema.json";
@@ -73,7 +74,7 @@ const PREVIEW_SOURCE_CLOSURE_SBOM_PATH: &str =
     "distribution-evidence/windows-x64-preview-source-closure.spdx.json";
 const PREVIEW_BUILD_ATTESTATION_PATH: &str = "distribution-evidence/windows-x64-preview-build.json";
 const RMCP_SUPPLEMENT_BINDING: &str = "rmcp-rust-sdk-license-3529c367";
-const RMCP_SUPPLEMENT_PATH: &str = "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt";
+const RMCP_SUPPLEMENT_PATH: &str = "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt";
 
 const REQUIRED_INVALIDATION_CONDITIONS: &[InvalidationCondition] = &[
     InvalidationCondition::ApprovalContractSchemaChanged,
@@ -361,7 +362,9 @@ impl OwnerDistributionApproval {
         if self.invalidation_conditions.as_slice() != REQUIRED_INVALIDATION_CONDITIONS {
             return Err(error(
                 "invalidation_conditions_invalid",
-                "invalidation_conditions must exactly equal the schema-v3 closed set",
+                format!(
+                    "invalidation_conditions must exactly equal the schema-v{APPROVAL_SCHEMA_VERSION} closed set"
+                ),
             ));
         }
         Ok(())
@@ -661,9 +664,9 @@ impl OwnerDistributionApproval {
         let evidence = &self.evidence_bindings;
         for (binding, expected_path, label) in [
             (
-                &evidence.dependency_policy,
-                DEPENDENCY_POLICY_PATH,
-                "dependency_policy",
+                &evidence.third_party_license_policy,
+                THIRD_PARTY_LICENSE_POLICY_PATH,
+                "third_party_license_policy",
             ),
             (
                 &evidence.source_lock_sbom,
@@ -676,9 +679,9 @@ impl OwnerDistributionApproval {
                 "third_party_notices",
             ),
             (
-                &evidence.dependency_license_provenance,
-                DEPENDENCY_PROVENANCE_PATH,
-                "dependency_license_provenance",
+                &evidence.third_party_license_provenance,
+                THIRD_PARTY_LICENSE_PROVENANCE_PATH,
+                "third_party_license_provenance",
             ),
             (
                 &evidence.project_license,
@@ -775,12 +778,15 @@ impl OwnerDistributionApproval {
                 Ok(())
             };
         for (binding, label) in [
-            (&evidence.dependency_policy, "dependency_policy"),
+            (
+                &evidence.third_party_license_policy,
+                "third_party_license_policy",
+            ),
             (&evidence.source_lock_sbom, "source_lock_sbom"),
             (&evidence.third_party_notices, "third_party_notices"),
             (
-                &evidence.dependency_license_provenance,
-                "dependency_license_provenance",
+                &evidence.third_party_license_provenance,
+                "third_party_license_provenance",
             ),
             (&evidence.project_license, "project_license"),
             (
@@ -858,7 +864,9 @@ impl Decision {
         {
             return Err(error(
                 "decision_closed_value_invalid",
-                "decision status and authority kind must use the schema-v3 closed values",
+                format!(
+                    "decision status and authority kind must use the schema-v{APPROVAL_SCHEMA_VERSION} closed values"
+                ),
             ));
         }
         require_public_identifier(&self.authority_identifier, "decision.authority_identifier")?;
@@ -1213,10 +1221,10 @@ impl SupplementalEvidenceBinding {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceBindings {
-    dependency_policy: FileBinding,
+    third_party_license_policy: FileBinding,
     source_lock_sbom: FileBinding,
     third_party_notices: FileBinding,
-    dependency_license_provenance: FileBinding,
+    third_party_license_provenance: FileBinding,
     project_license: FileBinding,
     approval_contract_schema: FileBinding,
     source_closure_sboms: Vec<SourceClosureSbomBinding>,
@@ -1225,8 +1233,8 @@ pub struct EvidenceBindings {
 }
 
 impl EvidenceBindings {
-    pub fn dependency_policy(&self) -> &FileBinding {
-        &self.dependency_policy
+    pub fn third_party_license_policy(&self) -> &FileBinding {
+        &self.third_party_license_policy
     }
 
     pub fn source_lock_sbom(&self) -> &FileBinding {
@@ -1237,8 +1245,8 @@ impl EvidenceBindings {
         &self.third_party_notices
     }
 
-    pub fn dependency_license_provenance(&self) -> &FileBinding {
-        &self.dependency_license_provenance
+    pub fn third_party_license_provenance(&self) -> &FileBinding {
+        &self.third_party_license_provenance
     }
 
     pub fn project_license(&self) -> &FileBinding {
@@ -1262,14 +1270,14 @@ impl EvidenceBindings {
     }
 
     fn validate(&self) -> Result<(), ValidationError> {
-        self.dependency_policy
-            .validate("evidence_bindings.dependency_policy")?;
+        self.third_party_license_policy
+            .validate("evidence_bindings.third_party_license_policy")?;
         self.source_lock_sbom
             .validate("evidence_bindings.source_lock_sbom")?;
         self.third_party_notices
             .validate("evidence_bindings.third_party_notices")?;
-        self.dependency_license_provenance
-            .validate("evidence_bindings.dependency_license_provenance")?;
+        self.third_party_license_provenance
+            .validate("evidence_bindings.third_party_license_provenance")?;
         self.project_license
             .validate("evidence_bindings.project_license")?;
         self.approval_contract_schema
@@ -1318,8 +1326,8 @@ impl EvidenceBindings {
     ) -> Result<(), ValidationError> {
         let mut binding_ids = BTreeSet::from([
             "approval_contract_schema",
-            "dependency_license_provenance",
-            "dependency_policy",
+            "third_party_license_provenance",
+            "third_party_license_policy",
             "project_license",
             "source_lock_sbom",
             "third_party_notices",
@@ -2940,7 +2948,7 @@ mod tests {
         })
     }
 
-    struct OwnedDependencyEvidence {
+    struct OwnedDistributionEvidence {
         policy: Vec<u8>,
         source_sbom: Vec<u8>,
         windows_source_closure_sbom: Vec<u8>,
@@ -3050,7 +3058,7 @@ mod tests {
         .unwrap()
     }
 
-    fn bind_test_dependency_evidence(value: &mut Value) -> OwnedDependencyEvidence {
+    fn bind_test_distribution_evidence(value: &mut Value) -> OwnedDistributionEvidence {
         let cargo_lock_sha256 = hash('d');
         let input_closure_sha256 = hash('e');
         let source_sbom = test_spdx_document("source");
@@ -3064,7 +3072,7 @@ mod tests {
         let provenance = serde_json::to_vec(&json!({
             "sources": [{
                 "id": "rmcp-rust-sdk-license-3529c367",
-                "tracked_path": "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt",
+                "tracked_path": "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt",
                 "byte_length": supplement.len(),
                 "sha256": sha256_hex(&supplement)
             }],
@@ -3110,7 +3118,7 @@ mod tests {
         value["source_identity"]["cargo_lock_sha256"] = json!(cargo_lock_sha256);
         value["source_identity"]["dependency_input_closure_sha256"] = json!(input_closure_sha256);
         bind_file(
-            &mut value["evidence_bindings"]["dependency_policy"],
+            &mut value["evidence_bindings"]["third_party_license_policy"],
             &policy,
         );
         bind_file(
@@ -3122,7 +3130,7 @@ mod tests {
             &notices,
         );
         bind_file(
-            &mut value["evidence_bindings"]["dependency_license_provenance"],
+            &mut value["evidence_bindings"]["third_party_license_provenance"],
             &provenance,
         );
         bind_file(
@@ -3174,7 +3182,7 @@ mod tests {
         value["package_determinations"][0]["provenance_source_ids"] =
             json!(["rmcp-rust-sdk-license-3529c367"]);
 
-        OwnedDependencyEvidence {
+        OwnedDistributionEvidence {
             policy,
             source_sbom,
             windows_source_closure_sbom,
@@ -3187,21 +3195,21 @@ mod tests {
         }
     }
 
-    fn validate_test_dependency_evidence(
+    fn validate_test_distribution_evidence(
         value: &Value,
-        evidence: &OwnedDependencyEvidence,
+        evidence: &OwnedDistributionEvidence,
     ) -> Result<(), ValidationError> {
         let approval = parse_value(value)?;
         let supplements = [SupplementalEvidenceBytes {
             binding_id: "rmcp-rust-sdk-license-3529c367",
             bytes: &evidence.supplement,
         }];
-        approval.validate_dependency_evidence(&BoundDependencyEvidence {
-            dependency_policy: &evidence.policy,
+        approval.validate_distribution_evidence(&BoundDistributionEvidence {
+            third_party_license_policy: &evidence.policy,
             source_lock_sbom: &evidence.source_sbom,
             windows_source_closure_sbom: &evidence.windows_source_closure_sbom,
             third_party_notices: &evidence.notices,
-            dependency_license_provenance: &evidence.provenance,
+            third_party_license_provenance: &evidence.provenance,
             project_license: &evidence.project_license,
             approval_contract_schema: &evidence.schema,
             build_attestation: &evidence.attestation,
@@ -3211,7 +3219,7 @@ mod tests {
 
     fn rebind_windows_source_closure_evidence(
         value: &mut Value,
-        evidence: &mut OwnedDependencyEvidence,
+        evidence: &mut OwnedDistributionEvidence,
         mutate: impl FnOnce(&mut Value),
     ) {
         let mut document: Value =
@@ -3233,7 +3241,7 @@ mod tests {
             &evidence.windows_source_closure_sbom,
         );
         bind_file(
-            &mut value["evidence_bindings"]["dependency_policy"],
+            &mut value["evidence_bindings"]["third_party_license_policy"],
             &evidence.policy,
         );
     }
@@ -3270,10 +3278,10 @@ mod tests {
                 "cargo_incremental": false
             },
             "evidence_bindings": {
-                "dependency_policy": file("plugin/dependency-license-policy.json", '1'),
-                "source_lock_sbom": file("plugin/dependency-source-lock.spdx.json", '2'),
+                "third_party_license_policy": file("plugin/.third-party/third-party-license-policy.json", '1'),
+                "source_lock_sbom": file("plugin/.third-party/source-lock.spdx.json", '2'),
                 "third_party_notices": file("plugin/THIRD_PARTY_LICENSES.txt", '3'),
-                "dependency_license_provenance": file("plugin/dependency-license-provenance.json", '4'),
+                "third_party_license_provenance": file("plugin/.third-party/third-party-license-provenance.json", '4'),
                 "project_license": file("plugin/LICENSE", '5'),
                 "approval_contract_schema": file("crates/distribution/approval/schemas/owner-distribution-approval.schema.json", '6'),
                 "source_closure_sboms": [{
@@ -3294,7 +3302,7 @@ mod tests {
                 }],
                 "supplemental_license_evidence": [{
                     "binding_id": "rmcp-rust-sdk-license-3529c367",
-                    "file": file("plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt", 'f')
+                    "file": file("plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt", 'f')
                 }]
             },
             "artifacts": [
@@ -3487,8 +3495,8 @@ mod tests {
         let evidence = approval.evidence_bindings();
         assert_eq!(evidence.project_license().logical_path(), "plugin/LICENSE");
         assert_eq!(
-            evidence.dependency_license_provenance().logical_path(),
-            "plugin/dependency-license-provenance.json"
+            evidence.third_party_license_provenance().logical_path(),
+            "plugin/.third-party/third-party-license-provenance.json"
         );
         assert_eq!(
             evidence.approval_contract_schema().logical_path(),
@@ -3926,14 +3934,14 @@ mod tests {
         value["evidence_bindings"]
             .as_object_mut()
             .unwrap()
-            .remove("dependency_license_provenance");
+            .remove("third_party_license_provenance");
         assert_eq!(
             parse_value(&value).unwrap_err().code(),
             "approval_schema_invalid"
         );
 
         let mut value = valid_value();
-        value["evidence_bindings"]["dependency_license_provenance"]["logical_path"] =
+        value["evidence_bindings"]["third_party_license_provenance"]["logical_path"] =
             json!("plugin/renamed-provenance.json");
         assert_eq!(
             parse_value(&value).unwrap_err().code(),
@@ -3941,7 +3949,7 @@ mod tests {
         );
 
         let mut value = valid_value();
-        value["evidence_bindings"]["dependency_license_provenance"]["sha256"] =
+        value["evidence_bindings"]["third_party_license_provenance"]["sha256"] =
             value["evidence_bindings"]["third_party_notices"]["sha256"].clone();
         assert_eq!(
             parse_value(&value).unwrap_err().code(),
@@ -4055,7 +4063,7 @@ mod tests {
             approval.evidence_bindings().supplemental_license_evidence()[0]
                 .file()
                 .logical_path(),
-            "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt"
+            "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt"
         );
     }
 
@@ -4103,10 +4111,10 @@ mod tests {
     }
 
     #[test]
-    fn dependency_evidence_reconciles_every_scope_package_and_provenance_join() {
+    fn distribution_evidence_reconciles_every_scope_package_and_provenance_join() {
         let mut value = valid_value();
-        let evidence = bind_test_dependency_evidence(&mut value);
-        validate_test_dependency_evidence(&value, &evidence).unwrap();
+        let evidence = bind_test_distribution_evidence(&mut value);
+        validate_test_distribution_evidence(&value, &evidence).unwrap();
 
         let mut missing = value.clone();
         missing["package_determinations"][0]["packages"]
@@ -4114,7 +4122,7 @@ mod tests {
             .unwrap()
             .remove(1);
         assert_eq!(
-            validate_test_dependency_evidence(&missing, &evidence)
+            validate_test_distribution_evidence(&missing, &evidence)
                 .unwrap_err()
                 .code(),
             "determination_scope_incomplete"
@@ -4124,7 +4132,7 @@ mod tests {
         wrong_provenance["package_determinations"][0]["provenance_source_ids"] =
             json!(["invented-source"]);
         assert_eq!(
-            validate_test_dependency_evidence(&wrong_provenance, &evidence)
+            validate_test_distribution_evidence(&wrong_provenance, &evidence)
                 .unwrap_err()
                 .code(),
             "determination_provenance_mismatch"
@@ -4133,7 +4141,7 @@ mod tests {
         let mut wrong_declaration = value;
         wrong_declaration["package_determinations"][0]["declared_value"] = json!("MIT");
         assert_eq!(
-            validate_test_dependency_evidence(&wrong_declaration, &evidence)
+            validate_test_distribution_evidence(&wrong_declaration, &evidence)
                 .unwrap_err()
                 .code(),
             "determination_declared_value_mismatch"
@@ -4143,12 +4151,12 @@ mod tests {
     #[test]
     fn source_closure_sbom_cannot_claim_linked_binary_scope() {
         let mut value = valid_value();
-        let mut evidence = bind_test_dependency_evidence(&mut value);
+        let mut evidence = bind_test_distribution_evidence(&mut value);
         rebind_windows_source_closure_evidence(&mut value, &mut evidence, |document| {
             document["name"] = json!("AutoCAD-MCP Windows x64 linked-binary SBOM");
         });
         assert_eq!(
-            validate_test_dependency_evidence(&value, &evidence)
+            validate_test_distribution_evidence(&value, &evidence)
                 .unwrap_err()
                 .code(),
             "source_closure_sbom_scope_invalid"

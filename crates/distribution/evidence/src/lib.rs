@@ -6,15 +6,15 @@ use std::io::{Cursor, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
-pub const POLICY_PATH: &str = "plugin/dependency-license-policy.json";
-pub const SBOM_PATH: &str = "plugin/dependency-source-lock.spdx.json";
+pub const POLICY_PATH: &str = "plugin/.third-party/third-party-license-policy.json";
+pub const SBOM_PATH: &str = "plugin/.third-party/source-lock.spdx.json";
 pub const NOTICES_PATH: &str = "plugin/THIRD_PARTY_LICENSES.txt";
 pub const WINDOWS_SOURCE_CLOSURE_SBOM_PATH: &str =
-    "plugin/dependency-windows-source-closure.spdx.json";
-pub const LICENSE_PROVENANCE_PATH: &str = "plugin/dependency-license-provenance.json";
+    "plugin/.third-party/source-closure-windows.spdx.json";
+pub const LICENSE_PROVENANCE_PATH: &str = "plugin/.third-party/third-party-license-provenance.json";
 
 const POLICY_SCHEMA_VERSION: u32 = 2;
-const EVIDENCE_GENERATOR_SCHEMA_VERSION: u32 = 6;
+const EVIDENCE_GENERATOR_SCHEMA_VERSION: u32 = 7;
 const GENERATOR_SOURCE_PATH: &str = "crates/distribution/evidence/src/lib.rs";
 const RUST_TOOLCHAIN_PATH: &str = "rust-toolchain.toml";
 const OWNER_APPROVAL_SCHEMA_PATH: &str =
@@ -36,7 +36,7 @@ enum MetadataMode {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct DependencyLicensePolicy {
+struct ThirdPartyLicensePolicy {
     schema_version: u32,
     evidence_generator_schema_version: u32,
     evidence_document_created_utc: String,
@@ -336,21 +336,21 @@ impl EvidenceSummary {
     }
 }
 
-/// Validate the repository's tracked dependency evidence without changing it.
+/// Validate the repository's tracked distribution evidence without changing it.
 pub fn check(repository: &Path) -> Result<EvidenceSummary, String> {
     run(repository, false, false)
 }
 
-/// Regenerate the tracked dependency evidence atomically and validate the result.
+/// Regenerate the tracked distribution evidence atomically and validate the result.
 pub fn write(repository: &Path) -> Result<EvidenceSummary, String> {
     run(repository, true, false)
 }
 
-/// Apply the dependency release gate.
+/// Apply the distribution release gate.
 ///
-/// Dependency evidence alone cannot satisfy this gate: a detached owner approval
-/// bound to the finished distribution must be verified by the distribution
-/// approval verifier.
+/// Source-closure and third-party licence evidence alone cannot satisfy this
+/// gate: a detached owner approval bound to the finished distribution must be
+/// verified by the distribution approval verifier.
 pub fn release_gate(repository: &Path) -> Result<EvidenceSummary, String> {
     run(repository, false, true)
 }
@@ -423,7 +423,7 @@ fn run(
     let lock_sha256 = sha256(&lock_bytes);
     if lock_sha256 != policy.reviewed_cargo_lock_sha256 {
         return Err(format!(
-            "Cargo.lock SHA-256 is {lock_sha256}, but the dependency policy reviews {}; update the policy only after reviewing the new exact lock",
+            "Cargo.lock SHA-256 is {lock_sha256}, but the third-party licence policy reviews {}; update the policy only after reviewing the new exact lock",
             policy.reviewed_cargo_lock_sha256
         ));
     }
@@ -439,7 +439,7 @@ fn run(
     let owner_approval_schema_sha256 = sha256(&owner_approval_schema);
     if owner_approval_schema_sha256 != policy.owner_distribution_approval.contract_schema_sha256 {
         return Err(format!(
-            "owner distribution approval schema SHA-256 is {owner_approval_schema_sha256}, but the dependency policy expects {}",
+            "owner distribution approval schema SHA-256 is {owner_approval_schema_sha256}, but the third-party licence policy expects {}",
             policy
                 .owner_distribution_approval
                 .contract_schema_sha256
@@ -455,7 +455,7 @@ fn run(
     )?;
     if input_closure_sha256 != policy.reviewed_input_closure_sha256 {
         return Err(format!(
-            "dependency evidence input-closure SHA-256 is {input_closure_sha256}, but the policy reviews {}; review workspace manifests or generator inputs before updating the policy",
+            "distribution evidence input-closure SHA-256 is {input_closure_sha256}, but the policy reviews {}; review workspace manifests or generator inputs before updating the policy",
             policy.reviewed_input_closure_sha256
         ));
     }
@@ -504,7 +504,7 @@ fn run(
 
     if require_distribution_approval {
         return Err(
-            "dependency release gate requires a detached owner-distribution approval sidecar bound to the exact finished distribution set; use the distribution approval verifier rather than a policy status string"
+            "distribution release gate requires a detached owner-distribution approval sidecar bound to the exact finished distribution set; use the distribution approval verifier rather than a policy status string"
                 .to_owned(),
         );
     }
@@ -522,27 +522,27 @@ fn run(
     })
 }
 
-fn read_policy(repository: &Path) -> Result<DependencyLicensePolicy, String> {
+fn read_policy(repository: &Path) -> Result<ThirdPartyLicensePolicy, String> {
     let path = repository.join(POLICY_PATH);
-    let bytes = read_regular_file(&path, "dependency licence policy")?;
+    let bytes = read_regular_file(&path, "third-party licence policy")?;
     serde_json::from_slice(&bytes).map_err(|error| {
         format!(
-            "parse dependency licence policy {}: {error}",
+            "parse third-party licence policy {}: {error}",
             path.display()
         )
     })
 }
 
-fn validate_policy_shape(policy: &DependencyLicensePolicy) -> Result<(), String> {
+fn validate_policy_shape(policy: &ThirdPartyLicensePolicy) -> Result<(), String> {
     if policy.schema_version != POLICY_SCHEMA_VERSION {
         return Err(format!(
-            "unsupported dependency licence policy schema {}; expected {POLICY_SCHEMA_VERSION}",
+            "unsupported third-party licence policy schema {}; expected {POLICY_SCHEMA_VERSION}",
             policy.schema_version
         ));
     }
     if policy.evidence_generator_schema_version != EVIDENCE_GENERATOR_SCHEMA_VERSION {
         return Err(format!(
-            "unsupported dependency evidence generator schema {}; expected {EVIDENCE_GENERATOR_SCHEMA_VERSION}",
+            "unsupported distribution evidence generator schema {}; expected {EVIDENCE_GENERATOR_SCHEMA_VERSION}",
             policy.evidence_generator_schema_version
         ));
     }
@@ -598,7 +598,7 @@ fn validate_policy_shape(policy: &DependencyLicensePolicy) -> Result<(), String>
     let approval = &policy.owner_distribution_approval;
     if approval.mode != DETACHED_APPROVAL_MODE {
         return Err(format!(
-            "dependency policy owner_distribution_approval.mode must be {DETACHED_APPROVAL_MODE:?}"
+            "third-party licence policy owner_distribution_approval.mode must be {DETACHED_APPROVAL_MODE:?}"
         ));
     }
     if approval.contract_schema_version != OWNER_APPROVAL_SCHEMA_VERSION {
@@ -630,20 +630,20 @@ fn validate_policy_shape(policy: &DependencyLicensePolicy) -> Result<(), String>
 
 fn load_license_provenance(
     repository: &Path,
-    policy: &DependencyLicensePolicy,
+    policy: &ThirdPartyLicensePolicy,
 ) -> Result<LicenseProvenanceInputs, String> {
     let path = repository.join(LICENSE_PROVENANCE_PATH);
-    let bytes = read_regular_file(&path, "dependency licence provenance ledger")?;
+    let bytes = read_regular_file(&path, "third-party licence provenance ledger")?;
     let actual_sha256 = sha256(&bytes);
     if actual_sha256 != policy.expected_license_provenance_sha256 {
         return Err(format!(
-            "dependency licence provenance SHA-256 is {actual_sha256}, but the policy expects {}",
+            "third-party licence provenance SHA-256 is {actual_sha256}, but the policy expects {}",
             policy.expected_license_provenance_sha256
         ));
     }
     let document: LicenseProvenance = serde_json::from_slice(&bytes).map_err(|error| {
         format!(
-            "parse dependency licence provenance {}: {error}",
+            "parse third-party licence provenance {}: {error}",
             path.display()
         )
     })?;
@@ -654,13 +654,13 @@ fn load_license_provenance(
         || document.legal_effect.statement.trim().is_empty()
     {
         return Err(
-            "dependency licence provenance must remain schema-v1 technical evidence with no approval claim"
+            "third-party licence provenance must remain schema-v1 technical evidence with no approval claim"
                 .to_owned(),
         );
     }
     if document.sources.is_empty() || document.package_bindings.is_empty() {
         return Err(
-            "dependency licence provenance must contain sources and package bindings".to_owned(),
+            "third-party licence provenance must contain sources and package bindings".to_owned(),
         );
     }
     let source_ids = document
@@ -670,7 +670,7 @@ fn load_license_provenance(
         .collect::<Vec<_>>();
     if !source_ids.windows(2).all(|pair| pair[0] < pair[1]) {
         return Err(
-            "dependency licence provenance source IDs must be sorted and unique".to_owned(),
+            "third-party licence provenance source IDs must be sorted and unique".to_owned(),
         );
     }
     let binding_keys = document
@@ -685,7 +685,7 @@ fn load_license_provenance(
         .collect::<Vec<_>>();
     if !binding_keys.windows(2).all(|pair| pair[0] < pair[1]) {
         return Err(
-            "dependency licence provenance package bindings must be sorted and unique".to_owned(),
+            "third-party licence provenance package bindings must be sorted and unique".to_owned(),
         );
     }
 
@@ -709,7 +709,7 @@ fn load_license_provenance(
                 require_git_sha1(git_commit, "upstream provenance git_commit")?;
                 require_git_sha1(expected_git_blob_sha1, "upstream provenance git_blob_sha1")?;
                 if repository_path != "LICENSE"
-                    || !tracked_path.starts_with("plugin/dependency-license-supplements/")
+                    || !tracked_path.starts_with("plugin/.third-party/license-supplements/")
                     || normalized_relative_path_text(Path::new(tracked_path))? != *tracked_path
                 {
                     return Err(format!(
@@ -732,14 +732,14 @@ fn load_license_provenance(
                 }
                 let evidence = read_regular_file(
                     &repository.join(tracked_path),
-                    "supplemental dependency licence evidence",
+                    "supplemental third-party licence evidence",
                 )?;
                 if u64::try_from(evidence.len()).ok() != Some(*byte_length)
                     || sha256(&evidence) != *expected_sha256
                     || git_blob_sha1(&evidence)? != *expected_git_blob_sha1
                 {
                     return Err(format!(
-                        "supplemental dependency licence evidence {tracked_path} does not match its bound byte length, SHA-256, and Git blob identity"
+                        "supplemental third-party licence evidence {tracked_path} does not match its bound byte length, SHA-256, and Git blob identity"
                     ));
                 }
                 if tracked_files
@@ -747,7 +747,7 @@ fn load_license_provenance(
                     .is_some()
                 {
                     return Err(format!(
-                        "dependency licence provenance repeats tracked evidence {tracked_path}"
+                        "third-party licence provenance repeats tracked evidence {tracked_path}"
                     ));
                 }
             }
@@ -992,7 +992,7 @@ fn insert_lock_package(
 }
 
 fn generate_evidence(
-    policy: &DependencyLicensePolicy,
+    policy: &ThirdPartyLicensePolicy,
     metadata: &CargoMetadata,
     windows_metadata: WindowsModeMetadata<'_>,
     provenance: &LicenseProvenanceInputs,
@@ -1394,7 +1394,7 @@ fn collect_license_evidence(
         .map(|(relative_path, bytes)| {
             std::str::from_utf8(&bytes).map_err(|error| {
                 format!(
-                    "dependency licence evidence must be UTF-8 for deterministic notice rendering: {} in {}: {error}",
+                    "third-party licence evidence must be UTF-8 for deterministic notice rendering: {} in {}: {error}",
                     relative_path,
                     archive_path.display()
                 )
@@ -1510,7 +1510,7 @@ fn is_license_evidence_name(name: &str) -> bool {
 }
 
 fn render_spdx(
-    policy: &DependencyLicensePolicy,
+    policy: &ThirdPartyLicensePolicy,
     metadata: &CargoMetadata,
     audited: &[AuditedPackage],
     package_ids: &BTreeMap<String, String>,
@@ -1758,7 +1758,7 @@ fn selected_closure_edges(
 
 #[allow(clippy::too_many_arguments)]
 fn render_windows_source_closure_spdx(
-    policy: &DependencyLicensePolicy,
+    policy: &ThirdPartyLicensePolicy,
     metadata: &CargoMetadata,
     audited: &[AuditedPackage],
     package_ids: &BTreeMap<String, String>,
@@ -1895,7 +1895,7 @@ fn validate_license_provenance(
         );
         let package = audited_by_identity.get(&identity).copied().ok_or_else(|| {
             format!(
-                "dependency licence provenance binds absent package {} {}",
+                "third-party licence provenance binds absent package {} {}",
                 identity.0, identity.1
             )
         })?;
@@ -1904,13 +1904,13 @@ fn validate_license_provenance(
                 != Some(binding.package.declared_license.as_str())
         {
             return Err(format!(
-                "dependency licence provenance identity, archive checksum, or declared licence drifted for {} {}",
+                "third-party licence provenance identity, archive checksum, or declared licence drifted for {} {}",
                 identity.0, identity.1
             ));
         }
         let vcs_bytes = package.cargo_vcs_info.as_deref().ok_or_else(|| {
             format!(
-                "dependency licence provenance package {} {} has no checksum-verified .cargo_vcs_info.json",
+                "third-party licence provenance package {} {} has no checksum-verified .cargo_vcs_info.json",
                 identity.0, identity.1
             )
         })?;
@@ -1922,19 +1922,19 @@ fn validate_license_provenance(
         })?;
         if vcs.git.sha1 != binding.git_commit || vcs.path_in_vcs != binding.path_in_vcs {
             return Err(format!(
-                "dependency licence provenance VCS identity drifted for {} {}",
+                "third-party licence provenance VCS identity drifted for {} {}",
                 identity.0, identity.1
             ));
         }
         if binding.license_concluded != "NOASSERTION" {
             return Err(format!(
-                "technical dependency provenance must not conclude a licence for {} {}",
+                "technical third-party licence provenance must not conclude a licence for {} {}",
                 identity.0, identity.1
             ));
         }
         if !sources.contains_key(binding.source_id.as_str()) {
             return Err(format!(
-                "dependency licence provenance binding for {} {} references unknown source {}",
+                "third-party licence provenance binding for {} {} references unknown source {}",
                 identity.0, identity.1, binding.source_id
             ));
         }
@@ -1966,7 +1966,7 @@ fn validate_license_provenance(
     ];
     if bound_packages != expected_bound_packages {
         return Err(format!(
-            "dependency licence provenance package boundary changed: expected {expected_bound_packages:?}, found {bound_packages:?}"
+            "third-party licence provenance package boundary changed: expected {expected_bound_packages:?}, found {bound_packages:?}"
         ));
     }
 
@@ -1974,7 +1974,7 @@ fn validate_license_provenance(
     for source in &inputs.document.sources {
         let mut packages = applies_to.remove(source.id()).ok_or_else(|| {
             format!(
-                "dependency licence provenance source {} is not used by a package binding",
+                "third-party licence provenance source {} is not used by a package binding",
                 source.id()
             )
         })?;
@@ -1992,7 +1992,7 @@ fn validate_license_provenance(
             } => {
                 let bytes = inputs.tracked_files.get(tracked_path).ok_or_else(|| {
                     format!(
-                        "dependency licence provenance source {} has no loaded tracked bytes",
+                        "third-party licence provenance source {} has no loaded tracked bytes",
                         source.id()
                     )
                 })?;
@@ -2022,19 +2022,19 @@ fn validate_license_provenance(
                     .copied()
                     .ok_or_else(|| {
                         format!(
-                            "dependency licence provenance source package {} {} is absent",
+                            "third-party licence provenance source package {} {} is absent",
                             source_package.name, source_package.version
                         )
                     })?;
                 if package.lock_checksum.as_deref() != Some(&source_package.archive_sha256) {
                     return Err(format!(
-                        "dependency licence provenance source archive checksum drifted for {} {}",
+                        "third-party licence provenance source archive checksum drifted for {} {}",
                         source_package.name, source_package.version
                     ));
                 }
                 let vcs_bytes = package.cargo_vcs_info.as_deref().ok_or_else(|| {
                     format!(
-                        "dependency licence provenance source package {} {} has no VCS identity",
+                        "third-party licence provenance source package {} {} has no VCS identity",
                         source_package.name, source_package.version
                     )
                 })?;
@@ -2046,7 +2046,7 @@ fn validate_license_provenance(
                 })?;
                 if vcs.git.sha1 != *git_commit {
                     return Err(format!(
-                        "dependency licence provenance source and target packages do not share the recorded commit {git_commit}"
+                        "third-party licence provenance source and target packages do not share the recorded commit {git_commit}"
                     ));
                 }
                 let files = archive_members
@@ -2061,7 +2061,7 @@ fn validate_license_provenance(
                             .cloned()
                             .ok_or_else(|| {
                                 format!(
-                                    "dependency licence provenance source member {} with SHA-256 {} is absent from {} {}",
+                                    "third-party licence provenance source member {} with SHA-256 {} is absent from {} {}",
                                     member.path,
                                     member.sha256,
                                     source_package.name,
@@ -2088,7 +2088,7 @@ fn validate_license_provenance(
         });
     }
     if !applies_to.is_empty() {
-        return Err("dependency licence provenance has unresolved source bindings".to_owned());
+        return Err("third-party licence provenance has unresolved source bindings".to_owned());
     }
 
     Ok(ValidatedLicenseProvenance {
@@ -2217,7 +2217,7 @@ Evidence: {}\n\n",
 }
 
 fn validate_reviewed_inventory(
-    policy: &DependencyLicensePolicy,
+    policy: &ThirdPartyLicensePolicy,
     generated: &GeneratedEvidence,
 ) -> Result<(), String> {
     if generated.total_packages != policy.expected_total_packages {
@@ -2265,7 +2265,7 @@ fn calculate_input_closure(
     repository: &Path,
     lock_bytes: &[u8],
     metadata: &CargoMetadata,
-    policy: &DependencyLicensePolicy,
+    policy: &ThirdPartyLicensePolicy,
     provenance: &LicenseProvenanceInputs,
     owner_approval_schema: &[u8],
 ) -> Result<String, String> {
@@ -2275,7 +2275,7 @@ fn calculate_input_closure(
     )?;
     let generator_source = read_regular_file(
         &repository.join(GENERATOR_SOURCE_PATH),
-        "dependency evidence generator source",
+        "distribution evidence generator source",
     )?;
     let rust_toolchain = read_regular_file(
         &repository.join(RUST_TOOLCHAIN_PATH),
@@ -2341,7 +2341,7 @@ struct InputClosure<'a> {
     workspace_manifest: &'a [u8],
     generator_source: &'a [u8],
     rust_toolchain: &'a [u8],
-    policy: &'a DependencyLicensePolicy,
+    policy: &'a ThirdPartyLicensePolicy,
     manifests: &'a [(String, Vec<u8>)],
     provenance: &'a [u8],
     supplemental_files: &'a BTreeMap<String, Vec<u8>>,
@@ -2463,7 +2463,7 @@ fn write_atomic(path: PathBuf, bytes: &[u8]) -> Result<(), String> {
     fs::create_dir_all(parent)
         .map_err(|error| format!("create output directory {}: {error}", parent.display()))?;
     let temp = parent.join(format!(
-        ".{}.dependency-evidence.tmp",
+        ".{}.distribution-evidence.tmp",
         path.file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(|| format!("output path is not UTF-8: {}", path.display()))?
@@ -2695,8 +2695,8 @@ impl ExpressionParser<'_, '_> {
 mod tests {
     use super::*;
 
-    fn closure_policy() -> DependencyLicensePolicy {
-        DependencyLicensePolicy {
+    fn closure_policy() -> ThirdPartyLicensePolicy {
+        ThirdPartyLicensePolicy {
             schema_version: POLICY_SCHEMA_VERSION,
             evidence_generator_schema_version: EVIDENCE_GENERATOR_SCHEMA_VERSION,
             evidence_document_created_utc: "2026-07-26T00:00:00Z".to_owned(),
@@ -2975,7 +2975,7 @@ version = "0.1.0"
             b"[package]\nname = \"example\"\n".to_vec(),
         )];
         let supplemental = BTreeMap::from([(
-            "plugin/dependency-license-supplements/example-LICENSE.txt".to_owned(),
+            "plugin/.third-party/license-supplements/example-LICENSE.txt".to_owned(),
             b"example licence\n".to_vec(),
         )]);
         let inputs = |generator_source, rust_toolchain| InputClosure {

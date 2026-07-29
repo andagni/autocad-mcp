@@ -371,7 +371,7 @@ fn approval_success_message(report: &ApprovalVerificationReport) -> String {
         "native build-attestation semantics were not evaluated"
     };
     format!(
-        "approval verification passed for decision {}: {} artifacts, {} MCPB entries, {} source ZIP entries, dependency evidence reconciled; {}",
+        "approval verification passed for decision {}: {} artifacts, {} MCPB entries, {} source ZIP entries, distribution evidence reconciled; {}",
         report.decision_id,
         report.verified_artifacts,
         report.mcpb_entries,
@@ -433,7 +433,7 @@ mod tests {
             verified_artifacts: 6,
             mcpb_entries: 12,
             source_archive_entries: 34,
-            dependency_evidence_validated: true,
+            distribution_evidence_validated: true,
             native_build_attestation_semantics_verified: false,
             package_mode: distribution_approval::DistributionMode::Release,
             git_object_format: "sha1".to_owned(),

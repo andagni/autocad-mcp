@@ -481,7 +481,7 @@ fn verify_semantic_selection(
     .context("reverify the complete owner-approved Preview distribution set")?;
     if approval_report.package_mode != DistributionMode::Preview
         || !approval_report.native_build_attestation_semantics_verified
-        || !approval_report.dependency_evidence_validated
+        || !approval_report.distribution_evidence_validated
     {
         bail!("owner-approved distribution set did not pass the required Preview semantic joins");
     }

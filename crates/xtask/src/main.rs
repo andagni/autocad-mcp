@@ -1559,7 +1559,7 @@ mod tests {
             verified_artifacts: 6,
             mcpb_entries: 12,
             source_archive_entries: 34,
-            dependency_evidence_validated: true,
+            distribution_evidence_validated: true,
             native_build_attestation_semantics_verified: false,
             package_mode: DistributionMode::Release,
             git_object_format: "sha1".to_owned(),

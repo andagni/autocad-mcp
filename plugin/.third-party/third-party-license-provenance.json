@@ -14,7 +14,7 @@
       "git_commit": "3529c3675ff64db805bd947ca6ece6090809e43d",
       "git_blob_sha1": "4a93985763241755401a10678395303de4e720ba",
       "repository_path": "LICENSE",
-      "tracked_path": "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt",
+      "tracked_path": "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt",
       "byte_length": 12227,
       "sha256": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a",
       "root_notice_search": {

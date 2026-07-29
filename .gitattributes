@@ -2,10 +2,10 @@
 # attempt textual merge/diff handling, including for ASCII DXF files.
 LICENSE text eol=lf
 plugin/LICENSE text eol=lf
-plugin/dependency-license-policy.json text eol=lf
-plugin/dependency-license-provenance.json text eol=lf
-plugin/dependency-source-lock.spdx.json text eol=lf
-plugin/dependency-windows-source-closure.spdx.json text eol=lf
+plugin/.third-party/third-party-license-policy.json text eol=lf
+plugin/.third-party/third-party-license-provenance.json text eol=lf
+plugin/.third-party/source-lock.spdx.json text eol=lf
+plugin/.third-party/source-closure-windows.spdx.json text eol=lf
 crates/distribution/approval/schemas/owner-distribution-approval.schema.json text eol=lf
 crates/distribution/approval/schemas/preview-clean-host-receipt.schema.json text eol=lf
 crates/distribution/approval/schemas/preview-publication-handoff.schema.json text eol=lf
@@ -13,7 +13,7 @@ crates/distribution/approval/schemas/windows-preview-build-attestation.schema.js
 # The notice bundle preserves the exact fetched licence-file bytes, including
 # their original line endings, inside a deterministic framed text bundle.
 plugin/THIRD_PARTY_LICENSES.txt binary
-plugin/dependency-license-supplements/* binary
+plugin/.third-party/license-supplements/* binary
 .githooks/pre-push text eol=lf
 .github/workflows/windows-native-harness.yml text eol=lf
 .github/workflows/windows-preview-review-candidate.yml text eol=lf

@@ -2,11 +2,12 @@
 mod tests {
     use super::*;
 
-    fn write_mutated_dependency_evidence(
+    fn write_mutated_distribution_evidence(
         plugin_dir: &Path,
         policy: &mut serde_json::Value,
         sbom: &serde_json::Value,
     ) {
+        std::fs::create_dir_all(plugin_dir.join(".third-party")).unwrap();
         let mut sbom_bytes = serde_json::to_vec_pretty(sbom).unwrap();
         sbom_bytes.push(b'\n');
         policy["expected_sbom_sha256"] = serde_json::Value::String(sha256(&sbom_bytes));
@@ -14,27 +15,24 @@ mod tests {
         let mut policy_bytes = serde_json::to_vec_pretty(policy).unwrap();
         policy_bytes.push(b'\n');
         std::fs::write(
-            plugin_dir.join(DEPENDENCY_LICENSE_POLICY_FILE),
+            plugin_dir.join(THIRD_PARTY_LICENSE_POLICY_FILE),
             policy_bytes,
         )
         .unwrap();
-        std::fs::write(
-            plugin_dir.join(DEPENDENCY_SOURCE_LOCK_SBOM_FILE),
-            sbom_bytes,
-        )
-        .unwrap();
-        write_exact_supporting_dependency_evidence(plugin_dir);
+        std::fs::write(plugin_dir.join(SOURCE_LOCK_SBOM_FILE), sbom_bytes).unwrap();
+        write_exact_supporting_distribution_evidence(plugin_dir);
     }
 
-    fn write_exact_supporting_dependency_evidence(plugin_dir: &Path) {
+    fn write_exact_supporting_distribution_evidence(plugin_dir: &Path) {
+        std::fs::create_dir_all(plugin_dir.join(".third-party")).unwrap();
         std::fs::write(
-            plugin_dir.join(DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM_FILE),
-            DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM,
+            plugin_dir.join(WINDOWS_SOURCE_CLOSURE_SBOM_FILE),
+            WINDOWS_SOURCE_CLOSURE_SBOM,
         )
         .unwrap();
         std::fs::write(
-            plugin_dir.join(DEPENDENCY_LICENSE_PROVENANCE_FILE),
-            DEPENDENCY_LICENSE_PROVENANCE,
+            plugin_dir.join(THIRD_PARTY_LICENSE_PROVENANCE_FILE),
+            THIRD_PARTY_LICENSE_PROVENANCE,
         )
         .unwrap();
         std::fs::write(
@@ -49,10 +47,10 @@ mod tests {
         .unwrap();
     }
 
-    fn current_dependency_evidence() -> (serde_json::Value, serde_json::Value) {
+    fn current_distribution_evidence() -> (serde_json::Value, serde_json::Value) {
         (
-            serde_json::from_slice(DEPENDENCY_LICENSE_POLICY).unwrap(),
-            serde_json::from_slice(DEPENDENCY_SOURCE_LOCK_SBOM).unwrap(),
+            serde_json::from_slice(THIRD_PARTY_LICENSE_POLICY).unwrap(),
+            serde_json::from_slice(SOURCE_LOCK_SBOM).unwrap(),
         )
     }
 
@@ -362,23 +360,20 @@ mod tests {
     }
 
     #[test]
-    fn source_dependency_evidence_is_exact_byte_bound() {
+    fn source_distribution_evidence_is_exact_byte_bound() {
         let plugin = tempfile::tempdir().unwrap();
+        std::fs::create_dir(plugin.path().join(".third-party")).unwrap();
         std::fs::write(
-            plugin.path().join(DEPENDENCY_LICENSE_POLICY_FILE),
-            DEPENDENCY_LICENSE_POLICY,
+            plugin.path().join(THIRD_PARTY_LICENSE_POLICY_FILE),
+            THIRD_PARTY_LICENSE_POLICY,
         )
         .unwrap();
-        std::fs::write(
-            plugin.path().join(DEPENDENCY_SOURCE_LOCK_SBOM_FILE),
-            DEPENDENCY_SOURCE_LOCK_SBOM,
-        )
-        .unwrap();
-        write_exact_supporting_dependency_evidence(plugin.path());
-        validate_source_dependency_evidence(plugin.path()).unwrap();
+        std::fs::write(plugin.path().join(SOURCE_LOCK_SBOM_FILE), SOURCE_LOCK_SBOM).unwrap();
+        write_exact_supporting_distribution_evidence(plugin.path());
+        validate_source_distribution_evidence(plugin.path()).unwrap();
 
         std::fs::write(plugin.path().join(THIRD_PARTY_LICENSES_FILE), b"tampered\n").unwrap();
-        let error = validate_source_dependency_evidence(plugin.path()).unwrap_err();
+        let error = validate_source_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -391,37 +386,33 @@ mod tests {
             THIRD_PARTY_LICENSES,
         )
         .unwrap();
-        std::fs::write(
-            plugin.path().join(DEPENDENCY_SOURCE_LOCK_SBOM_FILE),
-            b"{}\n",
-        )
-        .unwrap();
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        std::fs::write(plugin.path().join(SOURCE_LOCK_SBOM_FILE), b"{}\n").unwrap();
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
-                .contains("does not match dependency policy SHA-256"),
+                .contains("does not match third-party licence policy SHA-256"),
             "{error:#}"
         );
     }
 
     #[test]
-    fn packaged_dependency_evidence_rejects_duplicate_and_dangling_spdx_ids() {
+    fn packaged_distribution_evidence_rejects_duplicate_and_dangling_spdx_ids() {
         let plugin = tempfile::tempdir().unwrap();
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         let first_id = sbom["packages"][0]["SPDXID"].as_str().unwrap().to_owned();
         sbom["packages"][1]["SPDXID"] = serde_json::Value::String(first_id);
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error.to_string().contains("duplicate package SPDXID"),
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         sbom["documentDescribes"] = serde_json::json!(["SPDXRef-Package-does-not-exist"]);
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -431,24 +422,24 @@ mod tests {
     }
 
     #[test]
-    fn packaged_dependency_evidence_rejects_malformed_relationships() {
+    fn packaged_distribution_evidence_rejects_malformed_relationships() {
         let plugin = tempfile::tempdir().unwrap();
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         sbom["relationships"][0]["relatedSpdxElement"] =
             serde_json::Value::String("SPDXRef-Package-does-not-exist".to_owned());
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error.to_string().contains("endpoint does not resolve"),
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         sbom["relationships"][0]["relationshipType"] =
             serde_json::Value::String("CONTAINS".to_owned());
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -456,10 +447,10 @@ mod tests {
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         sbom["relationships"][0]["comment"] = serde_json::Value::String("extra".to_owned());
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error.to_string().contains("relationship shape"),
             "{error:#}"
@@ -467,10 +458,10 @@ mod tests {
     }
 
     #[test]
-    fn packaged_dependency_evidence_rejects_malformed_package_checksums() {
+    fn packaged_distribution_evidence_rejects_malformed_package_checksums() {
         let plugin = tempfile::tempdir().unwrap();
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         let workspace_index = sbom["packages"]
             .as_array()
             .unwrap()
@@ -481,8 +472,8 @@ mod tests {
             "algorithm": "SHA256",
             "checksumValue": "0000000000000000000000000000000000000000000000000000000000000000"
         }]);
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -490,7 +481,7 @@ mod tests {
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         let registry_index = sbom["packages"]
             .as_array()
             .unwrap()
@@ -502,8 +493,8 @@ mod tests {
             })
             .unwrap();
         sbom["packages"][registry_index]["checksums"] = serde_json::json!([]);
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -511,7 +502,7 @@ mod tests {
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         let registry_index = sbom["packages"]
             .as_array()
             .unwrap()
@@ -523,14 +514,14 @@ mod tests {
                 .to_owned(),
         );
         sbom["packages"][registry_index]["checksums"] = serde_json::json!([]);
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error.to_string().contains("unknown sourceInfo shape"),
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         let registry_index = sbom["packages"]
             .as_array()
             .unwrap()
@@ -543,14 +534,14 @@ mod tests {
             .unwrap();
         sbom["packages"][registry_index]["checksums"][0]["algorithm"] =
             serde_json::Value::String("SHA1".to_owned());
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error.to_string().contains("checksum must contain only"),
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         let registry_index = sbom["packages"]
             .as_array()
             .unwrap()
@@ -565,8 +556,8 @@ mod tests {
             serde_json::Value::String(
                 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
             );
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -574,7 +565,7 @@ mod tests {
             "{error:#}"
         );
 
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         let registry_index = sbom["packages"]
             .as_array()
             .unwrap()
@@ -587,8 +578,8 @@ mod tests {
             .unwrap();
         sbom["packages"][registry_index]["checksums"][0]["comment"] =
             serde_json::Value::String("extra".to_owned());
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error.to_string().contains("checksum must contain only"),
             "{error:#}"
@@ -598,13 +589,13 @@ mod tests {
     #[test]
     fn schema_v2_evidence_rejects_an_embedded_approval_status() {
         let plugin = tempfile::tempdir().unwrap();
-        let (mut policy, sbom) = current_dependency_evidence();
+        let (mut policy, sbom) = current_distribution_evidence();
         policy["legal_review"] = serde_json::json!({
             "status": "approved",
             "approval_reference": "nonexistent-review"
         });
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        let error = validate_packaged_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        let error = validate_packaged_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -616,11 +607,11 @@ mod tests {
     #[test]
     fn smoke_identity_requires_exact_compiled_evidence_not_self_consistency() {
         let plugin = tempfile::tempdir().unwrap();
-        let (mut policy, mut sbom) = current_dependency_evidence();
+        let (mut policy, mut sbom) = current_distribution_evidence();
         sbom["creationInfo"]["creators"] = serde_json::json!(["Tool: co-edited-reproduction"]);
-        write_mutated_dependency_evidence(plugin.path(), &mut policy, &sbom);
-        validate_packaged_dependency_evidence(plugin.path()).unwrap();
-        let error = validate_source_dependency_evidence(plugin.path()).unwrap_err();
+        write_mutated_distribution_evidence(plugin.path(), &mut policy, &sbom);
+        validate_packaged_distribution_evidence(plugin.path()).unwrap();
+        let error = validate_source_distribution_evidence(plugin.path()).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -639,25 +630,25 @@ use std::str::FromStr;
 
 pub const PROJECT_LICENSE: &str = "GPL-3.0-or-later";
 pub const PROJECT_LICENSE_TEXT: &[u8] = include_bytes!("../../../../LICENSE");
-pub const DEPENDENCY_LICENSE_POLICY: &[u8] =
-    include_bytes!("../../../../plugin/dependency-license-policy.json");
-pub const DEPENDENCY_SOURCE_LOCK_SBOM: &[u8] =
-    include_bytes!("../../../../plugin/dependency-source-lock.spdx.json");
-pub const DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM: &[u8] =
-    include_bytes!("../../../../plugin/dependency-windows-source-closure.spdx.json");
-pub const DEPENDENCY_LICENSE_PROVENANCE: &[u8] =
-    include_bytes!("../../../../plugin/dependency-license-provenance.json");
+pub const THIRD_PARTY_LICENSE_POLICY: &[u8] =
+    include_bytes!("../../../../plugin/.third-party/third-party-license-policy.json");
+pub const SOURCE_LOCK_SBOM: &[u8] =
+    include_bytes!("../../../../plugin/.third-party/source-lock.spdx.json");
+pub const WINDOWS_SOURCE_CLOSURE_SBOM: &[u8] =
+    include_bytes!("../../../../plugin/.third-party/source-closure-windows.spdx.json");
+pub const THIRD_PARTY_LICENSE_PROVENANCE: &[u8] =
+    include_bytes!("../../../../plugin/.third-party/third-party-license-provenance.json");
 pub const THIRD_PARTY_LICENSES: &[u8] =
     include_bytes!("../../../../plugin/THIRD_PARTY_LICENSES.txt");
 pub const OWNER_DISTRIBUTION_APPROVAL_SCHEMA: &[u8] =
     include_bytes!("../../approval/schemas/owner-distribution-approval.schema.json");
 
-const DEPENDENCY_LICENSE_POLICY_FILE: &str = "dependency-license-policy.json";
-const DEPENDENCY_EVIDENCE_GENERATOR_SCHEMA_VERSION: u64 = 6;
-const DEPENDENCY_SOURCE_LOCK_SBOM_FILE: &str = "dependency-source-lock.spdx.json";
-const DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM_FILE: &str =
-    "dependency-windows-source-closure.spdx.json";
-const DEPENDENCY_LICENSE_PROVENANCE_FILE: &str = "dependency-license-provenance.json";
+const THIRD_PARTY_LICENSE_POLICY_FILE: &str = ".third-party/third-party-license-policy.json";
+const DISTRIBUTION_EVIDENCE_GENERATOR_SCHEMA_VERSION: u64 = 7;
+const SOURCE_LOCK_SBOM_FILE: &str = ".third-party/source-lock.spdx.json";
+const WINDOWS_SOURCE_CLOSURE_SBOM_FILE: &str = ".third-party/source-closure-windows.spdx.json";
+const THIRD_PARTY_LICENSE_PROVENANCE_FILE: &str =
+    ".third-party/third-party-license-provenance.json";
 const THIRD_PARTY_LICENSES_FILE: &str = "THIRD_PARTY_LICENSES.txt";
 pub const OWNER_DISTRIBUTION_APPROVAL_SCHEMA_FILE: &str = "owner-distribution-approval.schema.json";
 const CARGO_REGISTRY_SOURCE_INFO: &str = "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum.";
@@ -842,20 +833,17 @@ pub fn validate_plugin_license(plugin_dir: &Path, metadata: &PluginMetadata) -> 
     Ok(())
 }
 
-pub fn validate_source_dependency_evidence(plugin_dir: &Path) -> Result<()> {
+pub fn validate_source_distribution_evidence(plugin_dir: &Path) -> Result<()> {
     for (name, expected) in [
-        (DEPENDENCY_LICENSE_POLICY_FILE, DEPENDENCY_LICENSE_POLICY),
+        (THIRD_PARTY_LICENSE_POLICY_FILE, THIRD_PARTY_LICENSE_POLICY),
+        (SOURCE_LOCK_SBOM_FILE, SOURCE_LOCK_SBOM),
         (
-            DEPENDENCY_SOURCE_LOCK_SBOM_FILE,
-            DEPENDENCY_SOURCE_LOCK_SBOM,
+            WINDOWS_SOURCE_CLOSURE_SBOM_FILE,
+            WINDOWS_SOURCE_CLOSURE_SBOM,
         ),
         (
-            DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM_FILE,
-            DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM,
-        ),
-        (
-            DEPENDENCY_LICENSE_PROVENANCE_FILE,
-            DEPENDENCY_LICENSE_PROVENANCE,
+            THIRD_PARTY_LICENSE_PROVENANCE_FILE,
+            THIRD_PARTY_LICENSE_PROVENANCE,
         ),
         (THIRD_PARTY_LICENSES_FILE, THIRD_PARTY_LICENSES),
         (
@@ -865,25 +853,25 @@ pub fn validate_source_dependency_evidence(plugin_dir: &Path) -> Result<()> {
     ] {
         let path = plugin_dir.join(name);
         let actual = std::fs::read(&path)
-            .with_context(|| format!("read dependency evidence {}", path.display()))?;
+            .with_context(|| format!("read distribution evidence {}", path.display()))?;
         if actual != expected {
             return Err(anyhow!(
-                "source dependency evidence {name} differs from the exact bytes compiled into the packager"
+                "source distribution evidence {name} differs from the exact bytes compiled into the packager"
             ));
         }
     }
-    validate_packaged_dependency_evidence(plugin_dir)
+    validate_packaged_distribution_evidence(plugin_dir)
 }
 
-pub fn validate_packaged_dependency_evidence(plugin_dir: &Path) -> Result<()> {
-    let policy_path = plugin_dir.join(DEPENDENCY_LICENSE_POLICY_FILE);
-    let sbom_path = plugin_dir.join(DEPENDENCY_SOURCE_LOCK_SBOM_FILE);
-    let windows_sbom_path = plugin_dir.join(DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM_FILE);
-    let provenance_path = plugin_dir.join(DEPENDENCY_LICENSE_PROVENANCE_FILE);
+pub fn validate_packaged_distribution_evidence(plugin_dir: &Path) -> Result<()> {
+    let policy_path = plugin_dir.join(THIRD_PARTY_LICENSE_POLICY_FILE);
+    let sbom_path = plugin_dir.join(SOURCE_LOCK_SBOM_FILE);
+    let windows_sbom_path = plugin_dir.join(WINDOWS_SOURCE_CLOSURE_SBOM_FILE);
+    let provenance_path = plugin_dir.join(THIRD_PARTY_LICENSE_PROVENANCE_FILE);
     let notices_path = plugin_dir.join(THIRD_PARTY_LICENSES_FILE);
     let approval_schema_path = plugin_dir.join(OWNER_DISTRIBUTION_APPROVAL_SCHEMA_FILE);
     let policy_bytes = std::fs::read(&policy_path)
-        .with_context(|| format!("read dependency policy {}", policy_path.display()))?;
+        .with_context(|| format!("read third-party licence policy {}", policy_path.display()))?;
     let sbom_bytes =
         std::fs::read(&sbom_path).with_context(|| format!("read SBOM {}", sbom_path.display()))?;
     let windows_sbom_bytes = std::fs::read(&windows_sbom_path).with_context(|| {
@@ -894,7 +882,7 @@ pub fn validate_packaged_dependency_evidence(plugin_dir: &Path) -> Result<()> {
     })?;
     let provenance_bytes = std::fs::read(&provenance_path).with_context(|| {
         format!(
-            "read dependency licence provenance {}",
+            "read third-party licence provenance {}",
             provenance_path.display()
         )
     })?;
@@ -907,7 +895,7 @@ pub fn validate_packaged_dependency_evidence(plugin_dir: &Path) -> Result<()> {
         )
     })?;
     let policy: serde_json::Value = serde_json::from_slice(&policy_bytes)
-        .with_context(|| format!("parse dependency policy {}", policy_path.display()))?;
+        .with_context(|| format!("parse third-party licence policy {}", policy_path.display()))?;
     let sbom: serde_json::Value = serde_json::from_slice(&sbom_bytes)
         .with_context(|| format!("parse SPDX SBOM {}", sbom_path.display()))?;
     let windows_sbom: serde_json::Value = serde_json::from_slice(&windows_sbom_bytes)
@@ -920,7 +908,7 @@ pub fn validate_packaged_dependency_evidence(plugin_dir: &Path) -> Result<()> {
     let provenance: serde_json::Value =
         serde_json::from_slice(&provenance_bytes).with_context(|| {
             format!(
-                "parse dependency licence provenance {}",
+                "parse third-party licence provenance {}",
                 provenance_path.display()
             )
         })?;
@@ -934,11 +922,11 @@ pub fn validate_packaged_dependency_evidence(plugin_dir: &Path) -> Result<()> {
 
     if require_json_u64(&policy, "schema_version")? != 2
         || require_json_u64(&policy, "evidence_generator_schema_version")?
-            != DEPENDENCY_EVIDENCE_GENERATOR_SCHEMA_VERSION
+            != DISTRIBUTION_EVIDENCE_GENERATOR_SCHEMA_VERSION
     {
         return Err(anyhow!(
-            "dependency policy schema must be 2 and generator schema must be {}",
-            DEPENDENCY_EVIDENCE_GENERATOR_SCHEMA_VERSION
+            "third-party licence policy schema must be 2 and generator schema must be {}",
+            DISTRIBUTION_EVIDENCE_GENERATOR_SCHEMA_VERSION
         ));
     }
     let lock_sha256 = require_json_sha256(&policy, "reviewed_cargo_lock_sha256")?;
@@ -961,22 +949,22 @@ pub fn validate_packaged_dependency_evidence(plugin_dir: &Path) -> Result<()> {
 
     if sha256(&sbom_bytes) != expected_sbom_sha256 {
         return Err(anyhow!(
-            "packaged source-lock SBOM does not match dependency policy SHA-256"
+            "packaged source-lock SBOM does not match third-party licence policy SHA-256"
         ));
     }
     if sha256(&windows_sbom_bytes) != expected_windows_sbom_sha256 {
         return Err(anyhow!(
-            "packaged Windows source-closure SBOM does not match dependency policy SHA-256"
+            "packaged Windows source-closure SBOM does not match third-party licence policy SHA-256"
         ));
     }
     if sha256(&notices_bytes) != expected_notices_sha256 {
         return Err(anyhow!(
-            "packaged third-party licence bundle does not match dependency policy SHA-256"
+            "packaged third-party licence bundle does not match third-party licence policy SHA-256"
         ));
     }
     if sha256(&provenance_bytes) != expected_provenance_sha256 {
         return Err(anyhow!(
-            "packaged dependency licence provenance does not match dependency policy SHA-256"
+            "packaged third-party licence provenance does not match third-party licence policy SHA-256"
         ));
     }
     if sbom["spdxVersion"] != "SPDX-2.3"
@@ -1197,7 +1185,7 @@ fn validate_owner_approval_contract(
 ) -> Result<()> {
     let policy_object = policy
         .as_object()
-        .ok_or_else(|| anyhow!("dependency policy must be a JSON object"))?;
+        .ok_or_else(|| anyhow!("third-party licence policy must be a JSON object"))?;
     let actual_policy_fields = policy_object
         .keys()
         .map(String::as_str)
@@ -1225,14 +1213,14 @@ fn validate_owner_approval_contract(
     ]);
     if actual_policy_fields != expected_policy_fields {
         return Err(anyhow!(
-            "dependency policy schema-v2 fields do not match the closed technical evidence contract"
+            "third-party licence policy schema-v2 fields do not match the closed technical evidence contract"
         ));
     }
 
     let approval = policy["owner_distribution_approval"]
         .as_object()
         .ok_or_else(|| {
-            anyhow!("dependency policy owner_distribution_approval must be an object")
+            anyhow!("third-party licence policy owner_distribution_approval must be an object")
         })?;
     let approval_fields = approval.keys().map(String::as_str).collect::<BTreeSet<_>>();
     if approval_fields
@@ -1245,7 +1233,7 @@ fn validate_owner_approval_contract(
         ])
     {
         return Err(anyhow!(
-            "dependency policy owner_distribution_approval fields do not match the closed contract"
+            "third-party licence policy owner_distribution_approval fields do not match the closed contract"
         ));
     }
     if approval["mode"] != "detached_per_distribution_set"
@@ -1257,7 +1245,8 @@ fn validate_owner_approval_contract(
             != serde_json::json!(["public_binary_distribution", "public_source_distribution"])
     {
         return Err(anyhow!(
-            "owner-distribution approval contract must remain detached schema-v3 evidence required for public binary and source distribution"
+            "owner-distribution approval contract must remain detached schema-v{} evidence required for public binary and source distribution",
+            distribution_approval::APPROVAL_SCHEMA_VERSION
         ));
     }
     let expected_schema_sha256 = require_json_sha256(
@@ -1266,7 +1255,7 @@ fn validate_owner_approval_contract(
     )?;
     if sha256(approval_schema_bytes) != expected_schema_sha256 {
         return Err(anyhow!(
-            "packaged owner-distribution approval schema does not match dependency policy SHA-256"
+            "packaged owner-distribution approval schema does not match third-party licence policy SHA-256"
         ));
     }
     if approval_schema.pointer("/properties/schema_version/const")
@@ -1278,7 +1267,8 @@ fn validate_owner_approval_contract(
         || approval_schema.get("additionalProperties") != Some(&serde_json::Value::Bool(false))
     {
         return Err(anyhow!(
-            "packaged owner-distribution approval schema is not the closed schema-v3 contract"
+            "packaged owner-distribution approval schema is not the closed schema-v{} contract",
+            distribution_approval::APPROVAL_SCHEMA_VERSION
         ));
     }
     jsonschema::validator_for(approval_schema)
@@ -1513,7 +1503,7 @@ fn validate_provenance_notice_representation(
         || provenance.pointer("/legal_effect/approval_reference") != Some(&serde_json::Value::Null)
     {
         return Err(anyhow!(
-            "packaged dependency licence provenance must remain schema-v1 technical evidence with no approval claim"
+            "packaged third-party licence provenance must remain schema-v1 technical evidence with no approval claim"
         ));
     }
     let notices = std::str::from_utf8(notices)
@@ -1527,16 +1517,18 @@ fn validate_provenance_notice_representation(
     let sources = provenance["sources"]
         .as_array()
         .filter(|values| !values.is_empty())
-        .ok_or_else(|| anyhow!("dependency licence provenance sources must be a nonempty array"))?;
+        .ok_or_else(|| {
+            anyhow!("third-party licence provenance sources must be a nonempty array")
+        })?;
     let mut source_ids = BTreeSet::new();
     for source in sources {
         let source_id = source["id"]
             .as_str()
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| anyhow!("dependency licence provenance source has no id"))?;
+            .ok_or_else(|| anyhow!("third-party licence provenance source has no id"))?;
         if !source_ids.insert(source_id) {
             return Err(anyhow!(
-                "dependency licence provenance repeats source id {source_id}"
+                "third-party licence provenance repeats source id {source_id}"
             ));
         }
         let source_marker = format!("Provenance source: {source_id}\n");
@@ -1558,7 +1550,7 @@ fn validate_provenance_notice_representation(
                 let tracked_path = source["tracked_path"].as_str().ok_or_else(|| {
                     anyhow!("upstream Git-blob provenance source lacks tracked_path")
                 })?;
-                if !tracked_path.starts_with("plugin/dependency-license-supplements/")
+                if !tracked_path.starts_with("plugin/.third-party/license-supplements/")
                     || source["byte_length"]
                         .as_u64()
                         .is_none_or(|value| value == 0)
@@ -1590,7 +1582,7 @@ fn validate_provenance_notice_representation(
                 .collect::<Result<Vec<_>>>()?,
             _ => {
                 return Err(anyhow!(
-                    "dependency licence provenance source has an unknown kind"
+                    "third-party licence provenance source has an unknown kind"
                 ))
             }
         };
@@ -1607,19 +1599,19 @@ fn validate_provenance_notice_representation(
         .as_array()
         .filter(|values| !values.is_empty())
         .ok_or_else(|| {
-            anyhow!("dependency licence provenance package_bindings must be a nonempty array")
+            anyhow!("third-party licence provenance package_bindings must be a nonempty array")
         })?;
     let bound_source_ids = bindings
         .iter()
         .map(|binding| {
             binding["source_id"]
                 .as_str()
-                .ok_or_else(|| anyhow!("dependency licence provenance binding lacks source_id"))
+                .ok_or_else(|| anyhow!("third-party licence provenance binding lacks source_id"))
         })
         .collect::<Result<BTreeSet<_>>>()?;
     if bound_source_ids != source_ids {
         return Err(anyhow!(
-            "dependency licence provenance sources and package bindings do not form a closed set"
+            "third-party licence provenance sources and package bindings do not form a closed set"
         ));
     }
     Ok(())
@@ -1628,20 +1620,20 @@ fn validate_provenance_notice_representation(
 fn require_json_u64(value: &serde_json::Value, field: &str) -> Result<u64> {
     value[field]
         .as_u64()
-        .ok_or_else(|| anyhow!("dependency policy {field} must be an unsigned integer"))
+        .ok_or_else(|| anyhow!("third-party licence policy {field} must be an unsigned integer"))
 }
 
 fn require_json_sha256<'a>(value: &'a serde_json::Value, field: &str) -> Result<&'a str> {
     let digest = value[field]
         .as_str()
-        .ok_or_else(|| anyhow!("dependency policy {field} must be a string"))?;
+        .ok_or_else(|| anyhow!("third-party licence policy {field} must be a string"))?;
     if digest.len() != 64
         || !digest
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
         return Err(anyhow!(
-            "dependency policy {field} must be 64 lowercase hexadecimal digits"
+            "third-party licence policy {field} must be 64 lowercase hexadecimal digits"
         ));
     }
     Ok(digest)

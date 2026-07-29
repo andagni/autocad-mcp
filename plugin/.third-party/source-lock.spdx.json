@@ -3,11 +3,11 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "AutoCAD-MCP Cargo.lock source dependency graph",
-  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-780ee228c674c11f61bb45ce0f2a07ef82210b31fee60df12cd4c1057af8ce47",
+  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-79146639268a2bd7758db9c08529f6dcf985ebbd601bd3f62cc718ec1bd0d08e",
   "creationInfo": {
-    "created": "2026-07-29T11:13:40Z",
+    "created": "2026-07-29T16:44:18Z",
     "creators": [
-      "Tool: AutoCAD-MCP distribution-evidence-6"
+      "Tool: AutoCAD-MCP distribution-evidence-7"
     ],
     "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1`, including workspace, development, build, and all-target dependencies. Cargo.lock SHA-256: d7843ac81e247037cf8705ce46057b57c94769eb02613ad7ce018e876cf0fac3. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
   },

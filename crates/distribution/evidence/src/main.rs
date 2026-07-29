@@ -18,7 +18,7 @@ fn report(result: Result<EvidenceSummary, String>) -> ExitCode {
     match result {
         Ok(summary) => {
             eprintln!(
-                "dependency evidence passed: {} locked packages ({} third-party), Windows source closure {} packages ({} third-party), {} without retained licence files; owner approval mode: {}",
+                "distribution evidence passed: {} locked packages ({} third-party), Windows source closure {} packages ({} third-party), {} without retained licence files; owner approval mode: {}",
                 summary.total_packages(),
                 summary.third_party_packages(),
                 summary.windows_source_closure_packages(),

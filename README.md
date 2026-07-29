@@ -67,8 +67,8 @@ from this source use `0.0.1` and are visibly marked as evaluation artifacts,
 not Release candidates or certification results. Release requires a closed
 stable-form version whose major component is at least 1, making `1.0.0` the
 first eligible version, and requires every
-native AutoCAD, private-evidence join, package-privacy, signing, dependency, and
-clean-host gate. A Preview-capable binary exposes only the 36 read-only tools
+native AutoCAD, private-evidence join, package-privacy, signing, source-closure,
+third-party licence, and clean-host gates. A Preview-capable binary exposes only the 36 read-only tools
 through plain `serve`; `serve --experimental` opts into all 51, including the
 15 state-changing tools. The default binary flavor is compiled without that
 option, rejects it as unknown, and exposes all 51 tools through plain `serve`.
@@ -457,7 +457,7 @@ native Windows x64 host. The repository's Windows-native workflow performs the
 three-flavor binary build, stdio lifecycle gate, and non-uploaded Preview
 package smoke without AutoCAD. Creation of a Release Windows MCPB additionally
 requires the exact native AutoCAD qualification set, package-safe binding,
-dependency approval, executable signing and timestamp verification, package
+third-party licence approval, executable signing and timestamp verification, package
 privacy checks, and clean-host acceptance. Missing Release evidence fails
 before archive creation.
 
@@ -475,8 +475,9 @@ Run the complete platform-independent source gate with:
 cargo run --locked -p xtask -- local-gate
 ```
 
-The gate runs repository-wide formatting, dependency evidence, warnings-denied
-Clippy, default and feature-specific tests, and plugin/repository policy. The
+The gate runs repository-wide formatting, source-closure and third-party
+licence evidence, warnings-denied Clippy, default and feature-specific tests,
+and plugin/repository policy. The
 tracked pre-push hook repeats that gate for the exact clean checked-out commit,
 then seals and verifies both Release and Preview source candidates. It is a
 source-quality gate, not Windows-native AutoCAD, signing, package installation,
@@ -870,12 +871,12 @@ versions also expose extension logs in their settings UI.
 - `crates/distribution/evidence/`,
   `crates/distribution/plugin-validation/`,
   `crates/distribution/qualification/`, and
-  `crates/distribution/packager/` own dependency evidence, shipped-plugin
-  validation, qualification primitives, reproducible packaging, and the
-  pinned supplemental MCPB validator.
+  `crates/distribution/packager/` own source-closure and third-party licence
+  evidence, shipped-plugin validation, qualification primitives, reproducible
+  packaging, and the pinned supplemental MCPB validator.
 - `crates/xtask/` orchestrates cross-crate local CI and candidate sealing.
-- `plugin/` contains the package source, MCP/LSP descriptors, and bundled
-  skills.
+- `plugin/` contains the package source, MCP/LSP descriptors, bundled skills,
+  and the `.third-party/` machine-evidence directory.
 
 Official references:
 

@@ -1,5 +1,0 @@
-# Supplemental dependency evidence is whitelist-only and never copied into an
-# MCPB directly; the deterministic notice bundle carries validated bytes.
-/*
-!/.gitignore
-!/rmcp-1.7.0-LICENSE.txt

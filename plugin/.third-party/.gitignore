@@ -1,0 +1,10 @@
+# Source-closure and third-party licence evidence is whitelist-only. The raw
+# licence supplements remain source-only; packaging emits the validated notice
+# bundle.
+/*
+!/.gitignore
+!/third-party-license-policy.json
+!/third-party-license-provenance.json
+!/source-lock.spdx.json
+!/source-closure-windows.spdx.json
+!/license-supplements/

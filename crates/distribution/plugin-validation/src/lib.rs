@@ -18,15 +18,19 @@ const PERMITTED_TOP_LEVEL: &[&str] = &[
     ".lsp.json",
     "LICENSE",
     "THIRD_PARTY_LICENSES.txt",
-    "dependency-license-policy.json",
-    "dependency-license-provenance.json",
-    "dependency-source-lock.spdx.json",
-    "dependency-windows-source-closure.spdx.json",
+    ".third-party",
     "owner-distribution-approval.schema.json",
     "CHANGELOG.md",
 ];
 
-const SOURCE_ONLY_DEPENDENCY_SUPPLEMENTS: &str = "dependency-license-supplements";
+const MACHINE_EVIDENCE_DIRECTORY: &str = ".third-party";
+const PERMITTED_MACHINE_EVIDENCE_FILES: &[&str] = &[
+    "third-party-license-policy.json",
+    "third-party-license-provenance.json",
+    "source-lock.spdx.json",
+    "source-closure-windows.spdx.json",
+];
+const SOURCE_ONLY_LICENSE_SUPPLEMENTS: &str = "license-supplements";
 const PERMITTED_SOURCE_SUPPLEMENT_ENTRIES: &[&str] = &[".gitignore", "rmcp-1.7.0-LICENSE.txt"];
 const PACKAGED_ONLY_RESOURCES: &str = "resources";
 
@@ -38,7 +42,7 @@ pub fn validate_structure(plugin_dir: &Path) -> Vec<String> {
 
 /// Reject entries which are not part of a finished packaged plugin.
 ///
-/// Source-only dependency licence supplements are consumed into the bound
+/// Source-only third-party licence supplements are consumed into the bound
 /// `THIRD_PARTY_LICENSES.txt` bundle and must not be copied into an MCPB.
 pub fn validate_packaged_structure(plugin_dir: &Path) -> Vec<String> {
     validate_structure_with_scope(plugin_dir, false)
@@ -79,14 +83,11 @@ fn validate_structure_with_scope(plugin_dir: &Path, allow_source_supplements: bo
         if name == ".DS_Store" || name == ".gitignore" {
             continue;
         }
-        if name == SOURCE_ONLY_DEPENDENCY_SUPPLEMENTS {
-            if allow_source_supplements {
-                errs.extend(validate_source_supplements(&entry.path()));
-            } else {
-                errs.push(format!(
-                    "source-only top-level entry '{name}' must not be present in a packaged plugin"
-                ));
-            }
+        if name == MACHINE_EVIDENCE_DIRECTORY {
+            errs.extend(validate_machine_evidence(
+                &entry.path(),
+                allow_source_supplements,
+            ));
             continue;
         }
         if name == PACKAGED_ONLY_RESOURCES {
@@ -107,19 +108,110 @@ fn validate_structure_with_scope(plugin_dir: &Path, allow_source_supplements: bo
     errs
 }
 
-fn validate_source_supplements(path: &Path) -> Vec<String> {
+fn validate_machine_evidence(path: &Path, allow_source_supplements: bool) -> Vec<String> {
     let directory_metadata = match std::fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
         Err(error) => {
             return vec![format!(
-                "cannot inspect source-only dependency licence supplements {}: {error}",
+                "cannot inspect machine evidence directory {}: {error}",
                 path.display()
             )]
         }
     };
     if directory_metadata.file_type().is_symlink() || !directory_metadata.file_type().is_dir() {
         return vec![format!(
-            "source-only dependency licence supplements path must be a non-symlink directory: {}",
+            "machine evidence path must be a non-symlink directory: {}",
+            path.display()
+        )];
+    }
+
+    let entries = match std::fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(error) => {
+            return vec![format!(
+                "cannot read machine evidence directory {}: {error}",
+                path.display()
+            )]
+        }
+    };
+    let mut errors = Vec::new();
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                errors.push(format!(
+                    "cannot enumerate machine evidence directory {}: {error}",
+                    path.display()
+                ));
+                continue;
+            }
+        };
+        let name = match entry.file_name().into_string() {
+            Ok(name) => name,
+            Err(name) => {
+                errors.push(format!(
+                    "machine evidence entry name is not UTF-8: {:?}",
+                    name
+                ));
+                continue;
+            }
+        };
+        if name == SOURCE_ONLY_LICENSE_SUPPLEMENTS {
+            if allow_source_supplements {
+                errors.extend(validate_source_supplements(&entry.path()));
+            } else {
+                errors.push(format!(
+                    "source-only machine evidence entry '{name}' must not be present in a packaged plugin"
+                ));
+            }
+            continue;
+        }
+        if name == ".gitignore" {
+            if !allow_source_supplements {
+                errors.push(
+                    "source-only machine evidence entry '.gitignore' must not be present in a packaged plugin"
+                        .to_owned(),
+                );
+            }
+            continue;
+        }
+        if !PERMITTED_MACHINE_EVIDENCE_FILES.contains(&name.as_str()) {
+            errors.push(format!(
+                "disallowed machine evidence entry '{name}' (not in the exact evidence allowlist)"
+            ));
+            continue;
+        }
+        let metadata = match std::fs::symlink_metadata(entry.path()) {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                errors.push(format!(
+                    "cannot inspect machine evidence entry '{name}': {error}"
+                ));
+                continue;
+            }
+        };
+        if metadata.file_type().is_symlink() || !metadata.file_type().is_file() {
+            errors.push(format!(
+                "machine evidence entry '{name}' must be a regular non-symlink file"
+            ));
+        }
+    }
+    errors
+}
+
+fn validate_source_supplements(path: &Path) -> Vec<String> {
+    let directory_metadata = match std::fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            return vec![format!(
+                "cannot inspect source-only third-party licence supplements {}: {error}",
+                path.display()
+            )]
+        }
+    };
+    if directory_metadata.file_type().is_symlink() || !directory_metadata.file_type().is_dir() {
+        return vec![format!(
+            "source-only third-party licence supplements path must be a non-symlink directory: {}",
             path.display()
         )];
     }
@@ -127,7 +219,7 @@ fn validate_source_supplements(path: &Path) -> Vec<String> {
         Ok(entries) => entries,
         Err(error) => {
             return vec![format!(
-                "cannot read source-only dependency licence supplements {}: {error}",
+                "cannot read source-only third-party licence supplements {}: {error}",
                 path.display()
             )]
         }
@@ -139,7 +231,7 @@ fn validate_source_supplements(path: &Path) -> Vec<String> {
             Ok(entry) => entry,
             Err(error) => {
                 errors.push(format!(
-                    "cannot enumerate source-only dependency licence supplements {}: {error}",
+                    "cannot enumerate source-only third-party licence supplements {}: {error}",
                     path.display()
                 ));
                 continue;
@@ -149,7 +241,7 @@ fn validate_source_supplements(path: &Path) -> Vec<String> {
             Ok(name) => name,
             Err(name) => {
                 errors.push(format!(
-                    "dependency licence supplement name is not UTF-8: {:?}",
+                    "third-party licence supplement name is not UTF-8: {:?}",
                     name
                 ));
                 continue;
@@ -157,7 +249,7 @@ fn validate_source_supplements(path: &Path) -> Vec<String> {
         };
         if !PERMITTED_SOURCE_SUPPLEMENT_ENTRIES.contains(&name.as_str()) {
             errors.push(format!(
-                "disallowed dependency licence supplement '{name}' (not in the exact source-evidence allowlist)"
+                "disallowed third-party licence supplement '{name}' (not in the exact source-evidence allowlist)"
             ));
             continue;
         }
@@ -166,14 +258,14 @@ fn validate_source_supplements(path: &Path) -> Vec<String> {
             Ok(metadata) => metadata,
             Err(error) => {
                 errors.push(format!(
-                    "cannot inspect dependency licence supplement '{name}': {error}"
+                    "cannot inspect third-party licence supplement '{name}': {error}"
                 ));
                 continue;
             }
         };
         if metadata.file_type().is_symlink() || !metadata.file_type().is_file() {
             errors.push(format!(
-                "dependency licence supplement '{name}' must be a regular non-symlink file"
+                "third-party licence supplement '{name}' must be a regular non-symlink file"
             ));
         }
     }
@@ -184,7 +276,7 @@ fn validate_source_supplements(path: &Path) -> Vec<String> {
     let actual = seen.iter().map(String::as_str).collect::<BTreeSet<_>>();
     if actual != expected {
         errors.push(format!(
-            "dependency licence supplement entries must exactly equal {:?}",
+            "third-party licence supplement entries must exactly equal {:?}",
             PERMITTED_SOURCE_SUPPLEMENT_ENTRIES
         ));
     }
@@ -599,6 +691,22 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unknown_machine_evidence_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let evidence = dir.path().join(MACHINE_EVIDENCE_DIRECTORY);
+        std::fs::create_dir(&evidence).unwrap();
+        std::fs::write(evidence.join("unreviewed.json"), "{}\n").unwrap();
+
+        let errors = validate_structure(dir.path());
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("disallowed machine evidence entry 'unreviewed.json'")
+            }),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
     fn accepts_known_top_level_entries() {
         let dir = std::env::temp_dir().join("plugin-validate-struct-ok");
         let _ = std::fs::remove_dir_all(&dir);
@@ -608,12 +716,32 @@ mod tests {
         std::fs::write(dir.join(".mcp.json"), "{}").unwrap();
         std::fs::write(dir.join(".lsp.json"), "{}").unwrap();
         std::fs::write(dir.join("LICENSE"), "").unwrap();
-        std::fs::write(dir.join("dependency-license-policy.json"), "{}").unwrap();
-        std::fs::write(dir.join("dependency-license-provenance.json"), "{}").unwrap();
-        std::fs::write(dir.join("dependency-source-lock.spdx.json"), "{}").unwrap();
+        std::fs::create_dir_all(dir.join(".third-party/license-supplements")).unwrap();
+        std::fs::write(dir.join(".third-party/.gitignore"), "*\n").unwrap();
         std::fs::write(
-            dir.join("dependency-windows-source-closure.spdx.json"),
+            dir.join(".third-party/third-party-license-policy.json"),
             "{}",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join(".third-party/third-party-license-provenance.json"),
+            "{}",
+        )
+        .unwrap();
+        std::fs::write(dir.join(".third-party/source-lock.spdx.json"), "{}").unwrap();
+        std::fs::write(
+            dir.join(".third-party/source-closure-windows.spdx.json"),
+            "{}",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join(".third-party/license-supplements/.gitignore"),
+            "*\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join(".third-party/license-supplements/rmcp-1.7.0-LICENSE.txt"),
+            "licence\n",
         )
         .unwrap();
         std::fs::write(dir.join("owner-distribution-approval.schema.json"), "{}").unwrap();
@@ -625,8 +753,11 @@ mod tests {
     #[test]
     fn source_supplements_have_an_exact_allowlist_and_are_forbidden_in_packages() {
         let dir = tempfile::tempdir().unwrap();
-        let supplements = dir.path().join(SOURCE_ONLY_DEPENDENCY_SUPPLEMENTS);
-        std::fs::create_dir(&supplements).unwrap();
+        let supplements = dir
+            .path()
+            .join(MACHINE_EVIDENCE_DIRECTORY)
+            .join(SOURCE_ONLY_LICENSE_SUPPLEMENTS);
+        std::fs::create_dir_all(&supplements).unwrap();
         std::fs::write(supplements.join(".gitignore"), "*\n").unwrap();
         std::fs::write(supplements.join("rmcp-1.7.0-LICENSE.txt"), "licence\n").unwrap();
         assert!(validate_structure(dir.path()).is_empty());
@@ -717,7 +848,13 @@ mod tests {
     #[test]
     fn approval_scan_fails_closed_on_invalid_json() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("dependency-license-policy.json"), b"{").unwrap();
+        std::fs::create_dir(dir.path().join(MACHINE_EVIDENCE_DIRECTORY)).unwrap();
+        std::fs::write(
+            dir.path()
+                .join(".third-party/third-party-license-policy.json"),
+            b"{",
+        )
+        .unwrap();
         let errors = validate_packaged_structure(dir.path());
         assert!(
             errors
@@ -735,7 +872,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("target.json");
         std::fs::write(&target, "{}\n").unwrap();
-        symlink(&target, dir.path().join("dependency-license-policy.json")).unwrap();
+        std::fs::create_dir(dir.path().join(MACHINE_EVIDENCE_DIRECTORY)).unwrap();
+        symlink(
+            &target,
+            dir.path()
+                .join(".third-party/third-party-license-policy.json"),
+        )
+        .unwrap();
         let errors = validate_packaged_structure(dir.path());
         assert!(
             errors
@@ -745,8 +888,11 @@ mod tests {
         );
 
         let source = tempfile::tempdir().unwrap();
-        let supplements = source.path().join(SOURCE_ONLY_DEPENDENCY_SUPPLEMENTS);
-        std::fs::create_dir(&supplements).unwrap();
+        let supplements = source
+            .path()
+            .join(MACHINE_EVIDENCE_DIRECTORY)
+            .join(SOURCE_ONLY_LICENSE_SUPPLEMENTS);
+        std::fs::create_dir_all(&supplements).unwrap();
         std::fs::write(supplements.join(".gitignore"), "*\n").unwrap();
         symlink(&target, supplements.join("rmcp-1.7.0-LICENSE.txt")).unwrap();
         let errors = validate_structure(source.path());

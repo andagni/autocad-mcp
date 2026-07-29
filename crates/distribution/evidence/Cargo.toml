@@ -3,14 +3,14 @@ name = "distribution-evidence"
 version = "0.1.0"
 edition = "2021"
 license.workspace = true
-description = "Deterministic dependency evidence generation for AutoCAD MCP distributions"
+description = "Deterministic source-closure and third-party licence evidence generation for AutoCAD MCP distributions"
 publish = false
 
 [package.metadata.local-gate]
 schema-version = 1
 
 [[package.metadata.local-gate.checks]]
-name = "dependency-evidence"
+name = "distribution-evidence"
 bin = "distribution-evidence"
 arguments = ["check"]
 

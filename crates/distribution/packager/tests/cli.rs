@@ -1,8 +1,7 @@
 use release_packager::manifest::{
-    manifest_for, McpbManifest, PackageTarget, PluginMetadata, DEPENDENCY_LICENSE_POLICY,
-    DEPENDENCY_LICENSE_PROVENANCE, DEPENDENCY_SOURCE_LOCK_SBOM,
-    DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM, OWNER_DISTRIBUTION_APPROVAL_SCHEMA,
-    PROJECT_LICENSE_TEXT, THIRD_PARTY_LICENSES,
+    manifest_for, McpbManifest, PackageTarget, PluginMetadata, OWNER_DISTRIBUTION_APPROVAL_SCHEMA,
+    PROJECT_LICENSE_TEXT, SOURCE_LOCK_SBOM, THIRD_PARTY_LICENSES, THIRD_PARTY_LICENSE_POLICY,
+    THIRD_PARTY_LICENSE_PROVENANCE, WINDOWS_SOURCE_CLOSURE_SBOM,
 };
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -175,7 +174,7 @@ fn write_static_package(path: &Path, manifest: &McpbManifest) {
     .unwrap();
     zip.write_all(&serde_json::to_vec_pretty(&documentation_provenance).unwrap())
         .unwrap();
-    write_test_dependency_evidence(&mut zip, options);
+    write_test_distribution_evidence(&mut zip, options);
     zip.start_file("plugin/LICENSE", options).unwrap();
     zip.write_all(PROJECT_LICENSE_TEXT).unwrap();
     zip.start_file("plugin/CHANGELOG.md", options).unwrap();
@@ -186,23 +185,28 @@ fn write_static_package(path: &Path, manifest: &McpbManifest) {
     zip.finish().unwrap();
 }
 
-fn write_test_dependency_evidence(zip: &mut zip::ZipWriter<std::fs::File>, options: FileOptions) {
-    zip.start_file("plugin/dependency-license-policy.json", options)
-        .unwrap();
-    zip.write_all(DEPENDENCY_LICENSE_POLICY).unwrap();
-    zip.start_file("plugin/dependency-source-lock.spdx.json", options)
-        .unwrap();
-    zip.write_all(DEPENDENCY_SOURCE_LOCK_SBOM).unwrap();
+fn write_test_distribution_evidence(zip: &mut zip::ZipWriter<std::fs::File>, options: FileOptions) {
     zip.start_file(
-        "plugin/dependency-windows-source-closure.spdx.json",
+        "plugin/.third-party/third-party-license-policy.json",
         options,
     )
     .unwrap();
-    zip.write_all(DEPENDENCY_WINDOWS_SOURCE_CLOSURE_SBOM)
+    zip.write_all(THIRD_PARTY_LICENSE_POLICY).unwrap();
+    zip.start_file("plugin/.third-party/source-lock.spdx.json", options)
         .unwrap();
-    zip.start_file("plugin/dependency-license-provenance.json", options)
-        .unwrap();
-    zip.write_all(DEPENDENCY_LICENSE_PROVENANCE).unwrap();
+    zip.write_all(SOURCE_LOCK_SBOM).unwrap();
+    zip.start_file(
+        "plugin/.third-party/source-closure-windows.spdx.json",
+        options,
+    )
+    .unwrap();
+    zip.write_all(WINDOWS_SOURCE_CLOSURE_SBOM).unwrap();
+    zip.start_file(
+        "plugin/.third-party/third-party-license-provenance.json",
+        options,
+    )
+    .unwrap();
+    zip.write_all(THIRD_PARTY_LICENSE_PROVENANCE).unwrap();
     zip.start_file("plugin/THIRD_PARTY_LICENSES.txt", options)
         .unwrap();
     zip.write_all(THIRD_PARTY_LICENSES).unwrap();
@@ -295,10 +299,10 @@ fn cli_packages_macos_mcpb_from_current_plugin_tree() {
         "{names:?}"
     );
     for required in [
-        "plugin/dependency-license-policy.json",
-        "plugin/dependency-license-provenance.json",
-        "plugin/dependency-source-lock.spdx.json",
-        "plugin/dependency-windows-source-closure.spdx.json",
+        "plugin/.third-party/third-party-license-policy.json",
+        "plugin/.third-party/third-party-license-provenance.json",
+        "plugin/.third-party/source-lock.spdx.json",
+        "plugin/.third-party/source-closure-windows.spdx.json",
         "plugin/THIRD_PARTY_LICENSES.txt",
         "plugin/owner-distribution-approval.schema.json",
     ] {
@@ -317,10 +321,10 @@ fn cli_packages_macos_mcpb_from_current_plugin_tree() {
         std::fs::read(repo_root().join("LICENSE")).unwrap()
     );
     for relative in [
-        "dependency-license-policy.json",
-        "dependency-license-provenance.json",
-        "dependency-source-lock.spdx.json",
-        "dependency-windows-source-closure.spdx.json",
+        ".third-party/third-party-license-policy.json",
+        ".third-party/third-party-license-provenance.json",
+        ".third-party/source-lock.spdx.json",
+        ".third-party/source-closure-windows.spdx.json",
         "THIRD_PARTY_LICENSES.txt",
     ] {
         let mut archived = Vec::new();

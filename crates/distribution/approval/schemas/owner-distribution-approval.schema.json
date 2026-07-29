@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://andagni.invalid/schemas/release/owner-distribution-approval-v3.schema.json",
+  "$id": "https://andagni.invalid/schemas/release/owner-distribution-approval-v4.schema.json",
   "title": "Owner distribution approval",
   "description": "Closed schema for a detached, exact-artifact project-owner distribution decision. This contract records no legal-review claim and cannot be embedded in the MCPB whose outer digest it binds.",
   "type": "object",
@@ -21,7 +21,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 3
+      "const": 4
     },
     "kind": {
       "const": "owner_distribution_approval"
@@ -920,10 +920,10 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "dependency_policy",
+        "third_party_license_policy",
         "source_lock_sbom",
         "third_party_notices",
-        "dependency_license_provenance",
+        "third_party_license_provenance",
         "project_license",
         "approval_contract_schema",
         "source_closure_sboms",
@@ -931,7 +931,7 @@
         "supplemental_license_evidence"
       ],
       "properties": {
-        "dependency_policy": {
+        "third_party_license_policy": {
           "allOf": [
             {
               "$ref": "#/$defs/file_binding"
@@ -939,7 +939,7 @@
             {
               "properties": {
                 "logical_path": {
-                  "const": "plugin/dependency-license-policy.json"
+                  "const": "plugin/.third-party/third-party-license-policy.json"
                 }
               }
             }
@@ -953,7 +953,7 @@
             {
               "properties": {
                 "logical_path": {
-                  "const": "plugin/dependency-source-lock.spdx.json"
+                  "const": "plugin/.third-party/source-lock.spdx.json"
                 }
               }
             }
@@ -973,7 +973,7 @@
             }
           ]
         },
-        "dependency_license_provenance": {
+        "third_party_license_provenance": {
           "allOf": [
             {
               "$ref": "#/$defs/file_binding"
@@ -981,7 +981,7 @@
             {
               "properties": {
                 "logical_path": {
-                  "const": "plugin/dependency-license-provenance.json"
+                  "const": "plugin/.third-party/third-party-license-provenance.json"
                 }
               }
             }
@@ -1051,7 +1051,7 @@
                   "file": {
                     "properties": {
                       "logical_path": {
-                        "const": "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt"
+                        "const": "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt"
                       }
                     }
                   }

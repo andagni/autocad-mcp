@@ -12,7 +12,7 @@ use crate::smoke::{
 use anyhow::{anyhow, bail, Context, Result};
 use distribution_approval::{
     parse_and_validate, parse_preview_clean_host_receipt, render_windows_x86_64_build_recipe,
-    Artifact, ArtifactRole, BoundDependencyEvidence, BuildProfile, DistributionMode, FileBinding,
+    Artifact, ArtifactRole, BoundDistributionEvidence, BuildProfile, DistributionMode, FileBinding,
     GitObjectFormat, OwnerDistributionApproval, SupplementalEvidenceBytes,
 };
 use serde::Deserialize;
@@ -33,7 +33,7 @@ const BUILD_RECIPE_PATH: &str = "BUILD-WINDOWS-X86_64.txt";
 const OFFLINE_CONFIG_PATH: &str = "workspace/.cargo/config.toml";
 const PACKAGED_APPROVAL_SCHEMA_PATH: &str = "plugin/owner-distribution-approval.schema.json";
 const PACKAGED_WINDOWS_SOURCE_CLOSURE_SBOM_PATH: &str =
-    "plugin/dependency-windows-source-closure.spdx.json";
+    "plugin/.third-party/source-closure-windows.spdx.json";
 const WINDOWS_TARGET: &str = "x86_64-pc-windows-msvc";
 const REGISTRY_SOURCE: &str = "registry+https://github.com/rust-lang/crates.io-index";
 const REGISTRY_SOURCE_PREFIX: &str = "Resolved by Cargo.lock from ";
@@ -114,7 +114,7 @@ pub struct ApprovalVerificationReport {
     pub verified_artifacts: usize,
     pub mcpb_entries: usize,
     pub source_archive_entries: usize,
-    pub dependency_evidence_validated: bool,
+    pub distribution_evidence_validated: bool,
     pub native_build_attestation_semantics_verified: bool,
     pub package_mode: DistributionMode,
     pub git_object_format: String,
@@ -511,10 +511,12 @@ pub fn verify_owner_distribution_approval(
 
     let mut mcpb_captures = BTreeSet::new();
     for binding in [
-        approval.evidence_bindings().dependency_policy(),
+        approval.evidence_bindings().third_party_license_policy(),
         approval.evidence_bindings().source_lock_sbom(),
         approval.evidence_bindings().third_party_notices(),
-        approval.evidence_bindings().dependency_license_provenance(),
+        approval
+            .evidence_bindings()
+            .third_party_license_provenance(),
         approval.evidence_bindings().project_license(),
     ] {
         mcpb_captures.insert(binding.logical_path().to_owned());
@@ -626,10 +628,10 @@ pub fn verify_owner_distribution_approval(
         .collect::<Result<Vec<_>>>()?;
 
     approval
-        .validate_dependency_evidence(&BoundDependencyEvidence {
-            dependency_policy: captured_binding(
+        .validate_distribution_evidence(&BoundDistributionEvidence {
+            third_party_license_policy: captured_binding(
                 &mcpb,
-                approval.evidence_bindings().dependency_policy(),
+                approval.evidence_bindings().third_party_license_policy(),
             )?,
             source_lock_sbom: captured_binding(
                 &mcpb,
@@ -640,9 +642,11 @@ pub fn verify_owner_distribution_approval(
                 &mcpb,
                 approval.evidence_bindings().third_party_notices(),
             )?,
-            dependency_license_provenance: captured_binding(
+            third_party_license_provenance: captured_binding(
                 &mcpb,
-                approval.evidence_bindings().dependency_license_provenance(),
+                approval
+                    .evidence_bindings()
+                    .third_party_license_provenance(),
             )?,
             project_license: captured_binding(
                 &mcpb,
@@ -652,7 +656,7 @@ pub fn verify_owner_distribution_approval(
             build_attestation: &build_attestation,
             supplemental_license_evidence: &supplemental,
         })
-        .map_err(|error| anyhow!("approval-bound dependency evidence is invalid: {error}"))?;
+        .map_err(|error| anyhow!("approval-bound distribution evidence is invalid: {error}"))?;
 
     verify_source_archive(
         &approval,
@@ -707,7 +711,7 @@ pub fn verify_owner_distribution_approval(
         verified_artifacts: approval.artifacts().len(),
         mcpb_entries: mcpb.entries.len(),
         source_archive_entries: source.entries.len(),
-        dependency_evidence_validated: true,
+        distribution_evidence_validated: true,
         native_build_attestation_semantics_verified,
         package_mode: source_identity.package_mode(),
         git_object_format: git_object_format.to_owned(),
@@ -2513,7 +2517,7 @@ mod tests {
             let provenance = serde_json::to_vec(&json!({
                 "sources": [{
                     "id": "rmcp-rust-sdk-license-3529c367",
-                    "tracked_path": "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt",
+                    "tracked_path": "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt",
                     "byte_length": supplement.len(),
                     "sha256": sha256(&supplement)
                 }],
@@ -2659,15 +2663,15 @@ mod tests {
                     (lsp.clone(), 0o755),
                 ),
                 (
-                    "plugin/dependency-license-policy.json".to_owned(),
+                    "plugin/.third-party/third-party-license-policy.json".to_owned(),
                     (policy.clone(), 0o644),
                 ),
                 (
-                    "plugin/dependency-license-provenance.json".to_owned(),
+                    "plugin/.third-party/third-party-license-provenance.json".to_owned(),
                     (provenance.clone(), 0o644),
                 ),
                 (
-                    "plugin/dependency-source-lock.spdx.json".to_owned(),
+                    "plugin/.third-party/source-lock.spdx.json".to_owned(),
                     (source_sbom.clone(), 0o644),
                 ),
                 (
@@ -2708,7 +2712,7 @@ mod tests {
                 ("Cargo.lock".to_owned(), (cargo_lock.clone(), 0o644)),
                 ("rust-toolchain.toml".to_owned(), (toolchain.clone(), 0o644)),
                 (
-                    "plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt".to_owned(),
+                    "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt".to_owned(),
                     (supplement.clone(), 0o644),
                 ),
             ]);
@@ -3299,10 +3303,10 @@ mod tests {
                 "cargo_incremental": false
             },
             "evidence_bindings": {
-                "dependency_policy": test_file_binding("plugin/dependency-license-policy.json", policy),
-                "source_lock_sbom": test_file_binding("plugin/dependency-source-lock.spdx.json", source_sbom),
+                "third_party_license_policy": test_file_binding("plugin/.third-party/third-party-license-policy.json", policy),
+                "source_lock_sbom": test_file_binding("plugin/.third-party/source-lock.spdx.json", source_sbom),
                 "third_party_notices": test_file_binding("plugin/THIRD_PARTY_LICENSES.txt", notices),
-                "dependency_license_provenance": test_file_binding("plugin/dependency-license-provenance.json", provenance),
+                "third_party_license_provenance": test_file_binding("plugin/.third-party/third-party-license-provenance.json", provenance),
                 "project_license": test_file_binding("plugin/LICENSE", project_license),
                 "approval_contract_schema": test_file_binding("crates/distribution/approval/schemas/owner-distribution-approval.schema.json", schema),
                 "source_closure_sboms": [{
@@ -3323,7 +3327,7 @@ mod tests {
                 }],
                 "supplemental_license_evidence": [{
                     "binding_id": "rmcp-rust-sdk-license-3529c367",
-                    "file": test_file_binding("plugin/dependency-license-supplements/rmcp-1.7.0-LICENSE.txt", supplement)
+                    "file": test_file_binding("plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt", supplement)
                 }]
             },
             "artifacts": [
@@ -3574,7 +3578,7 @@ mod tests {
         let report = verify_owner_distribution_approval(&fixture.options).unwrap();
         assert_eq!(report.decision_id, "ODA-TEST-0001");
         assert_eq!(report.verified_artifacts, 6);
-        assert!(report.dependency_evidence_validated);
+        assert!(report.distribution_evidence_validated);
         assert!(!report.native_build_attestation_semantics_verified);
         assert_eq!(report.package_mode, DistributionMode::Release);
     }
@@ -3585,7 +3589,7 @@ mod tests {
         let report = verify_owner_distribution_approval(&fixture.options).unwrap();
         assert_eq!(report.decision_id, "ODA-TEST-0001");
         assert_eq!(report.verified_artifacts, 6);
-        assert!(report.dependency_evidence_validated);
+        assert!(report.distribution_evidence_validated);
         assert_eq!(report.package_mode, DistributionMode::Preview);
         assert!(
             report.native_build_attestation_semantics_verified,

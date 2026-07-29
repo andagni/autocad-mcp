@@ -15,7 +15,7 @@ const REGISTRY_SOURCE: &str = "registry+https://github.com/rust-lang/crates.io-i
 const MANIFEST_PATH: &str = "source-bundle-manifest.json";
 const BUILD_INSTRUCTIONS_PATH: &str = "BUILD-WINDOWS-X86_64.txt";
 const OFFLINE_CONFIG_PATH: &str = "workspace/.cargo/config.toml";
-const DEPENDENCY_POLICY_PATH: &str = "plugin/dependency-license-policy.json";
+const THIRD_PARTY_LICENSE_POLICY_PATH: &str = "plugin/.third-party/third-party-license-policy.json";
 const RUST_TOOLCHAIN_PATH: &str = "rust-toolchain.toml";
 const MAX_CRATE_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_UNPACKED_CRATE_BYTES: u64 = 1024 * 1024 * 1024;
@@ -319,8 +319,8 @@ pub fn run_for_mode(
     let lock_packages = parse_cargo_lock(lock_bytes)?;
     let dependency_input_closure_sha256 = reviewed_dependency_input_closure(
         head_blobs
-            .get(DEPENDENCY_POLICY_PATH)
-            .ok_or_else(|| format!("clean HEAD has no {DEPENDENCY_POLICY_PATH}"))?,
+            .get(THIRD_PARTY_LICENSE_POLICY_PATH)
+            .ok_or_else(|| format!("clean HEAD has no {THIRD_PARTY_LICENSE_POLICY_PATH}"))?,
         &lock_sha256,
     )?;
     let rust_toolchain_bytes = head_blobs
@@ -1552,23 +1552,23 @@ fn reviewed_dependency_input_closure(
     cargo_lock_sha256: &str,
 ) -> Result<String, String> {
     let policy: serde_json::Value = serde_json::from_slice(policy_bytes)
-        .map_err(|error| format!("parse clean HEAD {DEPENDENCY_POLICY_PATH}: {error}"))?;
-    let object = policy
-        .as_object()
-        .ok_or_else(|| format!("clean HEAD {DEPENDENCY_POLICY_PATH} must contain a JSON object"))?;
+        .map_err(|error| format!("parse clean HEAD {THIRD_PARTY_LICENSE_POLICY_PATH}: {error}"))?;
+    let object = policy.as_object().ok_or_else(|| {
+        format!("clean HEAD {THIRD_PARTY_LICENSE_POLICY_PATH} must contain a JSON object")
+    })?;
     let reviewed_lock = object
         .get("reviewed_cargo_lock_sha256")
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| {
-            format!("clean HEAD {DEPENDENCY_POLICY_PATH} has no string reviewed_cargo_lock_sha256")
+            format!("clean HEAD {THIRD_PARTY_LICENSE_POLICY_PATH} has no string reviewed_cargo_lock_sha256")
         })?;
     require_sha256(
         reviewed_lock,
-        "dependency policy reviewed_cargo_lock_sha256",
+        "third-party licence policy reviewed_cargo_lock_sha256",
     )?;
     if reviewed_lock != cargo_lock_sha256 {
         return Err(format!(
-            "clean HEAD {DEPENDENCY_POLICY_PATH} reviews Cargo.lock SHA-256 {reviewed_lock}, but the bundled Cargo.lock SHA-256 is {cargo_lock_sha256}"
+            "clean HEAD {THIRD_PARTY_LICENSE_POLICY_PATH} reviews Cargo.lock SHA-256 {reviewed_lock}, but the bundled Cargo.lock SHA-256 is {cargo_lock_sha256}"
         ));
     }
     let input_closure = object
@@ -1576,13 +1576,13 @@ fn reviewed_dependency_input_closure(
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| {
             format!(
-                "clean HEAD {DEPENDENCY_POLICY_PATH} has no string reviewed_input_closure_sha256"
+                "clean HEAD {THIRD_PARTY_LICENSE_POLICY_PATH} has no string reviewed_input_closure_sha256"
             )
         })?
         .to_owned();
     require_sha256(
         &input_closure,
-        "dependency policy reviewed_input_closure_sha256",
+        "third-party licence policy reviewed_input_closure_sha256",
     )?;
     Ok(input_closure)
 }
@@ -2817,7 +2817,7 @@ dependencies = [
     }
 
     #[test]
-    fn dependency_policy_identity_must_match_the_bundled_lock() {
+    fn third_party_license_policy_identity_must_match_the_bundled_lock() {
         let lock_sha256 = "a".repeat(64);
         let input_closure_sha256 = "b".repeat(64);
         let policy = serde_json::to_vec(&serde_json::json!({
@@ -2864,6 +2864,39 @@ dependencies = [
             assert_eq!(files[index].relative_path, entry.path);
             assert_eq!(files[index].bytes, blobs[&entry.path]);
             assert_eq!(files[index].mode, entry.mode);
+        }
+    }
+
+    #[test]
+    fn workspace_source_files_include_hidden_machine_evidence_verbatim() {
+        let tree = vec![
+            GitTreeEntry {
+                path: "plugin/.third-party/third-party-license-policy.json".to_owned(),
+                object_id: "policy-object".to_owned(),
+                mode: 0o644,
+            },
+            GitTreeEntry {
+                path: "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt".to_owned(),
+                object_id: "supplement-object".to_owned(),
+                mode: 0o644,
+            },
+        ];
+        let blobs = BTreeMap::from([
+            (
+                "plugin/.third-party/third-party-license-policy.json".to_owned(),
+                b"{\"schema_version\":2}\n".to_vec(),
+            ),
+            (
+                "plugin/.third-party/license-supplements/rmcp-1.7.0-LICENSE.txt".to_owned(),
+                b"supplement\n".to_vec(),
+            ),
+        ]);
+
+        let files = workspace_source_files(&tree, &blobs).expect("collect hidden evidence files");
+        assert_eq!(files.len(), tree.len());
+        for (index, entry) in tree.iter().enumerate() {
+            assert_eq!(files[index].relative_path, entry.path);
+            assert_eq!(files[index].bytes, blobs[&entry.path]);
         }
     }
 

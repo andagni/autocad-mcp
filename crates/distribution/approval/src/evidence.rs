@@ -19,19 +19,20 @@ pub struct SupplementalEvidenceBytes<'a> {
     pub bytes: &'a [u8],
 }
 
-/// Exact dependency evidence bound by an owner distribution approval.
+/// Exact distribution evidence bound by an owner distribution approval.
 ///
-/// This validator reconciles the dependency policy, both SBOMs, the technical
-/// provenance ledger, notices, and package determinations. It intentionally
-/// does not validate archive contents, executable containment, or the semantic
-/// truth of the native build attestation; those remain release-artifact gates.
+/// This validator reconciles the source-closure and third-party licence
+/// evidence, project licence, approval schema, build-attestation binding, and
+/// package determinations. It intentionally does not validate archive contents,
+/// executable containment, or the semantic truth of the native build
+/// attestation; those remain release-artifact gates.
 #[derive(Clone, Copy, Debug)]
-pub struct BoundDependencyEvidence<'a> {
-    pub dependency_policy: &'a [u8],
+pub struct BoundDistributionEvidence<'a> {
+    pub third_party_license_policy: &'a [u8],
     pub source_lock_sbom: &'a [u8],
     pub windows_source_closure_sbom: &'a [u8],
     pub third_party_notices: &'a [u8],
-    pub dependency_license_provenance: &'a [u8],
+    pub third_party_license_provenance: &'a [u8],
     pub project_license: &'a [u8],
     pub approval_contract_schema: &'a [u8],
     pub build_attestation: &'a [u8],
@@ -39,14 +40,17 @@ pub struct BoundDependencyEvidence<'a> {
 }
 
 impl OwnerDistributionApproval {
-    pub fn validate_dependency_evidence(
+    pub fn validate_distribution_evidence(
         &self,
-        evidence: &BoundDependencyEvidence<'_>,
+        evidence: &BoundDistributionEvidence<'_>,
     ) -> Result<(), ValidationError> {
         self.validate()?;
         self.verify_bound_evidence_bytes(evidence)?;
 
-        let policy = parse_strict_json(evidence.dependency_policy, "dependency policy")?;
+        let policy = parse_strict_json(
+            evidence.third_party_license_policy,
+            "third-party licence policy",
+        )?;
         let expected_total = required_usize(&policy, "expected_total_packages")?;
         let expected_third_party = required_usize(&policy, "expected_third_party_packages")?;
         let expected_source_closure_total =
@@ -58,7 +62,7 @@ impl OwnerDistributionApproval {
         let allowed_registry_sources = required_string_set(&policy, "allowed_registry_sources")?;
         if allowed_registry_sources.is_empty() {
             return Err(evidence_error(
-                "dependency_policy_invalid",
+                "third_party_license_policy_invalid",
                 "allowed_registry_sources must not be empty",
             ));
         }
@@ -91,14 +95,14 @@ impl OwnerDistributionApproval {
         require_policy_digest(
             &policy,
             "expected_license_provenance_sha256",
-            &sha256_hex(evidence.dependency_license_provenance),
+            &sha256_hex(evidence.third_party_license_provenance),
         )?;
         let approval_policy = policy
             .get("owner_distribution_approval")
             .and_then(Value::as_object)
             .ok_or_else(|| {
                 evidence_error(
-                    "dependency_policy_invalid",
+                    "third_party_license_policy_invalid",
                     "owner_distribution_approval must be an object",
                 )
             })?;
@@ -121,8 +125,11 @@ impl OwnerDistributionApproval {
                 ])
         {
             return Err(evidence_error(
-                "dependency_policy_approval_contract_invalid",
-                "dependency policy does not require the exact detached schema-v3 approval for both public scopes",
+                "third_party_license_policy_approval_contract_invalid",
+                format!(
+                    "third-party licence policy does not require the exact detached schema-v{} approval for both public scopes",
+                    super::APPROVAL_SCHEMA_VERSION
+                ),
             ));
         }
         let schema_digest = approval_policy
@@ -130,14 +137,14 @@ impl OwnerDistributionApproval {
             .and_then(Value::as_str)
             .ok_or_else(|| {
                 evidence_error(
-                    "dependency_policy_invalid",
+                    "third_party_license_policy_invalid",
                     "owner_distribution_approval.contract_schema_sha256 must be a string",
                 )
             })?;
         if schema_digest != sha256_hex(evidence.approval_contract_schema) {
             return Err(evidence_error(
-                "dependency_policy_digest_mismatch",
-                "approval contract schema digest does not match the dependency policy",
+                "third_party_license_policy_digest_mismatch",
+                "approval contract schema digest does not match the third-party licence policy",
             ));
         }
 
@@ -200,7 +207,7 @@ impl OwnerDistributionApproval {
         }
 
         let provenance =
-            parse_provenance(evidence.dependency_license_provenance, &source.packages)?;
+            parse_provenance(evidence.third_party_license_provenance, &source.packages)?;
         for binding in &self.evidence_bindings.supplemental_license_evidence {
             let provenance_file = provenance
                 .supplemental_sources
@@ -233,16 +240,19 @@ impl OwnerDistributionApproval {
 
     fn verify_bound_evidence_bytes(
         &self,
-        evidence: &BoundDependencyEvidence<'_>,
+        evidence: &BoundDistributionEvidence<'_>,
     ) -> Result<(), ValidationError> {
         let bindings = &self.evidence_bindings;
         for (binding, bytes) in [
-            (&bindings.dependency_policy, evidence.dependency_policy),
+            (
+                &bindings.third_party_license_policy,
+                evidence.third_party_license_policy,
+            ),
             (&bindings.source_lock_sbom, evidence.source_lock_sbom),
             (&bindings.third_party_notices, evidence.third_party_notices),
             (
-                &bindings.dependency_license_provenance,
-                evidence.dependency_license_provenance,
+                &bindings.third_party_license_provenance,
+                evidence.third_party_license_provenance,
             ),
             (&bindings.project_license, evidence.project_license),
             (
@@ -779,22 +789,26 @@ fn parse_provenance(
     bytes: &[u8],
     source_packages: &BTreeMap<EvidencePackageKey, String>,
 ) -> Result<ProvenanceIndex, ValidationError> {
-    let document: ProvenanceDocument =
-        serde_json::from_value(parse_strict_json(bytes, "dependency provenance ledger")?).map_err(
-            |parse_error| {
-                evidence_error(
-                    "dependency_provenance_invalid",
-                    format!("dependency provenance shape is invalid: {parse_error}"),
-                )
-            },
-        )?;
+    let document: ProvenanceDocument = serde_json::from_value(parse_strict_json(
+        bytes,
+        "third-party licence provenance ledger",
+    )?)
+    .map_err(|parse_error| {
+        evidence_error(
+            "third_party_license_provenance_invalid",
+            format!("third-party licence provenance shape is invalid: {parse_error}"),
+        )
+    })?;
     let mut source_ids = BTreeSet::new();
     let mut supplemental_sources = BTreeMap::new();
     for source in document.sources {
         if !source_ids.insert(source.id.clone()) {
             return Err(evidence_error(
-                "dependency_provenance_source_duplicate",
-                format!("dependency provenance repeats source {}", source.id),
+                "third_party_license_provenance_source_duplicate",
+                format!(
+                    "third-party licence provenance repeats source {}",
+                    source.id
+                ),
             ));
         }
         if let (Some(path), Some(size), Some(digest)) =
@@ -808,9 +822,9 @@ fn parse_provenance(
     for binding in document.package_bindings {
         if !source_ids.contains(&binding.source_id) {
             return Err(evidence_error(
-                "dependency_provenance_source_unknown",
+                "third_party_license_provenance_source_unknown",
                 format!(
-                    "dependency provenance binding references unknown source {}",
+                    "third-party licence provenance binding references unknown source {}",
                     binding.source_id
                 ),
             ));
@@ -827,9 +841,9 @@ fn parse_provenance(
             .collect::<Vec<_>>();
         if candidates.len() != 1 {
             return Err(evidence_error(
-                "dependency_provenance_package_mismatch",
+                "third_party_license_provenance_package_mismatch",
                 format!(
-                    "dependency provenance package {} {} does not exactly match the source-lock SBOM",
+                    "third-party licence provenance package {} {} does not exactly match the source-lock SBOM",
                     binding.package.name, binding.package.version
                 ),
             ));
@@ -839,9 +853,9 @@ fn parse_provenance(
             .is_some()
         {
             return Err(evidence_error(
-                "dependency_provenance_package_duplicate",
+                "third_party_license_provenance_package_duplicate",
                 format!(
-                    "dependency provenance repeats package {} {}",
+                    "third-party licence provenance repeats package {} {}",
                     binding.package.name, binding.package.version
                 ),
             ));
@@ -859,13 +873,13 @@ fn parse_strict_json(bytes: &[u8], label: &str) -> Result<Value, ValidationError
     let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     let strict = StrictJsonValue::deserialize(&mut deserializer).map_err(|parse_error| {
         evidence_error(
-            "dependency_evidence_json_invalid",
+            "distribution_evidence_json_invalid",
             format!("{label} strict JSON parse failed: {parse_error}"),
         )
     })?;
     deserializer.end().map_err(|parse_error| {
         evidence_error(
-            "dependency_evidence_json_invalid",
+            "distribution_evidence_json_invalid",
             format!("{label} has trailing data: {parse_error}"),
         )
     })?;
@@ -875,13 +889,13 @@ fn parse_strict_json(bytes: &[u8], label: &str) -> Result<Value, ValidationError
 fn required_usize(document: &Value, field: &str) -> Result<usize, ValidationError> {
     let value = document.get(field).and_then(Value::as_u64).ok_or_else(|| {
         evidence_error(
-            "dependency_policy_invalid",
+            "third_party_license_policy_invalid",
             format!("{field} must be an unsigned integer"),
         )
     })?;
     usize::try_from(value).map_err(|_| {
         evidence_error(
-            "dependency_policy_invalid",
+            "third_party_license_policy_invalid",
             format!("{field} does not fit usize"),
         )
     })
@@ -893,7 +907,7 @@ fn required_string_set(document: &Value, field: &str) -> Result<BTreeSet<String>
         .and_then(Value::as_array)
         .ok_or_else(|| {
             evidence_error(
-                "dependency_policy_invalid",
+                "third_party_license_policy_invalid",
                 format!("{field} must be an array"),
             )
         })?;
@@ -901,13 +915,13 @@ fn required_string_set(document: &Value, field: &str) -> Result<BTreeSet<String>
     for value in values {
         let value = value.as_str().ok_or_else(|| {
             evidence_error(
-                "dependency_policy_invalid",
+                "third_party_license_policy_invalid",
                 format!("{field} entries must be strings"),
             )
         })?;
         if !result.insert(value.to_owned()) {
             return Err(evidence_error(
-                "dependency_policy_invalid",
+                "third_party_license_policy_invalid",
                 format!("{field} must be unique"),
             ));
         }
@@ -922,13 +936,13 @@ fn require_policy_digest(
 ) -> Result<(), ValidationError> {
     let actual = policy.get(field).and_then(Value::as_str).ok_or_else(|| {
         evidence_error(
-            "dependency_policy_invalid",
+            "third_party_license_policy_invalid",
             format!("{field} must be a string"),
         )
     })?;
     if actual != expected {
         return Err(evidence_error(
-            "dependency_policy_digest_mismatch",
+            "third_party_license_policy_digest_mismatch",
             format!("{field} does not match its bound evidence"),
         ));
     }
