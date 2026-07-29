@@ -993,6 +993,24 @@ fn finish_pre_push(
     Ok(Some(prepared.head_before.clone()))
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum FullGateReceiptRecapture<T> {
+    Stable(T),
+    Changed,
+    Unavailable(String),
+}
+
+fn classify_full_gate_receipt_recapture<T: PartialEq>(
+    before: &T,
+    after: Result<T, String>,
+) -> FullGateReceiptRecapture<T> {
+    match after {
+        Ok(after) if &after == before => FullGateReceiptRecapture::Stable(after),
+        Ok(_) => FullGateReceiptRecapture::Changed,
+        Err(error) => FullGateReceiptRecapture::Unavailable(error),
+    }
+}
+
 fn run_pre_push(root: &Path, input: &str) -> Result<Option<String>, String> {
     let Some(prepared) = prepare_pre_push(root, input)? else {
         return Ok(None);
@@ -1053,34 +1071,40 @@ fn run_pre_push(root: &Path, input: &str) -> Result<Option<String>, String> {
 
     run_local_gate_commands(root, &commands)?;
     let sealed = candidate_seal::run_ephemeral(root)?;
+    finish_pre_push(root, &prepared, &sealed)?;
 
     if let Some(before) = receipt_inputs {
-        let after = pre_push_receipt::capture_pre_push_receipt_inputs(
-            root,
-            &prepared.identity_before.git_object_format,
-            &prepared.identity_before.source_commit,
-            &prepared.identity_before.source_tree_oid,
-            &rendered_commands,
-        )
-        .map_err(|error| {
-            format!("pre-push gate inputs could not be recaptured after validation: {error}")
-        })?;
-        if after != before {
-            return Err(
-                "pre-push gate inputs changed during validation; retry the push".to_owned(),
-            );
-        }
-        finish_pre_push(root, &prepared, &sealed)?;
-        match pre_push_receipt::record_pre_push_receipt(root, &after) {
-            Ok(path) => {
-                eprintln!("recorded advisory pre-push receipt {}", path.display())
+        match classify_full_gate_receipt_recapture(
+            &before,
+            pre_push_receipt::capture_pre_push_receipt_inputs(
+                root,
+                &prepared.identity_before.git_object_format,
+                &prepared.identity_before.source_commit,
+                &prepared.identity_before.source_tree_oid,
+                &rendered_commands,
+            ),
+        ) {
+            FullGateReceiptRecapture::Stable(after) => {
+                match pre_push_receipt::record_pre_push_receipt(root, &after) {
+                    Ok(path) => {
+                        eprintln!("recorded advisory pre-push receipt {}", path.display())
+                    }
+                    Err(error) => {
+                        eprintln!("advisory pre-push receipt was not recorded: {error}")
+                    }
+                }
             }
-            Err(error) => {
-                eprintln!("advisory pre-push receipt was not recorded: {error}")
+            FullGateReceiptRecapture::Changed => {
+                eprintln!(
+                    "advisory pre-push receipt was not recorded because its recorded context changed during the successful full gate"
+                );
+            }
+            FullGateReceiptRecapture::Unavailable(error) => {
+                eprintln!(
+                    "advisory pre-push receipt was not recorded because its context could not be recaptured: {error}"
+                );
             }
         }
-    } else {
-        finish_pre_push(root, &prepared, &sealed)?;
     }
     Ok(Some(prepared.head_before))
 }
@@ -2241,6 +2265,22 @@ mod tests {
         .expect_err("a failed command must stop the suite");
         assert_eq!(error, "simulated failure");
         assert_eq!(calls.get(), 2);
+    }
+
+    #[test]
+    fn successful_full_gate_treats_receipt_recapture_as_advisory() {
+        assert_eq!(
+            classify_full_gate_receipt_recapture(&7, Ok(7)),
+            FullGateReceiptRecapture::Stable(7)
+        );
+        assert_eq!(
+            classify_full_gate_receipt_recapture(&7, Ok(8)),
+            FullGateReceiptRecapture::Changed
+        );
+        assert_eq!(
+            classify_full_gate_receipt_recapture::<u8>(&7, Err("unavailable".to_owned())),
+            FullGateReceiptRecapture::Unavailable("unavailable".to_owned())
+        );
     }
 
     #[test]

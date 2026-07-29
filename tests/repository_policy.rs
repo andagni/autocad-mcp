@@ -2598,6 +2598,31 @@ fn local_pre_push_hook_has_valid_shell_syntax() {
 }
 
 #[test]
+fn local_pre_push_hook_scopes_incremental_compilation_to_serial_gate_work() {
+    let hook = std::fs::read_to_string(repository_root().join(".githooks/pre-push"))
+        .expect("tracked pre-push hook should be readable UTF-8");
+    let incremental = hook
+        .find("export CARGO_INCREMENTAL=1")
+        .expect("pre-push hook must opt its serial Cargo work into incremental compilation");
+    let coordinator = hook
+        .find("exec cargo run --locked -p xtask -- pre-push")
+        .expect("pre-push hook must launch the tracked coordinator");
+    assert!(
+        incremental < coordinator,
+        "incremental compilation must be enabled before the coordinator and its child gates launch"
+    );
+    assert_eq!(
+        hook.matches("CARGO_INCREMENTAL").count(),
+        1,
+        "the hook must have one closed incremental-compilation override"
+    );
+    assert!(
+        !hook.contains("CARGO_TARGET_DIR"),
+        "the hook must continue to use the repository-configured shared target"
+    );
+}
+
+#[test]
 fn project_license_is_canonical_and_consistent() {
     let repository = repository_root();
     let root_license = std::fs::read(repository.join("LICENSE"))

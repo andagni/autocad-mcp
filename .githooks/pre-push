@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 
+# Pre-push Cargo work is deliberately serial. Scope incremental compilation to
+# this hook so ordinary concurrent development retains the repository default.
+export CARGO_INCREMENTAL=1
+
 repository_root=$(git rev-parse --show-toplevel)
 cd "$repository_root"
 exec cargo run --locked -p xtask -- pre-push "$@"

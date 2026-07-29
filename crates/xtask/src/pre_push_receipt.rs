@@ -10,13 +10,13 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const RECEIPT_SCHEMA_VERSION: u32 = 2;
-const INPUT_SCHEMA_VERSION: u32 = 2;
+const RECEIPT_SCHEMA_VERSION: u32 = 3;
+const INPUT_SCHEMA_VERSION: u32 = 3;
 const RECEIPT_ARTIFACT_KIND: &str = "autocad-mcp-pre-push-receipt";
 const RECEIPT_SCOPE: &str = "worktree_local_advisory_pre_push_only";
 const RECEIPT_OUTCOME: &str = "complete_local_gate_passed";
-const INPUT_DIGEST_DOMAIN: &[u8] = b"autocad-mcp-pre-push-input-v2\0";
-const CACHE_COMPONENTS: [&str; 3] = ["target", "pre-push-receipts", "v2"];
+const INPUT_DIGEST_DOMAIN: &[u8] = b"autocad-mcp-pre-push-input-v3\0";
+const CACHE_COMPONENTS: [&str; 3] = ["target", "pre-push-receipts", "v3"];
 const MAX_RECEIPT_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_TOOL_OUTPUT_BYTES: usize = 1024 * 1024;
 const MAX_COMMANDS: usize = 1024;
@@ -37,7 +37,6 @@ pub(crate) struct PrePushReceiptInputs {
     cargo_lock: ContentDigest,
     rust_toolchain: ContentDigest,
     pre_push_hook: ContentDigest,
-    current_executable: ContentDigest,
     cargo_version: ToolVersionBinding,
     rustc_version: ToolVersionBinding,
     git_version: ToolVersionBinding,
@@ -130,7 +129,6 @@ struct StoredReceipt {
 }
 
 struct RuntimeObservation {
-    current_executable: PathBuf,
     cargo_version: ToolVersionBinding,
     rustc_version: ToolVersionBinding,
     git_version: ToolVersionBinding,
@@ -329,8 +327,6 @@ fn advisory_cache_allowed_for_platform(
 fn observe_runtime(repository: &Path) -> Result<RuntimeObservation, String> {
     let environment = env::vars_os().collect::<Vec<_>>();
     Ok(RuntimeObservation {
-        current_executable: env::current_exe()
-            .map_err(|error| format!("resolve current xtask executable: {error}"))?,
         cargo_version: observe_tool_version(
             repository,
             "cargo",
@@ -432,10 +428,6 @@ fn capture_with_runtime(
             &repository.join(".githooks").join("pre-push"),
             "tracked pre-push hook",
         )?,
-        current_executable: hash_regular_file(
-            &runtime.current_executable,
-            "current xtask executable",
-        )?,
         cargo_version: runtime.cargo_version,
         rustc_version: runtime.rustc_version,
         git_version: runtime.git_version,
@@ -526,7 +518,6 @@ fn validate_inputs(inputs: &PrePushReceiptInputs) -> Result<(), String> {
         (&inputs.cargo_lock, "Cargo.lock", true),
         (&inputs.rust_toolchain, "rust-toolchain.toml", true),
         (&inputs.pre_push_hook, "pre-push hook", true),
-        (&inputs.current_executable, "current executable", true),
     ] {
         validate_content_digest(binding, label, require_nonempty)?;
     }
@@ -1253,7 +1244,6 @@ mod tests {
     struct Fixture {
         _temporary: tempfile::TempDir,
         repository: PathBuf,
-        executable: PathBuf,
     }
 
     impl Fixture {
@@ -1279,18 +1269,14 @@ mod tests {
                 b"[build]\nincremental = false\n",
             )
             .expect("write Cargo config");
-            let executable = temporary.path().join("xtask-fixture");
-            fs::write(&executable, b"standalone xtask fixture\n").expect("write executable");
             Self {
                 _temporary: temporary,
                 repository,
-                executable,
             }
         }
 
         fn runtime(&self) -> RuntimeObservation {
             RuntimeObservation {
-                current_executable: self.executable.clone(),
                 cargo_version: ToolVersionBinding {
                     tool: "cargo".to_owned(),
                     program: encode_native_value(OsStr::new("cargo")),
@@ -1452,10 +1438,6 @@ mod tests {
 
         let mut changed = baseline.clone();
         changed.pre_push_hook.sha256 = "3".repeat(64);
-        changed_digest(changed);
-
-        let mut changed = baseline.clone();
-        changed.current_executable.sha256 = "4".repeat(64);
         changed_digest(changed);
 
         let mut changed = baseline.clone();
