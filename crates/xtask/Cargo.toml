@@ -47,9 +47,6 @@ tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 plugin-validate = { path = "../distribution/plugin-validation" }
-proc-macro2 = "1"
-semver = "1"
-syn = { version = "2", features = ["full", "visit"] }
 walkdir.workspace = true
 
 [[test]]

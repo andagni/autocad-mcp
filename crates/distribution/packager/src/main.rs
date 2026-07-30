@@ -47,7 +47,7 @@ enum Command {
         out_dir: PathBuf,
         #[arg(long, default_value = "plugin")]
         plugin_dir: PathBuf,
-        #[arg(long, default_value = "tests/fixtures/plugin-example")]
+        #[arg(long, default_value = "crates/distribution/plugin-validation/schemas")]
         schema_root: PathBuf,
     },
     /// Smoke-test a generated MCPB package.

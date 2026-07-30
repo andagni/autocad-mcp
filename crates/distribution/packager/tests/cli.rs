@@ -267,7 +267,7 @@ fn cli_packages_macos_mcpb_from_current_plugin_tree() {
             repo_root().join("plugin").to_str().unwrap(),
             "--schema-root",
             repo_root()
-                .join("tests/fixtures/plugin-example")
+                .join("crates/distribution/plugin-validation/schemas")
                 .to_str()
                 .unwrap(),
         ])

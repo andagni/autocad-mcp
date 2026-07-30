@@ -1,5 +1,5 @@
 use super::{
-    error, require_sha256, require_utc_timestamp, DistributionMode, StrictJsonValue,
+    error, parse_strict_json, require_sha256, require_utc_timestamp, DistributionMode,
     ValidationError,
 };
 use serde::{Deserialize, Serialize};
@@ -462,21 +462,16 @@ impl PreviewCleanHostReceipt {
 pub fn parse_preview_clean_host_receipt(
     bytes: &[u8],
 ) -> Result<PreviewCleanHostReceipt, ValidationError> {
-    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-    let strict = StrictJsonValue::deserialize(&mut deserializer).map_err(|parse_error| {
-        error(
-            "preview_clean_host_json_invalid",
-            format!("strict JSON parse failed: {parse_error}"),
-        )
-    })?;
-    deserializer.end().map_err(|parse_error| {
-        error(
-            "preview_clean_host_json_trailing_data",
-            format!("JSON has trailing data: {parse_error}"),
-        )
+    let strict = parse_strict_json(bytes).map_err(|parse_error| {
+        let code = if parse_error.code() == release_qualification::ErrorCode::JsonTrailingData {
+            "preview_clean_host_json_trailing_data"
+        } else {
+            "preview_clean_host_json_invalid"
+        };
+        error(code, format!("strict JSON parse failed: {parse_error}"))
     })?;
     let receipt: PreviewCleanHostReceipt =
-        serde_json::from_value(strict.0).map_err(|parse_error| {
+        serde_json::from_value(strict).map_err(|parse_error| {
             error(
                 "preview_clean_host_schema_invalid",
                 format!(

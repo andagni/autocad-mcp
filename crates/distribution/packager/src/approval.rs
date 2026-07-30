@@ -1,3 +1,4 @@
+use crate::archive_safety::{insert_archive_path, validate_archive_path};
 use crate::manifest::{
     McpbManifest, PackageMode, PackageTarget, OWNER_DISTRIBUTION_APPROVAL_SCHEMA,
 };
@@ -13,7 +14,13 @@ use anyhow::{anyhow, bail, Context, Result};
 use distribution_approval::{
     parse_and_validate, parse_preview_clean_host_receipt, render_windows_x86_64_build_recipe,
     Artifact, ArtifactRole, BoundDistributionEvidence, BuildProfile, DistributionMode, FileBinding,
-    GitObjectFormat, OwnerDistributionApproval, SupplementalEvidenceBytes,
+    GitObjectFormat, OwnerDistributionApproval, SourceBundleArchivePolicy as ArchivePolicyManifest,
+    SourceBundleExclusion as ExclusionManifest, SourceBundleManifest,
+    SourceBundlePackage as PackageManifest, SourceBundleRoot as RootManifest,
+    SourceBundleVendor as VendorManifest, SupplementalEvidenceBytes, SOURCE_BUNDLE_ARTIFACT_KIND,
+    SOURCE_BUNDLE_BUILD_RECIPE_PATH, SOURCE_BUNDLE_MANIFEST_PATH,
+    SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION, SOURCE_BUNDLE_OFFLINE_CONFIG_PATH,
+    SOURCE_BUNDLE_PROFILE, SOURCE_BUNDLE_TREE_DIGEST_METHOD,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -23,14 +30,14 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use zip::{CompressionMethod, ZipArchive};
 
-const SOURCE_MANIFEST_PATH: &str = "source-bundle-manifest.json";
+const SOURCE_MANIFEST_PATH: &str = SOURCE_BUNDLE_MANIFEST_PATH;
 const MCPB_MANIFEST_PATH: &str = "manifest.json";
 const PREVIEW_MCP_SERVER_PATH: &str = "plugin/bin/autocad-mcp.exe";
 const PREVIEW_AUTOLISP_LSP_PATH: &str = "plugin/bin/autolisp-lsp.exe";
 const CARGO_LOCK_PATH: &str = "workspace/Cargo.lock";
 const RUST_TOOLCHAIN_PATH: &str = "workspace/rust-toolchain.toml";
-const BUILD_RECIPE_PATH: &str = "BUILD-WINDOWS-X86_64.txt";
-const OFFLINE_CONFIG_PATH: &str = "workspace/.cargo/config.toml";
+const BUILD_RECIPE_PATH: &str = SOURCE_BUNDLE_BUILD_RECIPE_PATH;
+const OFFLINE_CONFIG_PATH: &str = SOURCE_BUNDLE_OFFLINE_CONFIG_PATH;
 const PACKAGED_APPROVAL_SCHEMA_PATH: &str = "plugin/owner-distribution-approval.schema.json";
 const PACKAGED_WINDOWS_SOURCE_CLOSURE_SBOM_PATH: &str =
     "plugin/.third-party/source-closure-windows.spdx.json";
@@ -39,8 +46,7 @@ const REGISTRY_SOURCE: &str = "registry+https://github.com/rust-lang/crates.io-i
 const REGISTRY_SOURCE_PREFIX: &str = "Resolved by Cargo.lock from ";
 const REGISTRY_SOURCE_SUFFIX: &str = "; SHA-256 checksum is the Cargo.lock package checksum.";
 const WORKSPACE_SOURCE_INFO: &str = "AutoCAD-MCP workspace package.";
-const TREE_DIGEST_METHOD: &str =
-    "SHA-256 over sorted path, normalized mode, byte length, and content digest";
+const TREE_DIGEST_METHOD: &str = SOURCE_BUNDLE_TREE_DIGEST_METHOD;
 const TREE_DIGEST_DOMAIN: &[u8] = b"autocad-mcp-source-tree-v1\0";
 const MAX_APPROVAL_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_PREVIEW_CLEAN_HOST_RECEIPT_BYTES: u64 = 1024 * 1024;
@@ -49,8 +55,6 @@ const MAX_ARCHIVE_ENTRIES: usize = 100_000;
 const MAX_ARCHIVE_ENTRY_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_ARCHIVE_EXPANDED_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 const MAX_CAPTURED_ENTRY_BYTES: u64 = 64 * 1024 * 1024;
-const MAX_WINDOWS_RELATIVE_PATH_BYTES: usize = 240;
-const MAX_WINDOWS_COMPONENT_BYTES: usize = 200;
 const EXPECTED_OFFLINE_CONFIG: &[u8] = b"[source.crates-io]\n\
 replace-with = \"vendored-sources\"\n\n\
 [source.vendored-sources]\n\
@@ -348,102 +352,6 @@ impl ArchiveKind {
             Self::Source => "source ZIP",
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SourceBundleManifest {
-    schema_version: u32,
-    artifact_kind: String,
-    git_object_format: String,
-    source_commit: String,
-    source_tree_oid: String,
-    cargo_lock_sha256: String,
-    dependency_input_closure_sha256: String,
-    rust_toolchain_sha256: String,
-    build_recipe_sha256: String,
-    rust_toolchain: String,
-    target: String,
-    profile: String,
-    package_mode: DistributionMode,
-    cargo_incremental: bool,
-    roots: Vec<RootManifest>,
-    packages: Vec<PackageManifest>,
-    workspace: TreeManifest,
-    generated_files: Vec<FileManifest>,
-    exclusions: Vec<ExclusionManifest>,
-    archive_policy: ArchivePolicyManifest,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RootManifest {
-    name: String,
-    version: String,
-    manifest_path: String,
-    cargo_metadata_arguments: Vec<String>,
-    dependency_kinds: [String; 2],
-    excluded_dependency_kind: String,
-    package_count: usize,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PackageManifest {
-    name: String,
-    version: String,
-    source: String,
-    cargo_lock_checksum: Option<String>,
-    roots: Vec<String>,
-    vendor: Option<VendorManifest>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct VendorManifest {
-    path: String,
-    crate_archive_sha256: String,
-    file_count: usize,
-    tree_sha256: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct TreeManifest {
-    path: String,
-    file_count: usize,
-    tree_sha256: String,
-    digest_method: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FileManifest {
-    path: String,
-    sha256: String,
-    bytes: usize,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
-#[serde(deny_unknown_fields)]
-struct ExclusionManifest {
-    package: String,
-    version: String,
-    path: String,
-    sha256: String,
-    bytes: usize,
-    reason: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ArchivePolicyManifest {
-    format: String,
-    compression: String,
-    entry_order: String,
-    timestamp: String,
-    regular_file_modes: [String; 2],
-    zip64: bool,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -1244,7 +1152,9 @@ fn verify_source_archive(
         .eq(&sha256(manifest_bytes))
         .then_some(())
         .ok_or_else(|| anyhow!("source bundle manifest SHA-256 does not match the approval"))?;
-    let manifest: SourceBundleManifest = serde_json::from_slice(manifest_bytes)
+    let manifest_value = distribution_approval::parse_strict_json(manifest_bytes)
+        .context("parse strict source-bundle manifest JSON")?;
+    let manifest: SourceBundleManifest = serde_json::from_value(manifest_value)
         .context("parse closed source-bundle manifest schema v3")?;
 
     verify_manifest_identity(approval, &manifest, inventory)?;
@@ -1271,7 +1181,9 @@ fn verify_source_closure_package_join(
     manifest: &SourceBundleManifest,
     source_closure_sbom: &[u8],
 ) -> Result<()> {
-    let document: SourceClosurePackageDocument = serde_json::from_slice(source_closure_sbom)
+    let source_closure_value = distribution_approval::parse_strict_json(source_closure_sbom)
+        .context("parse strict source-closure SBOM JSON")?;
+    let document: SourceClosurePackageDocument = serde_json::from_value(source_closure_value)
         .context("parse source-closure SBOM package inventory")?;
     let mut sbom_packages = BTreeSet::new();
     for package in document.packages {
@@ -1341,13 +1253,9 @@ fn verify_manifest_identity(
     inventory: &ArchiveInventory,
 ) -> Result<()> {
     let identity = approval.source_identity();
-    let expected_object_format = match identity.git_object_format() {
-        GitObjectFormat::Sha1 => "sha1",
-        GitObjectFormat::Sha256 => "sha256",
-    };
-    if manifest.schema_version != 3
-        || manifest.artifact_kind != "autocad-mcp-windows-x86_64-build-source"
-        || manifest.git_object_format != expected_object_format
+    if manifest.schema_version != SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION
+        || manifest.artifact_kind != SOURCE_BUNDLE_ARTIFACT_KIND
+        || manifest.git_object_format != identity.git_object_format()
         || manifest.source_commit != identity.git_commit_oid()
         || manifest.source_tree_oid != identity.git_tree_oid()
         || manifest.cargo_lock_sha256 != identity.cargo_lock_sha256()
@@ -1355,7 +1263,7 @@ fn verify_manifest_identity(
         || manifest.rust_toolchain_sha256 != identity.rust_toolchain_sha256()
         || manifest.build_recipe_sha256 != identity.build_recipe_sha256()
         || manifest.target != WINDOWS_TARGET
-        || manifest.profile != "release"
+        || manifest.profile != SOURCE_BUNDLE_PROFILE
         || manifest.package_mode != identity.package_mode()
         || manifest.cargo_incremental
         || identity.build_profile() != BuildProfile::Release
@@ -1845,7 +1753,7 @@ fn verify_git_tree_oid(
     if oid != manifest.source_tree_oid {
         bail!(
             "reconstructed {} Git tree OID {} does not match approved source tree {}",
-            manifest.git_object_format,
+            manifest.git_object_format.as_str(),
             oid,
             manifest.source_tree_oid
         );
@@ -2099,73 +2007,6 @@ fn tree_digest(files: &[(&str, &EntryRecord)]) -> String {
         digest.update(raw);
     }
     hex_lower(&digest.finalize())
-}
-
-fn validate_archive_path(path: &str) -> Result<()> {
-    if path.is_empty()
-        || !path.is_ascii()
-        || path.len() > MAX_WINDOWS_RELATIVE_PATH_BYTES
-        || path.starts_with('/')
-        || path.starts_with('\\')
-        || path.ends_with('/')
-        || path.contains('\\')
-    {
-        bail!("unsafe archive path {path:?}");
-    }
-    for component in path.split('/') {
-        if component.is_empty()
-            || matches!(component, "." | "..")
-            || component.len() > MAX_WINDOWS_COMPONENT_BYTES
-            || component.ends_with(' ')
-            || component.ends_with('.')
-            || component.bytes().any(|byte| {
-                byte < b' '
-                    || byte == 0x7f
-                    || matches!(byte, b'<' | b'>' | b':' | b'"' | b'\\' | b'|' | b'?' | b'*')
-            })
-        {
-            bail!("unsafe archive path component {component:?} in {path:?}");
-        }
-        let stem = component
-            .split('.')
-            .next()
-            .unwrap_or(component)
-            .to_ascii_lowercase();
-        let reserved = matches!(stem.as_str(), "con" | "prn" | "aux" | "nul")
-            || stem.strip_prefix("com").is_some_and(|suffix| {
-                matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-            })
-            || stem.strip_prefix("lpt").is_some_and(|suffix| {
-                matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-            });
-        if reserved {
-            bail!("reserved Windows device component {component:?} in archive path {path:?}");
-        }
-    }
-    Ok(())
-}
-
-fn insert_archive_path(casefolded: &mut BTreeMap<String, String>, path: &str) -> Result<()> {
-    let folded = path.to_ascii_lowercase();
-    if let Some(existing) = casefolded.get(&folded) {
-        bail!("duplicate or case-colliding archive paths {existing:?} and {path:?}");
-    }
-    for (index, byte) in folded.bytes().enumerate() {
-        if byte == b'/' {
-            let ancestor = &folded[..index];
-            if let Some(existing) = casefolded.get(ancestor) {
-                bail!("archive file {existing:?} conflicts with descendant {path:?}");
-            }
-        }
-    }
-    let descendant_prefix = format!("{folded}/");
-    if let Some((candidate, existing)) = casefolded.range(descendant_prefix.clone()..).next() {
-        if candidate.starts_with(&descendant_prefix) {
-            bail!("archive file {path:?} conflicts with descendant {existing:?}");
-        }
-    }
-    casefolded.insert(folded, path.to_owned());
-    Ok(())
 }
 
 fn read_regular_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u8>> {

@@ -14,13 +14,6 @@
 !/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dxf
 !/corpus/open/project/generic-title-block-ascii.dxf
 
-# The schema root contains only the four closed schemas consumed by the
-# shipped plugin. New schema or example bytes require a provenance-ledger row
-# and a matching exact exception.
-!/fixtures/plugin-example/.claude-plugin/plugin.schema.json
-!/fixtures/plugin-example/.lsp.schema.json
-!/fixtures/plugin-example/.mcp.schema.json
-!/fixtures/plugin-example/skills/skill/SKILL.schema.yaml
 !/fixtures/windows_certification/manifest.example.json
 !/fixtures/windows_certification/public-development-arg-policy.json
 !/fixtures/windows_certification/public-development-profile.arg

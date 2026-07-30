@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 jsonschema.workspace = true
+release-qualification = { path = "../qualification" }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml = "0.9"

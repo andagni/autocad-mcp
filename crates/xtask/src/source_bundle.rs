@@ -1,5 +1,13 @@
 use distribution_approval::{
     render_windows_x86_64_build_recipe, DistributionMode, GitObjectFormat,
+    SourceBundleArchivePolicy as ArchivePolicyManifest, SourceBundleExclusion as ExclusionManifest,
+    SourceBundleFile as FileManifest, SourceBundleManifest, SourceBundlePackage as PackageManifest,
+    SourceBundleRoot as RootManifest, SourceBundleTree as TreeManifest,
+    SourceBundleVendor as VendorManifest, SOURCE_BUNDLE_ARTIFACT_KIND,
+    SOURCE_BUNDLE_BUILD_RECIPE_PATH as BUILD_INSTRUCTIONS_PATH,
+    SOURCE_BUNDLE_MANIFEST_PATH as MANIFEST_PATH, SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION,
+    SOURCE_BUNDLE_OFFLINE_CONFIG_PATH as OFFLINE_CONFIG_PATH, SOURCE_BUNDLE_PROFILE,
+    SOURCE_BUNDLE_TREE_DIGEST_METHOD, WINDOWS_X86_64_TARGET as WINDOWS_TARGET,
 };
 use flate2::read::MultiGzDecoder;
 use serde::{Deserialize, Serialize};
@@ -11,11 +19,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 
-const WINDOWS_TARGET: &str = "x86_64-pc-windows-msvc";
 const REGISTRY_SOURCE: &str = "registry+https://github.com/rust-lang/crates.io-index";
-const MANIFEST_PATH: &str = "source-bundle-manifest.json";
-const BUILD_INSTRUCTIONS_PATH: &str = "BUILD-WINDOWS-X86_64.txt";
-const OFFLINE_CONFIG_PATH: &str = "workspace/.cargo/config.toml";
 const THIRD_PARTY_LICENSE_POLICY_PATH: &str = "plugin/.third-party/third-party-license-policy.json";
 const RUST_TOOLCHAIN_PATH: &str = "rust-toolchain.toml";
 const MAX_CRATE_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
@@ -204,84 +208,6 @@ struct ArchiveEntries {
     casefolded_paths: BTreeMap<String, String>,
 }
 
-#[derive(Debug, Serialize)]
-struct SourceBundleManifest {
-    schema_version: u32,
-    artifact_kind: &'static str,
-    git_object_format: String,
-    source_commit: String,
-    source_tree_oid: String,
-    cargo_lock_sha256: String,
-    dependency_input_closure_sha256: String,
-    rust_toolchain_sha256: String,
-    build_recipe_sha256: String,
-    rust_toolchain: String,
-    target: &'static str,
-    profile: &'static str,
-    package_mode: DistributionMode,
-    cargo_incremental: bool,
-    roots: Vec<RootManifest>,
-    packages: Vec<PackageManifest>,
-    workspace: TreeManifest,
-    generated_files: Vec<FileManifest>,
-    exclusions: Vec<ExclusionManifest>,
-    archive_policy: ArchivePolicyManifest,
-}
-
-#[derive(Debug, Serialize)]
-struct RootManifest {
-    name: String,
-    version: String,
-    manifest_path: String,
-    cargo_metadata_arguments: Vec<String>,
-    dependency_kinds: [&'static str; 2],
-    excluded_dependency_kind: &'static str,
-    package_count: usize,
-}
-
-#[derive(Debug, Serialize)]
-struct PackageManifest {
-    name: String,
-    version: String,
-    source: String,
-    cargo_lock_checksum: Option<String>,
-    roots: Vec<String>,
-    vendor: Option<VendorManifest>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct VendorManifest {
-    path: String,
-    crate_archive_sha256: String,
-    file_count: usize,
-    tree_sha256: String,
-}
-
-#[derive(Debug, Serialize)]
-struct TreeManifest {
-    path: String,
-    file_count: usize,
-    tree_sha256: String,
-    digest_method: &'static str,
-}
-
-#[derive(Debug, Serialize)]
-struct FileManifest {
-    path: String,
-    sha256: String,
-    bytes: usize,
-}
-
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-struct ExclusionManifest {
-    package: String,
-    version: String,
-    path: String,
-    sha256: String,
-    bytes: usize,
-    reason: String,
-}
-
 #[derive(Debug)]
 struct PreparedMode {
     closures: Vec<RootClosure>,
@@ -311,16 +237,6 @@ pub(crate) struct PreparedSourceBundles {
     workspace_files: Vec<SourceFile>,
     modes: BTreeMap<DistributionMode, PreparedMode>,
     vendors: BTreeMap<PackageKey, PreparedVendorPackage>,
-}
-
-#[derive(Debug, Serialize)]
-struct ArchivePolicyManifest {
-    format: &'static str,
-    compression: &'static str,
-    entry_order: &'static str,
-    timestamp: &'static str,
-    regular_file_modes: [&'static str; 2],
-    zip64: bool,
 }
 
 #[derive(Serialize)]
@@ -481,7 +397,7 @@ pub(crate) fn write_prepared_for_mode(
         path: "workspace".to_owned(),
         file_count: prepared.workspace_files.len(),
         tree_sha256: tree_digest(&prepared.workspace_files),
-        digest_method: "SHA-256 over sorted path, normalized mode, byte length, and content digest",
+        digest_method: SOURCE_BUNDLE_TREE_DIGEST_METHOD.to_owned(),
     };
     for file in &prepared.workspace_files {
         archive.insert(
@@ -576,9 +492,9 @@ pub(crate) fn write_prepared_for_mode(
 
     let root_manifests = root_manifests(&mode.closures, package_mode)?;
     let manifest = SourceBundleManifest {
-        schema_version: 3,
-        artifact_kind: "autocad-mcp-windows-x86_64-build-source",
-        git_object_format: prepared.git_object_format.clone(),
+        schema_version: SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION,
+        artifact_kind: SOURCE_BUNDLE_ARTIFACT_KIND.to_owned(),
+        git_object_format: recipe_object_format,
         source_commit: prepared.source_commit.clone(),
         source_tree_oid: prepared.source_tree_oid.clone(),
         cargo_lock_sha256: prepared.lock_sha256.clone(),
@@ -586,8 +502,8 @@ pub(crate) fn write_prepared_for_mode(
         rust_toolchain_sha256: prepared.rust_toolchain_sha256.clone(),
         build_recipe_sha256: build_recipe_sha256.clone(),
         rust_toolchain: prepared.toolchain.clone(),
-        target: WINDOWS_TARGET,
-        profile: "release",
+        target: WINDOWS_TARGET.to_owned(),
+        profile: SOURCE_BUNDLE_PROFILE.to_owned(),
         package_mode,
         cargo_incremental: false,
         roots: root_manifests,
@@ -596,11 +512,11 @@ pub(crate) fn write_prepared_for_mode(
         generated_files,
         exclusions,
         archive_policy: ArchivePolicyManifest {
-            format: "ZIP32",
-            compression: "stored",
-            entry_order: "ascending UTF-8 path",
-            timestamp: "1980-01-01T00:00:00Z",
-            regular_file_modes: ["0644", "0755"],
+            format: "ZIP32".to_owned(),
+            compression: "stored".to_owned(),
+            entry_order: "ascending UTF-8 path".to_owned(),
+            timestamp: "1980-01-01T00:00:00Z".to_owned(),
+            regular_file_modes: ["0644".to_owned(), "0755".to_owned()],
             zip64: false,
         },
     };
@@ -1525,8 +1441,8 @@ fn root_manifests(
             version: package.version.clone(),
             manifest_path: closure.spec.manifest_path.to_owned(),
             cargo_metadata_arguments: metadata_arguments(closure.spec, package_mode),
-            dependency_kinds: ["normal", "build"],
-            excluded_dependency_kind: "dev",
+            dependency_kinds: ["normal".to_owned(), "build".to_owned()],
+            excluded_dependency_kind: "dev".to_owned(),
             package_count: closure.package_ids.len(),
         });
     }

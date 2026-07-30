@@ -3,13 +3,13 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "AutoCAD-MCP Cargo.lock source dependency graph",
-  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-3daad3a68f5962f1f9d447f739347e730b5952dd01f147141063c209ccdd43fe",
+  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-3b527b09db9f48b36f9580a85bc2adf78f88c3534fd25f9d590f2f3828095bb8",
   "creationInfo": {
-    "created": "2026-07-30T09:22:43Z",
+    "created": "2026-07-30T12:28:38Z",
     "creators": [
       "Tool: AutoCAD-MCP distribution-evidence-7"
     ],
-    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1`, including workspace, development, build, and all-target dependencies. Cargo.lock SHA-256: 227129d0f406bb1ddd8ff550249ae1c7ed5a5c9486352e077ad0bbabf238c73f. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
+    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1`, including workspace, development, build, and all-target dependencies. Cargo.lock SHA-256: 95f22654a01b98d34e82e2cb14c000ded5f2e89bd7474c811d18086a839ec718. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
   },
   "documentDescribes": [
     "SPDXRef-Package-130ec320e51ed7c366c24c909c227797f31ec6a016ac64b4553aa4aab5a2a576",
@@ -6235,6 +6235,11 @@
     {
       "spdxElementId": "SPDXRef-Package-6db2d98021a45cafd33191df44a5dbbd3e403f97b115e76d59b48df643c04fc5",
       "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-130ec320e51ed7c366c24c909c227797f31ec6a016ac64b4553aa4aab5a2a576"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-6db2d98021a45cafd33191df44a5dbbd3e403f97b115e76d59b48df643c04fc5",
+      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-2d081e251313c0569a1a176c24a97e06f77afdf4cb72ff433537671750b598d7"
     },
     {
@@ -6360,16 +6365,6 @@
     {
       "spdxElementId": "SPDXRef-Package-780741a7c473d10f2c9d878d7b37ae422647efa250f375ef0fbef2f3eed6ab22",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4f7ba78424464c157fd6ba071cf7f53ce7de7c1c7877246c123f83896fe661b2"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-780741a7c473d10f2c9d878d7b37ae422647efa250f375ef0fbef2f3eed6ab22",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-50e5075ead076e40dfada3812ffcb088855c1238af27c163c595a175a4044949"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-780741a7c473d10f2c9d878d7b37ae422647efa250f375ef0fbef2f3eed6ab22",
-      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b"
     },
     {
@@ -6391,11 +6386,6 @@
       "spdxElementId": "SPDXRef-Package-780741a7c473d10f2c9d878d7b37ae422647efa250f375ef0fbef2f3eed6ab22",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-82c47d7fc3af0a64cf039ac3b23786c4f6cf9380a5d07f68a4507d51c803491b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-780741a7c473d10f2c9d878d7b37ae422647efa250f375ef0fbef2f3eed6ab22",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-881cd31a0a5f6fbf81a224e8b67f5eef2cb82fef6047d46498552a6e73ef56d5"
     },
     {
       "spdxElementId": "SPDXRef-Package-780741a7c473d10f2c9d878d7b37ae422647efa250f375ef0fbef2f3eed6ab22",
@@ -6450,6 +6440,11 @@
     {
       "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
       "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-4f7ba78424464c157fd6ba071cf7f53ce7de7c1c7877246c123f83896fe661b2"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
+      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b"
     },
     {
@@ -6466,6 +6461,11 @@
       "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-82c47d7fc3af0a64cf039ac3b23786c4f6cf9380a5d07f68a4507d51c803491b"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-881cd31a0a5f6fbf81a224e8b67f5eef2cb82fef6047d46498552a6e73ef56d5"
     },
     {
       "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",

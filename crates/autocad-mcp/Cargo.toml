@@ -63,6 +63,8 @@ name = "autocad-mcp"
 path = "src/main.rs"
 
 [dev-dependencies]
+proc-macro2 = "1"
+syn = { version = "2", features = ["full", "visit"] }
 walkdir.workspace = true
 
 [target.'cfg(windows)'.dev-dependencies]

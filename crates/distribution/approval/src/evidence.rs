@@ -1,6 +1,6 @@
 use super::{
-    error, sha256_hex, DeterminationTreatment, OwnerDistributionApproval, StrictJsonValue,
-    ValidationError, INITIAL_WINDOWS_TARGET,
+    error, sha256_hex, DeterminationTreatment, OwnerDistributionApproval, ValidationError,
+    INITIAL_WINDOWS_TARGET,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -870,20 +870,12 @@ fn parse_provenance(
 }
 
 fn parse_strict_json(bytes: &[u8], label: &str) -> Result<Value, ValidationError> {
-    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-    let strict = StrictJsonValue::deserialize(&mut deserializer).map_err(|parse_error| {
+    release_qualification::parse_strict_json(bytes).map_err(|parse_error| {
         evidence_error(
             "distribution_evidence_json_invalid",
             format!("{label} strict JSON parse failed: {parse_error}"),
         )
-    })?;
-    deserializer.end().map_err(|parse_error| {
-        evidence_error(
-            "distribution_evidence_json_invalid",
-            format!("{label} has trailing data: {parse_error}"),
-        )
-    })?;
-    Ok(strict.0)
+    })
 }
 
 fn required_usize(document: &Value, field: &str) -> Result<usize, ValidationError> {

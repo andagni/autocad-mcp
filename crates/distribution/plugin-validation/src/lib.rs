@@ -8,6 +8,15 @@ pub use documentation_provenance::{
 use std::collections::BTreeSet;
 use std::path::Path;
 
+fn parse_strict_json_value(bytes: &[u8]) -> Result<serde_json::Value, String> {
+    release_qualification::parse_strict_json(bytes).map_err(|error| error.to_string())
+}
+
+fn decode_strict_json<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
+    let value = parse_strict_json_value(bytes)?;
+    serde_json::from_value(value).map_err(|error| error.to_string())
+}
+
 /// Permitted top-level entries under a plugin directory, per the Claude Code
 /// plugin layout accepted by the package source policy.
 const PERMITTED_TOP_LEVEL: &[&str] = &[
@@ -332,7 +341,7 @@ fn validate_no_owner_approval_instance(plugin_dir: &Path) -> Vec<String> {
         if !has_json_extension && !looks_like_json_object {
             continue;
         }
-        let value = match serde_json::from_slice::<serde_json::Value>(&bytes) {
+        let value = match parse_strict_json_value(&bytes) {
             Ok(value) => value,
             Err(error) => {
                 if has_json_extension {
@@ -386,7 +395,7 @@ pub fn validate_json_file_rel(abs_path: &Path, rel_path: &str, schema_root: &Pat
         Ok(t) => t,
         Err(e) => return vec![format!("{rel_path}: cannot read schema {schema_rel}: {e}")],
     };
-    let schema: serde_json::Value = match serde_json::from_str(&schema_text) {
+    let schema: serde_json::Value = match parse_strict_json_value(schema_text.as_bytes()) {
         Ok(v) => v,
         Err(e) => {
             return vec![format!(
@@ -407,7 +416,7 @@ pub fn validate_json_file_rel(abs_path: &Path, rel_path: &str, schema_root: &Pat
         Ok(t) => t,
         Err(e) => return vec![format!("{rel_path}: cannot read file: {e}")],
     };
-    let instance: serde_json::Value = match serde_json::from_str(&doc_text) {
+    let instance: serde_json::Value = match parse_strict_json_value(doc_text.as_bytes()) {
         Ok(v) => v,
         Err(e) => return vec![format!("{rel_path}: not valid JSON: {e}")],
     };
@@ -622,7 +631,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let f = dir.join("SKILL.md");
         std::fs::write(&f, "---\nname: s\nversion: 1.0.0\n---\n# body\n").unwrap();
-        let schema_root = repo_root().join("tests/fixtures/plugin-example");
+        let schema_root = repo_root().join("crates/distribution/plugin-validation/schemas");
         let errs = validate_markdown_file_rel(&f, "skills/s/SKILL.md", &schema_root);
         assert!(
             errs.iter().any(|e| e.contains("version")),
@@ -654,7 +663,7 @@ mod tests {
     fn valid_plugin_json_has_no_errors() {
         let root = repo_root();
         let plugin_json = root.join("plugin/.claude-plugin/plugin.json");
-        let schema_root = root.join("tests/fixtures/plugin-example");
+        let schema_root = root.join("crates/distribution/plugin-validation/schemas");
         let errs = validate_json_file(&plugin_json, &schema_root);
         assert!(errs.is_empty(), "expected valid, got: {errs:?}");
     }
@@ -663,7 +672,7 @@ mod tests {
     fn repo_lsp_config_validates() {
         let root = repo_root();
         let lsp_json = root.join("plugin/.lsp.json");
-        let schema_root = root.join("tests/fixtures/plugin-example");
+        let schema_root = root.join("crates/distribution/plugin-validation/schemas");
         let errs = validate_json_file_rel(&lsp_json, ".lsp.json", &schema_root);
         assert!(errs.is_empty(), "expected valid .lsp.json, got: {errs:?}");
     }
@@ -674,7 +683,7 @@ mod tests {
         std::fs::create_dir_all(dir.join(".claude-plugin")).unwrap();
         let f = dir.join(".claude-plugin/plugin.json");
         std::fs::write(&f, "").unwrap();
-        let schema_root = repo_root().join("tests/fixtures/plugin-example");
+        let schema_root = repo_root().join("crates/distribution/plugin-validation/schemas");
         // Place the file under a fake plugin dir so the relative path resolves.
         let errs = validate_json_file_rel(&f, ".claude-plugin/plugin.json", &schema_root);
         assert!(!errs.is_empty(), "empty JSON must error");
@@ -936,7 +945,7 @@ mod tests {
     fn command_line_validation_accepts_repo_plugin_with_local_gitignore() {
         let root = repo_root();
         let plugin_dir = root.join("plugin");
-        let schema_root = root.join("tests/fixtures/plugin-example");
+        let schema_root = root.join("crates/distribution/plugin-validation/schemas");
         let report = validate_plugin(&plugin_dir, &schema_root);
         assert_eq!(report.errors, 0);
     }

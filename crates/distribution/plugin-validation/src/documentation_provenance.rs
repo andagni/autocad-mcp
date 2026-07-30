@@ -1,3 +1,4 @@
+use crate::decode_strict_json;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -189,7 +190,7 @@ fn validate_documentation_provenance_with_scope(
             return errors;
         }
     };
-    let ledger: DocumentationProvenance = match serde_json::from_slice(&ledger_bytes) {
+    let ledger: DocumentationProvenance = match decode_strict_json(&ledger_bytes) {
         Ok(ledger) => ledger,
         Err(error) => {
             errors.push(provenance_error(format!(
@@ -621,7 +622,7 @@ fn validate_lsp_index(
             return;
         }
     };
-    let index: LspIndex = match serde_json::from_slice(&bytes) {
+    let index: LspIndex = match decode_strict_json(&bytes) {
         Ok(index) => index,
         Err(error) => {
             errors.push(provenance_error(format!(

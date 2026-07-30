@@ -5,7 +5,7 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() != 2 {
         eprintln!("Usage: plugin-validate <plugin-dir> <schema-root>");
-        eprintln!("  e.g. plugin-validate plugin tests/fixtures/plugin-example");
+        eprintln!("  e.g. plugin-validate plugin crates/distribution/plugin-validation/schemas");
         process::exit(2);
     }
     let plugin_dir = Path::new(&args[0]);

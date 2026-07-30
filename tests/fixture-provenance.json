@@ -109,54 +109,6 @@
       }
     },
     {
-      "path": "tests/fixtures/plugin-example/.claude-plugin/plugin.schema.json",
-      "sha256": "97f4ed74b9a418adf5b37b166a95fac7419a1967bd662d3cc06894bc2ea6eeb6",
-      "artifact_class": "schema",
-      "license_expression": "GPL-3.0-or-later",
-      "privacy_disposition": "project_public_reviewed",
-      "origin": {
-        "kind": "local_schema_projection",
-        "source_path": "plugin/.claude-plugin/plugin.json",
-        "source_locator": "\"name\": \"autocad-mcp\""
-      }
-    },
-    {
-      "path": "tests/fixtures/plugin-example/.lsp.schema.json",
-      "sha256": "34a99dde36b9daccbe260d8b646e3f5fdd0dfdb368834d7332a3c687fd375843",
-      "artifact_class": "schema",
-      "license_expression": "GPL-3.0-or-later",
-      "privacy_disposition": "project_public_reviewed",
-      "origin": {
-        "kind": "local_schema_projection",
-        "source_path": "plugin/.lsp.json",
-        "source_locator": "\"extensionToLanguage\": {"
-      }
-    },
-    {
-      "path": "tests/fixtures/plugin-example/.mcp.schema.json",
-      "sha256": "a9dc5bf76cdd4f33893f7f9834b76f754d3abcaecc4ec58165f445dd7af789b9",
-      "artifact_class": "schema",
-      "license_expression": "GPL-3.0-or-later",
-      "privacy_disposition": "project_public_reviewed",
-      "origin": {
-        "kind": "local_schema_projection",
-        "source_path": "plugin/.mcp.json",
-        "source_locator": "\"mcpServers\": {"
-      }
-    },
-    {
-      "path": "tests/fixtures/plugin-example/skills/skill/SKILL.schema.yaml",
-      "sha256": "94ef97cc6fd2d7f0937471e5f42b9592e0d9fa7ee3254f2e6330ec564b97b472",
-      "artifact_class": "schema",
-      "license_expression": "GPL-3.0-or-later",
-      "privacy_disposition": "project_public_reviewed",
-      "origin": {
-        "kind": "local_schema_projection",
-        "source_path": "plugin/skills/autocad-mcp/SKILL.md",
-        "source_locator": "when_to_use: >"
-      }
-    },
-    {
       "path": "tests/fixtures/windows_certification/manifest.example.json",
       "sha256": "a2857add617c9d1b1c5f534a2b70d8b8deab8d43cb7c8ce3e957172860b0a933",
       "artifact_class": "machine_readable_contract",

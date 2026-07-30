@@ -1,4 +1,5 @@
 pub mod approval;
+mod archive_safety;
 pub mod manifest;
 pub mod mcp_stdio;
 pub mod package;

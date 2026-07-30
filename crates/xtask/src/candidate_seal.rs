@@ -1,5 +1,13 @@
 use crate::source_bundle::{self, SourceBundleSummary};
-use distribution_approval::DistributionMode;
+use distribution_approval::{
+    DistributionMode, SourceBundleManifest, SOURCE_BUNDLE_ARTIFACT_KIND,
+    SOURCE_BUNDLE_MANIFEST_PATH, SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION,
+};
+#[cfg(test)]
+use distribution_approval::{
+    GitObjectFormat, SourceBundleArchivePolicy, SourceBundleTree, SOURCE_BUNDLE_PROFILE,
+    SOURCE_BUNDLE_TREE_DIGEST_METHOD, WINDOWS_X86_64_TARGET,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs::{self, DirBuilder, File, Metadata, OpenOptions};
@@ -16,9 +24,6 @@ const DISTRIBUTION_EVIDENCE_STATUS: &str = "reviewed_bytes_revalidated";
 const SCRATCH_ROOT: &str = "target";
 const SOURCE_BUNDLE_FILENAME: &str = "source.zip";
 const SEAL_FILENAME: &str = "candidate-seal.json";
-const SOURCE_BUNDLE_MANIFEST_PATH: &str = "source-bundle-manifest.json";
-const SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION: u32 = 3;
-const SOURCE_BUNDLE_ARTIFACT_KIND: &str = "autocad-mcp-windows-x86_64-build-source";
 const ZIP_UTF8_FLAG: u16 = 0x0800;
 const MAX_SEAL_BYTES: u64 = 64 * 1024;
 const MAX_MANIFEST_BYTES: u32 = 8 * 1024 * 1024;
@@ -75,27 +80,13 @@ struct SourceCandidateSeal {
     invalidated_release_evidence: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct SourceBundleManifestIdentity {
-    schema_version: u32,
-    artifact_kind: String,
-    git_object_format: String,
-    source_commit: String,
-    source_tree_oid: String,
-    cargo_lock_sha256: String,
-    dependency_input_closure_sha256: String,
-    rust_toolchain_sha256: String,
-    build_recipe_sha256: String,
-    package_mode: DistributionMode,
-}
-
 #[derive(Debug)]
 struct InspectedBundle {
     sha256: String,
     bytes: u64,
     archive_entries: usize,
     manifest_sha256: String,
-    manifest: SourceBundleManifestIdentity,
+    manifest: SourceBundleManifest,
 }
 
 #[derive(Debug, Serialize)]
@@ -652,7 +643,7 @@ fn verify_bundle_binding(
     let manifest = &inspected.manifest;
     if manifest.schema_version != SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION
         || manifest.artifact_kind != SOURCE_BUNDLE_ARTIFACT_KIND
-        || manifest.git_object_format != seal.candidate.git_object_format
+        || manifest.git_object_format.as_str() != seal.candidate.git_object_format
         || manifest.source_commit != seal.candidate.source_commit
         || manifest.source_tree_oid != seal.candidate.source_tree_oid
         || manifest.cargo_lock_sha256 != binding.cargo_lock_sha256
@@ -729,8 +720,10 @@ fn inspect_source_bundle(path: &Path) -> Result<InspectedBundle, String> {
         .map_err(|error| format!("read source bundle ZIP end record: {error}"))
         .and_then(|end| inspect_zip_end(path, &mut file, bytes, end))?;
     let manifest_sha256 = sha256_bytes(&manifest_bytes);
-    let manifest = serde_json::from_slice(&manifest_bytes)
-        .map_err(|error| format!("parse source bundle manifest: {error}"))?;
+    let manifest_value = distribution_approval::parse_strict_json(&manifest_bytes)
+        .map_err(|error| format!("parse strict source bundle manifest JSON: {error}"))?;
+    let manifest = serde_json::from_value(manifest_value)
+        .map_err(|error| format!("parse source bundle manifest contract: {error}"))?;
     let inspected = InspectedBundle {
         sha256,
         bytes,
@@ -1435,18 +1428,45 @@ mod tests {
         let dependency_input_closure_sha256 = "22".repeat(32);
         let rust_toolchain_sha256 = "33".repeat(32);
         let build_recipe_sha256 = "44".repeat(32);
-        let manifest = serde_json::json!({
-            "schema_version": SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION,
-            "artifact_kind": SOURCE_BUNDLE_ARTIFACT_KIND,
-            "git_object_format": identity.git_object_format,
-            "source_commit": identity.source_commit,
-            "source_tree_oid": identity.source_tree_oid,
-            "cargo_lock_sha256": cargo_lock_sha256,
-            "dependency_input_closure_sha256": dependency_input_closure_sha256,
-            "rust_toolchain_sha256": rust_toolchain_sha256,
-            "build_recipe_sha256": build_recipe_sha256,
-            "package_mode": package_mode
-        });
+        let git_object_format = match identity.git_object_format.as_str() {
+            "sha1" => GitObjectFormat::Sha1,
+            "sha256" => GitObjectFormat::Sha256,
+            other => return Err(format!("unsupported test Git object format {other}")),
+        };
+        let manifest = SourceBundleManifest {
+            schema_version: SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION,
+            artifact_kind: SOURCE_BUNDLE_ARTIFACT_KIND.to_owned(),
+            git_object_format,
+            source_commit: identity.source_commit.clone(),
+            source_tree_oid: identity.source_tree_oid.clone(),
+            cargo_lock_sha256: cargo_lock_sha256.clone(),
+            dependency_input_closure_sha256: dependency_input_closure_sha256.clone(),
+            rust_toolchain_sha256: rust_toolchain_sha256.clone(),
+            build_recipe_sha256: build_recipe_sha256.clone(),
+            rust_toolchain: "1.97.0".to_owned(),
+            target: WINDOWS_X86_64_TARGET.to_owned(),
+            profile: SOURCE_BUNDLE_PROFILE.to_owned(),
+            package_mode,
+            cargo_incremental: false,
+            roots: Vec::new(),
+            packages: Vec::new(),
+            workspace: SourceBundleTree {
+                path: "workspace".to_owned(),
+                file_count: 1,
+                tree_sha256: "55".repeat(32),
+                digest_method: SOURCE_BUNDLE_TREE_DIGEST_METHOD.to_owned(),
+            },
+            generated_files: Vec::new(),
+            exclusions: Vec::new(),
+            archive_policy: SourceBundleArchivePolicy {
+                format: "ZIP32".to_owned(),
+                compression: "stored".to_owned(),
+                entry_order: "ascending UTF-8 path".to_owned(),
+                timestamp: "1980-01-01T00:00:00Z".to_owned(),
+                regular_file_modes: ["0644".to_owned(), "0755".to_owned()],
+                zip64: false,
+            },
+        };
         let mut manifest_bytes =
             serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
         manifest_bytes.push(b'\n');

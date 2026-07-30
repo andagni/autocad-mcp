@@ -2,8 +2,12 @@
 !/.gitignore
 !/Cargo.toml
 !/src/
+!/tests/
 
 /src/**
 !/src/**/
 !/src/*.rs
 !/src/**/*.rs
+
+/tests/**
+!/tests/source_policy.rs

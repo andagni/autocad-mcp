@@ -1,11 +1,16 @@
+use crate::archive_safety::{insert_archive_path, validate_archive_path};
 use anyhow::{anyhow, bail, Context, Result};
+#[cfg(test)]
+use distribution_approval::SOURCE_BUNDLE_TREE_DIGEST_METHOD;
 use distribution_approval::{
     parse_and_validate_windows_preview_build_attestation, parse_strict_json,
     serialize_windows_preview_build_attestation, sha256_hex, Artifact, DistributionMode,
-    GitObjectFormat, SourceIdentity, WindowsPreviewBuildAttestation,
+    SourceBundleManifest, SourceIdentity, WindowsPreviewBuildAttestation,
     WindowsPreviewBuildSourceIdentity, WindowsPreviewBuildSourceIdentityInput,
     WindowsPreviewBuildSubject, WindowsPreviewBuildSubjectId, WindowsPreviewNativeBuild,
-    WindowsPreviewNativeBuildInput, WindowsPreviewUnsignedPreflight, WINDOWS_X86_64_TARGET,
+    WindowsPreviewNativeBuildInput, WindowsPreviewUnsignedPreflight, SOURCE_BUNDLE_ARTIFACT_KIND,
+    SOURCE_BUNDLE_MANIFEST_PATH, SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION, SOURCE_BUNDLE_PROFILE,
+    WINDOWS_X86_64_TARGET,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -15,7 +20,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
-pub(crate) const SOURCE_MANIFEST_ARCHIVE_PATH: &str = "source-bundle-manifest.json";
+pub(crate) const SOURCE_MANIFEST_ARCHIVE_PATH: &str = SOURCE_BUNDLE_MANIFEST_PATH;
 pub(crate) const PREVIEW_WORKFLOW_REPOSITORY_PATH: &str =
     ".github/workflows/windows-preview-review-candidate.yml";
 pub(crate) const PREVIEW_WORKFLOW_ARCHIVE_PATH: &str =
@@ -23,20 +28,15 @@ pub(crate) const PREVIEW_WORKFLOW_ARCHIVE_PATH: &str =
 
 const MCP_SERVER_ARCHIVE_PATH: &str = "plugin/bin/autocad-mcp.exe";
 const AUTOLISP_LSP_ARCHIVE_PATH: &str = "plugin/bin/autolisp-lsp.exe";
-const SOURCE_MANIFEST_SCHEMA_VERSION: u32 = 3;
-const SOURCE_MANIFEST_ARTIFACT_KIND: &str = "autocad-mcp-windows-x86_64-build-source";
 const PREFLIGHT_EVIDENCE_CLASS: &str = "development_windows_build_preflight";
 const PREFLIGHT_AUTHORITY: &str = "development_only_not_certification_evidence";
 const CERTIFIED_ARG_POLICY_ID: &str = "autocad-mcp-public-development-v1";
 const CRT_LINKAGE: &str = "static";
 const PE_IMPORT_POLICY_ID: &str = "pe-no-vc-runtime-imports-v1";
-const RELEASE_PROFILE: &str = "release";
 const MAX_JSON_INPUT_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_WORKFLOW_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES: usize = 100_000;
 const MAX_CAPTURED_ENTRY_BYTES: u64 = 512 * 1024 * 1024;
-const MAX_WINDOWS_RELATIVE_PATH_BYTES: usize = 240;
-const MAX_WINDOWS_COMPONENT_BYTES: usize = 200;
 const AUTHORIZED_GITHUB_REPOSITORY: &str = "andagni/autocad-mcp";
 const AUTHORIZED_GITHUB_SERVER_URL: &str = "https://github.com";
 const AUTHORIZED_GITHUB_REF: &str = "refs/heads/main";
@@ -82,23 +82,6 @@ pub(crate) struct PreviewBuildAttestationSemanticInput<'a> {
     pub workflow_bytes: &'a [u8],
     pub contained_mcp_server_bytes: &'a [u8],
     pub contained_autolisp_lsp_bytes: &'a [u8],
-}
-
-#[derive(Debug, Deserialize)]
-struct SelectedSourceManifest {
-    schema_version: u32,
-    artifact_kind: String,
-    git_object_format: GitObjectFormat,
-    source_commit: String,
-    source_tree_oid: String,
-    cargo_lock_sha256: String,
-    dependency_input_closure_sha256: String,
-    rust_toolchain_sha256: String,
-    build_recipe_sha256: String,
-    target: String,
-    profile: String,
-    package_mode: DistributionMode,
-    cargo_incremental: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -361,7 +344,7 @@ pub(crate) fn verify_preview_build_attestation_semantics(
 fn verify_source_identity(
     attested: &WindowsPreviewBuildSourceIdentity,
     approved: &SourceIdentity,
-    manifest: &SelectedSourceManifest,
+    manifest: &SourceBundleManifest,
     manifest_bytes: &[u8],
 ) -> Result<()> {
     let expected_manifest_sha256 = sha256_hex(manifest_bytes);
@@ -447,15 +430,15 @@ fn subject(
         })
 }
 
-fn parse_source_manifest(bytes: &[u8]) -> Result<SelectedSourceManifest> {
+fn parse_source_manifest(bytes: &[u8]) -> Result<SourceBundleManifest> {
     let value = parse_strict_json(bytes)
         .map_err(|error| anyhow!("source-bundle manifest is not strict JSON: {error}"))?;
-    let manifest: SelectedSourceManifest = serde_json::from_value(value)
-        .map_err(|error| anyhow!("source-bundle manifest selected fields are invalid: {error}"))?;
-    if manifest.schema_version != SOURCE_MANIFEST_SCHEMA_VERSION
-        || manifest.artifact_kind != SOURCE_MANIFEST_ARTIFACT_KIND
+    let manifest: SourceBundleManifest = serde_json::from_value(value)
+        .map_err(|error| anyhow!("source-bundle manifest contract is invalid: {error}"))?;
+    if manifest.schema_version != SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION
+        || manifest.artifact_kind != SOURCE_BUNDLE_ARTIFACT_KIND
         || manifest.target != WINDOWS_X86_64_TARGET
-        || manifest.profile != RELEASE_PROFILE
+        || manifest.profile != SOURCE_BUNDLE_PROFILE
         || manifest.package_mode != DistributionMode::Preview
         || manifest.cargo_incremental
     {
@@ -475,7 +458,7 @@ fn parse_unsigned_preflight(bytes: &[u8]) -> Result<SelectedUnsignedPreflight> {
     if preflight.evidence_class != PREFLIGHT_EVIDENCE_CLASS
         || preflight.authority != PREFLIGHT_AUTHORITY
         || preflight.target != WINDOWS_X86_64_TARGET
-        || preflight.profile != RELEASE_PROFILE
+        || preflight.profile != SOURCE_BUNDLE_PROFILE
         || preflight.cargo_incremental
         || preflight.certified_arg_policy_id != CERTIFIED_ARG_POLICY_ID
         || preflight.crt_linkage != CRT_LINKAGE
@@ -490,7 +473,7 @@ fn parse_unsigned_preflight(bytes: &[u8]) -> Result<SelectedUnsignedPreflight> {
 
 fn validate_preflight_source_join(
     preflight: &SelectedUnsignedPreflight,
-    manifest: &SelectedSourceManifest,
+    manifest: &SourceBundleManifest,
 ) -> Result<()> {
     if preflight.source_commit != manifest.source_commit
         || preflight.cargo_lock_sha256 != manifest.cargo_lock_sha256
@@ -577,73 +560,6 @@ fn inspect_archive(
         size_bytes,
         captured,
     })
-}
-
-fn validate_archive_path(path: &str) -> Result<()> {
-    if path.is_empty()
-        || !path.is_ascii()
-        || path.len() > MAX_WINDOWS_RELATIVE_PATH_BYTES
-        || path.starts_with('/')
-        || path.starts_with('\\')
-        || path.ends_with('/')
-        || path.contains('\\')
-    {
-        bail!("unsafe archive path {path:?}");
-    }
-    for component in path.split('/') {
-        if component.is_empty()
-            || matches!(component, "." | "..")
-            || component.len() > MAX_WINDOWS_COMPONENT_BYTES
-            || component.ends_with(' ')
-            || component.ends_with('.')
-            || component.bytes().any(|byte| {
-                byte < b' '
-                    || byte == 0x7f
-                    || matches!(byte, b'<' | b'>' | b':' | b'"' | b'\\' | b'|' | b'?' | b'*')
-            })
-        {
-            bail!("unsafe archive path component {component:?} in {path:?}");
-        }
-        let stem = component
-            .split('.')
-            .next()
-            .unwrap_or(component)
-            .to_ascii_lowercase();
-        let reserved = matches!(stem.as_str(), "con" | "prn" | "aux" | "nul")
-            || stem.strip_prefix("com").is_some_and(|suffix| {
-                matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-            })
-            || stem.strip_prefix("lpt").is_some_and(|suffix| {
-                matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-            });
-        if reserved {
-            bail!("reserved Windows device component {component:?} in archive path {path:?}");
-        }
-    }
-    Ok(())
-}
-
-fn insert_archive_path(casefolded: &mut BTreeMap<String, String>, path: &str) -> Result<()> {
-    let folded = path.to_ascii_lowercase();
-    if let Some(existing) = casefolded.get(&folded) {
-        bail!("duplicate or case-colliding archive paths {existing:?} and {path:?}");
-    }
-    for (index, byte) in folded.bytes().enumerate() {
-        if byte == b'/' {
-            let ancestor = &folded[..index];
-            if let Some(existing) = casefolded.get(ancestor) {
-                bail!("archive file {existing:?} conflicts with descendant {path:?}");
-            }
-        }
-    }
-    let descendant_prefix = format!("{folded}/");
-    if let Some((candidate, existing)) = casefolded.range(descendant_prefix.clone()..).next() {
-        if candidate.starts_with(&descendant_prefix) {
-            bail!("archive file {path:?} conflicts with descendant {existing:?}");
-        }
-    }
-    casefolded.insert(folded, path.to_owned());
-    Ok(())
 }
 
 fn selected_archive_bytes<'a>(
@@ -758,8 +674,8 @@ mod tests {
             let output_path = temp.path().join("attestation.json");
 
             let manifest = json!({
-                "schema_version": SOURCE_MANIFEST_SCHEMA_VERSION,
-                "artifact_kind": SOURCE_MANIFEST_ARTIFACT_KIND,
+                "schema_version": SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION,
+                "artifact_kind": SOURCE_BUNDLE_ARTIFACT_KIND,
                 "git_object_format": "sha1",
                 "source_commit": "1".repeat(40),
                 "source_tree_oid": "2".repeat(40),
@@ -769,15 +685,27 @@ mod tests {
                 "build_recipe_sha256": "6".repeat(64),
                 "rust_toolchain": "1.97.0",
                 "target": WINDOWS_X86_64_TARGET,
-                "profile": RELEASE_PROFILE,
+                "profile": SOURCE_BUNDLE_PROFILE,
                 "package_mode": "preview",
                 "cargo_incremental": false,
                 "roots": [],
                 "packages": [],
-                "workspace": {},
+                "workspace": {
+                    "path": "workspace",
+                    "file_count": 1,
+                    "tree_sha256": "7".repeat(64),
+                    "digest_method": SOURCE_BUNDLE_TREE_DIGEST_METHOD
+                },
                 "generated_files": [],
                 "exclusions": [],
-                "archive_policy": {}
+                "archive_policy": {
+                    "format": "ZIP32",
+                    "compression": "stored",
+                    "entry_order": "ascending UTF-8 path",
+                    "timestamp": "1980-01-01T00:00:00Z",
+                    "regular_file_modes": ["0644", "0755"],
+                    "zip64": false
+                }
             });
             let mut manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
             manifest_bytes.push(b'\n');
@@ -832,7 +760,7 @@ mod tests {
             "cargo_lock_sha256": cargo_lock_sha256,
             "target": WINDOWS_X86_64_TARGET,
             "compiler": "rustc 1.97.0 (test); host: x86_64-pc-windows-msvc",
-            "profile": RELEASE_PROFILE,
+            "profile": SOURCE_BUNDLE_PROFILE,
             "cargo_incremental": false,
             "release_build_command": "cargo release",
             "instrumented_build_command": "cargo instrumented",

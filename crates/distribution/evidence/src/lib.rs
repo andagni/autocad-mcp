@@ -1,3 +1,4 @@
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -353,13 +354,13 @@ pub fn check(repository: &Path) -> Result<EvidenceSummary, String> {
 pub fn validation_cache_input_sha256(repository: &Path) -> Result<String, String> {
     let policy_bytes =
         read_regular_file(&repository.join(POLICY_PATH), "third-party licence policy")?;
-    let policy: ThirdPartyLicensePolicy =
-        serde_json::from_slice(&policy_bytes).map_err(|error| {
-            format!(
-                "parse third-party licence policy {}: {error}",
-                repository.join(POLICY_PATH).display()
-            )
-        })?;
+    let policy: ThirdPartyLicensePolicy = parse_strict_document(
+        &policy_bytes,
+        &format!(
+            "third-party licence policy {}",
+            repository.join(POLICY_PATH).display()
+        ),
+    )?;
     validate_policy_shape(&policy)?;
 
     let lock_bytes = read_regular_file(&repository.join("Cargo.lock"), "Cargo.lock")?;
@@ -616,12 +617,10 @@ fn run(
 fn read_policy(repository: &Path) -> Result<ThirdPartyLicensePolicy, String> {
     let path = repository.join(POLICY_PATH);
     let bytes = read_regular_file(&path, "third-party licence policy")?;
-    serde_json::from_slice(&bytes).map_err(|error| {
-        format!(
-            "parse third-party licence policy {}: {error}",
-            path.display()
-        )
-    })
+    parse_strict_document(
+        &bytes,
+        &format!("third-party licence policy {}", path.display()),
+    )
 }
 
 fn validate_policy_shape(policy: &ThirdPartyLicensePolicy) -> Result<(), String> {
@@ -732,12 +731,10 @@ fn load_license_provenance(
             policy.expected_license_provenance_sha256
         ));
     }
-    let document: LicenseProvenance = serde_json::from_slice(&bytes).map_err(|error| {
-        format!(
-            "parse third-party licence provenance {}: {error}",
-            path.display()
-        )
-    })?;
+    let document: LicenseProvenance = parse_strict_document(
+        &bytes,
+        &format!("third-party licence provenance {}", path.display()),
+    )?;
     if document.schema_version != 1
         || document.status != "technical_provenance_only"
         || document.legal_effect.approval_status != "not_approved"
@@ -886,6 +883,12 @@ fn load_license_provenance(
         bytes,
         tracked_files,
     })
+}
+
+fn parse_strict_document<T: DeserializeOwned>(bytes: &[u8], label: &str) -> Result<T, String> {
+    let value = distribution_approval::parse_strict_json(bytes)
+        .map_err(|error| format!("parse strict {label}: {error}"))?;
+    serde_json::from_value(value).map_err(|error| format!("decode closed {label}: {error}"))
 }
 
 fn require_nonempty(value: &str, label: &str) -> Result<(), String> {

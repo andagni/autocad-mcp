@@ -1,6 +1,6 @@
-use serde::de::{Error as _, MapAccess, SeqAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Map, Number, Value};
+use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -10,6 +10,7 @@ mod build_recipe;
 mod evidence;
 mod preview_clean_host;
 mod preview_publication_handoff;
+mod source_candidate;
 
 pub use build_attestation::{
     parse_and_validate_windows_preview_build_attestation,
@@ -47,6 +48,14 @@ pub use preview_publication_handoff::{
     PREVIEW_PUBLICATION_OWNER_APPROVAL_PATH, PREVIEW_PUBLICATION_PROJECTION_RECEIPT_PATH,
     PREVIEW_PUBLICATION_PUBLIC_ASSET_PATHS, PREVIEW_PUBLICATION_SHA256SUMS_PATH,
     PREVIEW_PUBLICATION_SOURCE_ARCHIVE_PATH, PREVIEW_PUBLICATION_SOURCE_CLOSURE_SBOM_PATH,
+};
+pub use release_qualification::parse_strict_json;
+pub use source_candidate::{
+    SourceBundleArchivePolicy, SourceBundleExclusion, SourceBundleFile, SourceBundleManifest,
+    SourceBundlePackage, SourceBundleRoot, SourceBundleTree, SourceBundleVendor,
+    SOURCE_BUNDLE_ARTIFACT_KIND, SOURCE_BUNDLE_BUILD_RECIPE_PATH, SOURCE_BUNDLE_MANIFEST_PATH,
+    SOURCE_BUNDLE_MANIFEST_SCHEMA_VERSION, SOURCE_BUNDLE_OFFLINE_CONFIG_PATH,
+    SOURCE_BUNDLE_PROFILE, SOURCE_BUNDLE_TREE_DIGEST_METHOD,
 };
 
 pub const APPROVAL_SCHEMA_VERSION: u32 = 4;
@@ -920,6 +929,15 @@ impl Project {
 pub enum GitObjectFormat {
     Sha1,
     Sha256,
+}
+
+impl GitObjectFormat {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Sha1 => "sha1",
+            Self::Sha256 => "sha256",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -2203,21 +2221,16 @@ pub enum InvalidationCondition {
 }
 
 pub fn parse_and_validate(bytes: &[u8]) -> Result<OwnerDistributionApproval, ValidationError> {
-    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-    let strict = StrictJsonValue::deserialize(&mut deserializer).map_err(|parse_error| {
-        error(
-            "approval_json_invalid",
-            format!("strict JSON parse failed: {parse_error}"),
-        )
-    })?;
-    deserializer.end().map_err(|parse_error| {
-        error(
-            "approval_json_trailing_data",
-            format!("JSON has trailing data: {parse_error}"),
-        )
+    let strict = parse_strict_json(bytes).map_err(|parse_error| {
+        let code = if parse_error.code() == release_qualification::ErrorCode::JsonTrailingData {
+            "approval_json_trailing_data"
+        } else {
+            "approval_json_invalid"
+        };
+        error(code, format!("strict JSON parse failed: {parse_error}"))
     })?;
     let approval: OwnerDistributionApproval =
-        serde_json::from_value(strict.0).map_err(|parse_error| {
+        serde_json::from_value(strict).map_err(|parse_error| {
             error(
                 "approval_schema_invalid",
                 format!("approval does not match the closed schema: {parse_error}"),
@@ -2225,15 +2238,6 @@ pub fn parse_and_validate(bytes: &[u8]) -> Result<OwnerDistributionApproval, Val
         })?;
     approval.validate()?;
     Ok(approval)
-}
-
-/// Parse one complete JSON value while rejecting duplicate object keys at every
-/// nesting level.
-pub fn parse_strict_json(bytes: &[u8]) -> Result<Value, serde_json::Error> {
-    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-    let strict = StrictJsonValue::deserialize(&mut deserializer)?;
-    deserializer.end()?;
-    Ok(strict.0)
 }
 
 pub fn sha256_hex(bytes: &[u8]) -> String {
@@ -2837,98 +2841,6 @@ fn require_utc_timestamp(value: &str, label: &str) -> Result<(), ValidationError
         ));
     }
     Ok(())
-}
-
-struct StrictJsonValue(Value);
-
-impl<'de> Deserialize<'de> for StrictJsonValue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(StrictJsonVisitor)
-    }
-}
-
-struct StrictJsonVisitor;
-
-impl<'de> Visitor<'de> for StrictJsonVisitor {
-    type Value = StrictJsonValue;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a JSON value without duplicate object keys")
-    }
-
-    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
-        Ok(StrictJsonValue(Value::Bool(value)))
-    }
-
-    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
-        Ok(StrictJsonValue(Value::Number(Number::from(value))))
-    }
-
-    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
-        Ok(StrictJsonValue(Value::Number(Number::from(value))))
-    }
-
-    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Number::from_f64(value)
-            .map(Value::Number)
-            .map(StrictJsonValue)
-            .ok_or_else(|| E::custom("non-finite JSON number"))
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
-        Ok(StrictJsonValue(Value::String(value.to_owned())))
-    }
-
-    fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
-        Ok(StrictJsonValue(Value::String(value)))
-    }
-
-    fn visit_none<E>(self) -> Result<Self::Value, E> {
-        Ok(StrictJsonValue(Value::Null))
-    }
-
-    fn visit_unit<E>(self) -> Result<Self::Value, E> {
-        Ok(StrictJsonValue(Value::Null))
-    }
-
-    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        StrictJsonValue::deserialize(deserializer)
-    }
-
-    fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut values = Vec::new();
-        while let Some(value) = sequence.next_element::<StrictJsonValue>()? {
-            values.push(value.0);
-        }
-        Ok(StrictJsonValue(Value::Array(values)))
-    }
-
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        let mut values = Map::new();
-        while let Some(key) = map.next_key::<String>()? {
-            if values.contains_key(&key) {
-                return Err(A::Error::custom(format!("duplicate JSON key {key:?}")));
-            }
-            let value = map.next_value::<StrictJsonValue>()?;
-            values.insert(key, value.0);
-        }
-        Ok(StrictJsonValue(Value::Object(values)))
-    }
 }
 
 #[cfg(test)]

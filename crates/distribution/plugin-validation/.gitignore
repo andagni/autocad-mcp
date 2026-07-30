@@ -1,10 +1,18 @@
-# Rust crate source only.
+# Rust crate source and its authoritative schema bundle only.
 /*
 !/.gitignore
 !/Cargo.toml
 !/src/
+!/schemas/
 
 /src/**
 !/src/**/
 !/src/*.rs
 !/src/**/*.rs
+
+/schemas/**
+!/schemas/**/
+!/schemas/.claude-plugin/plugin.schema.json
+!/schemas/.lsp.schema.json
+!/schemas/.mcp.schema.json
+!/schemas/skills/skill/SKILL.schema.yaml

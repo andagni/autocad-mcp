@@ -11,7 +11,7 @@ pub fn parse_strict_json(bytes: &[u8]) -> Result<Value, TrustError> {
     let strict = StrictJsonValue::deserialize(&mut deserializer).map_err(|_| {
         TrustError::new(
             ErrorCode::JsonInvalid,
-            "input is not one strict JSON value without duplicate object keys",
+            "input is not one strict JSON value; malformed JSON and duplicate JSON keys are rejected",
         )
     })?;
     deserializer.end().map_err(|_| {
@@ -130,7 +130,7 @@ mod tests {
             assert_eq!(error.code(), ErrorCode::JsonInvalid);
             assert_eq!(
                 error.detail(),
-                "input is not one strict JSON value without duplicate object keys"
+                "input is not one strict JSON value; malformed JSON and duplicate JSON keys are rejected"
             );
         }
     }
