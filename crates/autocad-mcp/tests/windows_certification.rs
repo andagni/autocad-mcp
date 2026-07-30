@@ -7381,7 +7381,7 @@ mod certification_harness_tests {
         let parent = ancestor.join("bin");
         let renamed_parent = ancestor.join("renamed-bin");
         let renamed_ancestor = directory.path().join("renamed-runtime");
-        std::fs::create_dir(&parent).unwrap();
+        std::fs::create_dir_all(&parent).unwrap();
         let binary = parent.join("autocad-mcp.exe");
         std::fs::write(&binary, b"release-binary-one").unwrap();
         let digest = xref_sha256_file(&binary).unwrap();
