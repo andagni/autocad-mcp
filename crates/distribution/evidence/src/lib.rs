@@ -2372,22 +2372,20 @@ fn calculate_input_closure(
         &repository.join(RUST_TOOLCHAIN_PATH),
         "pinned Rust toolchain",
     )?;
+    let canonical_repository = repository.canonicalize().map_err(|error| {
+        format!(
+            "failed to canonicalize repository {}: {error}",
+            repository.display()
+        )
+    })?;
 
     let mut manifests = metadata
         .packages
         .iter()
         .filter(|package| package.source.is_none())
         .map(|package| {
-            let relative = package
-                .manifest_path
-                .strip_prefix(repository)
-                .map_err(|_| {
-                    format!(
-                        "workspace manifest is outside the repository: {}",
-                        package.manifest_path.display()
-                    )
-                })?
-                .to_path_buf();
+            let relative =
+                workspace_manifest_relative_path(&canonical_repository, &package.manifest_path)?;
             let relative_text = normalized_relative_path_text(&relative)?;
             let bytes = read_regular_file(&package.manifest_path, "workspace Cargo manifest")?;
             Ok((relative_text, bytes))
@@ -2406,6 +2404,27 @@ fn calculate_input_closure(
         supplemental_files: &provenance.tracked_files,
         owner_approval_schema,
     }))
+}
+
+fn workspace_manifest_relative_path(
+    canonical_repository: &Path,
+    manifest_path: &Path,
+) -> Result<PathBuf, String> {
+    let canonical_manifest = manifest_path.canonicalize().map_err(|error| {
+        format!(
+            "failed to canonicalize workspace manifest {}: {error}",
+            manifest_path.display()
+        )
+    })?;
+    canonical_manifest
+        .strip_prefix(canonical_repository)
+        .map(Path::to_path_buf)
+        .map_err(|_| {
+            format!(
+                "workspace manifest is outside the repository: {}",
+                manifest_path.display()
+            )
+        })
 }
 
 fn normalized_relative_path_text(path: &Path) -> Result<String, String> {
@@ -3104,5 +3123,21 @@ version = "0.1.0"
             "crates/example/Cargo.toml"
         );
         assert!(normalized_relative_path_text(Path::new("../Cargo.toml")).is_err());
+    }
+
+    #[test]
+    fn workspace_manifest_containment_uses_canonical_filesystem_paths() {
+        let crate_directory = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repository = crate_directory.join("..").join("..").join("..");
+        let canonical_repository = repository.canonicalize().unwrap();
+        let canonical_manifest = crate_directory.join("Cargo.toml").canonicalize().unwrap();
+
+        assert_eq!(
+            workspace_manifest_relative_path(&canonical_repository, &canonical_manifest).unwrap(),
+            PathBuf::from("crates")
+                .join("distribution")
+                .join("evidence")
+                .join("Cargo.toml")
+        );
     }
 }
