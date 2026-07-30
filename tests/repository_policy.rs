@@ -15,9 +15,9 @@ const PROJECT_LICENSE: &str = "GPL-3.0-or-later";
 const CANONICAL_GPLV3_SHA256: &str =
     "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986";
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
-    "e06a9f70bcec22a26abbdf0ed7fde3a3776017681f1cfd595b7c963eb63c3231";
+    "54c1d868f130d93270fc07c53df6c28ee4465878070b9603c0cbba69c4161db1";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "65d4225f0ee289c085ba3eb0530078d9b297fd010fffd17a1a08e70a298b707b";
+    "5c4578575f0aed1266322a67d8fc362bd2ff578948f5c483dd1d9dfeb48412b3";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
     "b247c7c233c58ba997d0a63664adab8d057e0f80721e042705da777ef7da8709";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
@@ -3051,6 +3051,16 @@ fn public_development_arg_is_exact_byte_bound_and_policy_closed() {
 
     let attributes = std::fs::read_to_string(repository.join(".gitattributes"))
         .expect(".gitattributes should be readable");
+    let first_rule = attributes
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with('#'));
+    assert_eq!(
+        first_rule,
+        Some("* text=auto eol=lf"),
+        "all detected text must be materialized as LF before isolated Git checks; \
+         exact-byte inputs remain protected by the later binary rules"
+    );
     for expected in [
         "Cargo.lock text eol=lf",
         "rust-toolchain.toml text eol=lf",
@@ -3534,6 +3544,14 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         std::str::from_utf8(&xref_bytes).expect("XREF workflow should remain UTF-8");
 
     assert_windows_workflow_envelope("XREF feasibility workflow", xref_workflow);
+    assert!(xref_workflow.contains(
+        "run: $env:GIT_CONFIG_NOSYSTEM = \"1\"; $env:GIT_CONFIG_SYSTEM = \"NUL\"; \
+         $env:GIT_CONFIG_GLOBAL = \"NUL\"; $env:GIT_ATTR_NOSYSTEM = \"1\"; \
+         $status = @(git status --porcelain=v1 --untracked-files=all); \
+         if ($LASTEXITCODE -ne 0) { throw \"isolated Git status failed\" }; \
+         if ($status.Count -ne 0) { $status | Write-Error; \
+         throw \"checkout bytes depend on ambient Git configuration\" }"
+    ));
     assert!(xref_workflow.contains("name: Native filesystem feasibility characterization"));
     assert!(xref_workflow
         .contains("cargo run --locked -p xtask -- windows-native-tests --suite guarded-rename"));
@@ -3548,6 +3566,7 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
     assert_workflow_path_routing(
         xref_workflow,
         &[
+            ".gitattributes",
             ".github/workflows/windows-xref-guarded-rename.yml",
             "Cargo.lock",
             "Cargo.toml",
@@ -3608,6 +3627,7 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
     assert_workflow_path_routing(
         native_workflow,
         &[
+            ".gitattributes",
             ".github/workflows/windows-native-harness.yml",
             "Cargo.lock",
             "Cargo.toml",
@@ -3623,6 +3643,7 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         "native Windows workflow may import only checkout, two cache restores, two cache saves, and sccache"
     );
     let expected_native_commands = [
+        "$env:GIT_CONFIG_NOSYSTEM = \"1\"; $env:GIT_CONFIG_SYSTEM = \"NUL\"; $env:GIT_CONFIG_GLOBAL = \"NUL\"; $env:GIT_ATTR_NOSYSTEM = \"1\"; $status = @(git status --porcelain=v1 --untracked-files=all); if ($LASTEXITCODE -ne 0) { throw \"isolated Git status failed\" }; if ($status.Count -ne 0) { $status | Write-Error; throw \"checkout bytes depend on ambient Git configuration\" }",
         "rustup toolchain install --no-self-update",
         "$bytes = [Text.Encoding]::UTF8.GetBytes(\"$env:ImageOS`n$env:ImageVersion`n$env:RUNNER_OS`n$env:RUNNER_ARCH\"); $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant(); \"sha256=$hash\" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append",
         "cargo fetch --locked",

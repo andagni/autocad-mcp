@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - .gitattributes
       - .github/workflows/windows-native-harness.yml
       - Cargo.lock
       - Cargo.toml
@@ -15,6 +16,7 @@ on:
     branches:
       - main
     paths:
+      - .gitattributes
       - .github/workflows/windows-native-harness.yml
       - Cargo.lock
       - Cargo.toml
@@ -43,6 +45,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Verify checkout bytes without ambient Git configuration
+        shell: pwsh
+        run: $env:GIT_CONFIG_NOSYSTEM = "1"; $env:GIT_CONFIG_SYSTEM = "NUL"; $env:GIT_CONFIG_GLOBAL = "NUL"; $env:GIT_ATTR_NOSYSTEM = "1"; $status = @(git status --porcelain=v1 --untracked-files=all); if ($LASTEXITCODE -ne 0) { throw "isolated Git status failed" }; if ($status.Count -ne 0) { $status | Write-Error; throw "checkout bytes depend on ambient Git configuration" }
 
       - name: Install the repository toolchain
         run: rustup toolchain install --no-self-update
