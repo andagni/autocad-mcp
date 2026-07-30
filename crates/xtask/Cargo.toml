@@ -5,23 +5,45 @@ edition = "2021"
 license.workspace = true
 description = "Repository-owned development automation for AutoCAD MCP"
 publish = false
+default-run = "xtask"
+
+[features]
+default = ["full"]
+full = [
+    "dep:anyhow",
+    "dep:autocad-mcp",
+    "dep:distribution-approval",
+    "dep:distribution-evidence",
+    "dep:flate2",
+    "dep:object",
+    "dep:release-packager",
+    "dep:serde",
+    "dep:serde_json",
+    "dep:sha2",
+    "dep:tempfile",
+]
 
 [[bin]]
 name = "xtask"
 path = "src/main.rs"
+required-features = ["full"]
+
+[[bin]]
+name = "pre-push-dispatch"
+path = "src/pre_push_dispatch.rs"
 
 [dependencies]
-anyhow = "1"
-autocad-mcp = { path = "../autocad-mcp" }
-distribution-approval = { path = "../distribution/approval" }
-distribution-evidence = { path = "../distribution/evidence" }
-flate2 = "1"
-object = { version = "=0.39.1", default-features = false, features = ["read_core", "pe"] }
-release-packager = { path = "../distribution/packager" }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha2 = "0.10"
-tempfile = "3"
+anyhow = { version = "1", optional = true }
+autocad-mcp = { path = "../autocad-mcp", optional = true }
+distribution-approval = { path = "../distribution/approval", optional = true }
+distribution-evidence = { path = "../distribution/evidence", optional = true }
+flate2 = { version = "1", optional = true }
+object = { version = "=0.39.1", default-features = false, features = ["read_core", "pe"], optional = true }
+release-packager = { path = "../distribution/packager", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+sha2 = { version = "0.10", optional = true }
+tempfile = { version = "3", optional = true }
 
 [dev-dependencies]
 plugin-validate = { path = "../distribution/plugin-validation" }

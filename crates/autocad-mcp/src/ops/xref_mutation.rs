@@ -1868,9 +1868,8 @@ fn observe_guarded_file(
         XrefDigest::from_reader(&mut file).map_err(boundary_io("rehash guarded file"))?;
     let handle_identity_after =
         file_identity(guard).map_err(boundary_io("reread guarded file identity"))?;
-    let path_identity =
-        file_identity(&File::open(path).map_err(boundary_io("reopen guarded file path"))?)
-            .map_err(boundary_io("read guarded path identity"))?;
+    let path_identity = guarded_path_identity(path)
+        .map_err(boundary_io("read guarded path identity through namespace"))?;
     if identity != handle_identity_after || digest != repeated_digest {
         return Err(XrefBoundaryError::new(
             "guarded file identity or digest changed during observation",
@@ -1881,6 +1880,30 @@ fn observe_guarded_file(
         path_identity,
         digest,
     })
+}
+
+#[cfg(target_os = "windows")]
+fn guarded_path_identity(path: &Path) -> io::Result<XrefFileIdentity> {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    // Request no data access: the retained prepared-output handle deliberately
+    // grants no sharing, so a second read handle would violate the guard's
+    // contract. A zero-access handle can still bind the current namespace
+    // entry independently and expose its stable file identity.
+    let path_handle = OpenOptions::new()
+        .access_mode(0)
+        .share_mode(
+            windows_primitives::FILE_SHARE_READ
+                | windows_primitives::FILE_SHARE_WRITE
+                | windows_primitives::FILE_SHARE_DELETE,
+        )
+        .open(path)?;
+    file_identity(&path_handle)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn guarded_path_identity(path: &Path) -> io::Result<XrefFileIdentity> {
+    file_identity(&File::open(path)?)
 }
 
 fn sort_deduplicate_paths(paths: &mut Vec<PathBuf>) {

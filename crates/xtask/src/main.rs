@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 mod candidate_seal;
+mod content_receipt;
 mod pe_imports;
 mod pre_push_receipt;
 mod preview_e2e;
@@ -31,6 +32,7 @@ struct CommandSpec {
 struct LocalGateCommand {
     program: String,
     arguments: Vec<String>,
+    content_receipt: Option<String>,
 }
 
 impl LocalGateCommand {
@@ -41,6 +43,7 @@ impl LocalGateCommand {
                 .iter()
                 .map(|argument| (*argument).to_owned())
                 .collect(),
+            content_receipt: None,
         }
     }
 }
@@ -84,6 +87,8 @@ struct PackageLocalGateCheck {
     name: String,
     bin: String,
     arguments: Vec<String>,
+    #[serde(default, rename = "content-receipt")]
+    content_receipt: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,6 +106,7 @@ struct DiscoveredLocalGateCheck {
     name: String,
     bin: String,
     arguments: Vec<String>,
+    content_receipt: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -116,6 +122,17 @@ struct DiscoveredLocalGateProfile {
 struct DiscoveredLocalGate {
     checks: Vec<DiscoveredLocalGateCheck>,
     profiles: Vec<DiscoveredLocalGateProfile>,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+struct LocalGateValidation {
+    content_inputs: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct SourceQualityOutcome {
+    candidate: candidate_seal::CandidateIdentity,
+    reused: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -313,6 +330,9 @@ const WINDOWS_GUARDED_RENAME_TEST: CommandSpec = CommandSpec {
 
 const WINDOWS_GUARDED_RENAME_EVIDENCE_ENV: &str =
     "AUTOCAD_MCP_WINDOWS_GUARDED_RENAME_FEASIBILITY_EVIDENCE";
+const DISTRIBUTION_EVIDENCE_RECEIPT_TARGET: &str = "distribution-evidence";
+const SOURCE_QUALITY_RECEIPT_TARGET: &str = "source-quality";
+const WINDOWS_NATIVE_SEMANTIC_RECEIPT_TARGET: &str = "windows-native-semantic";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum WindowsNativeTestSuite {
@@ -481,11 +501,26 @@ fn discover_local_gate_from_metadata(
             for argument in &check.arguments {
                 require_local_gate_argument(argument, &package_spec, &check.name)?;
             }
+            if let Some(target) = check.content_receipt.as_deref() {
+                require_local_gate_token(target, "content receipt target")?;
+                if target != DISTRIBUTION_EVIDENCE_RECEIPT_TARGET
+                    || package.name != "distribution-evidence"
+                    || check.name != "distribution-evidence"
+                    || check.bin != "distribution-evidence"
+                    || check.arguments != ["check"]
+                {
+                    return Err(format!(
+                        "package {package_spec} local-gate check {} declares unsupported content receipt target {target}",
+                        check.name
+                    ));
+                }
+            }
             checks.push(DiscoveredLocalGateCheck {
                 package_spec: package_spec.clone(),
                 name: check.name,
                 bin: check.bin,
                 arguments: check.arguments,
+                content_receipt: check.content_receipt,
             });
         }
 
@@ -587,6 +622,7 @@ fn local_gate_commands(discovered: &DiscoveredLocalGate) -> Vec<LocalGateCommand
         commands.push(LocalGateCommand {
             program: "cargo".to_owned(),
             arguments,
+            content_receipt: check.content_receipt.clone(),
         });
     }
 
@@ -641,6 +677,7 @@ fn local_gate_profile_command(
     LocalGateCommand {
         program: "cargo".to_owned(),
         arguments,
+        content_receipt: None,
     }
 }
 
@@ -659,49 +696,217 @@ fn has_required_distribution_evidence_check(discovered: &DiscoveredLocalGate) ->
             && check.name == "distribution-evidence"
             && check.bin == "distribution-evidence"
             && check.arguments == ["check"]
+            && check.content_receipt.as_deref() == Some(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET)
     })
 }
 
-fn run_local_gate_commands(root: &Path, commands: &[LocalGateCommand]) -> Result<(), String> {
+fn run_local_gate_command(root: &Path, command: &LocalGateCommand) -> Result<(), String> {
+    let rendered = render_local_gate_command(command);
+    let status = Command::new(&command.program)
+        .args(&command.arguments)
+        .current_dir(root)
+        .env("CARGO_INCREMENTAL", "1")
+        .status()
+        .map_err(|error| format!("failed to launch {rendered}: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "local gate command failed with {status}: {rendered}"
+        ))
+    }
+}
+
+fn run_local_gate_commands_with_receipts(
+    root: &Path,
+    commands: &[LocalGateCommand],
+    allow_content_receipts: bool,
+) -> Result<LocalGateValidation, String> {
     let total_started = Instant::now();
+    let mut validation = LocalGateValidation::default();
     for (index, command) in commands.iter().enumerate() {
         let rendered = render_local_gate_command(command);
         eprintln!("[{}/{}] {rendered}", index + 1, commands.len());
         let stage_started = Instant::now();
-        let status = Command::new(&command.program)
-            .args(&command.arguments)
-            .current_dir(root)
-            .status()
-            .map_err(|error| {
-                format!(
-                    "failed to launch {rendered} after {:.3}s: {error}",
-                    stage_started.elapsed().as_secs_f64()
-                )
-            })?;
+        let reused = if allow_content_receipts {
+            match command.content_receipt.as_deref() {
+                Some(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET) => {
+                    let outcome = content_receipt::validate_or_run(
+                        root,
+                        DISTRIBUTION_EVIDENCE_RECEIPT_TARGET,
+                        &rendered,
+                        || distribution_evidence::validation_cache_input_sha256(root),
+                        || run_local_gate_command(root, command),
+                    )?;
+                    if let Some(input) = outcome.input_sha256 {
+                        validation
+                            .content_inputs
+                            .insert(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET.to_owned(), input);
+                    }
+                    outcome.reused
+                }
+                Some(other) => {
+                    return Err(format!(
+                        "unsupported local-gate content receipt target {other}"
+                    ))
+                }
+                None => {
+                    run_local_gate_command(root, command)?;
+                    false
+                }
+            }
+        } else {
+            run_local_gate_command(root, command)?;
+            false
+        };
         let stage_elapsed = stage_started.elapsed();
-        if !status.success() {
-            return Err(format!(
-                "local gate command failed with {status} after {:.3}s: {rendered}",
-                stage_elapsed.as_secs_f64()
-            ));
-        }
         eprintln!(
-            "[{}/{}] passed in {:.3}s",
+            "[{}/{}] passed in {:.3}s{}",
             index + 1,
             commands.len(),
-            stage_elapsed.as_secs_f64()
+            stage_elapsed.as_secs_f64(),
+            if reused { " (content receipt)" } else { "" }
         );
     }
     eprintln!(
         "local gate commands passed in {:.3}s total",
         total_started.elapsed().as_secs_f64()
     );
-    Ok(())
+    Ok(validation)
+}
+
+fn run_local_gate_commands(root: &Path, commands: &[LocalGateCommand]) -> Result<(), String> {
+    run_local_gate_commands_with_receipts(root, commands, false).map(|_| ())
 }
 
 fn run_local_gate(root: &Path) -> Result<(), String> {
+    let _lock = content_receipt::acquire_local_ci_lock(root)?;
     let discovered = discover_local_gate(root)?;
-    run_local_gate_commands(root, &local_gate_commands(&discovered))
+    run_local_gate_commands_with_receipts(root, &local_gate_commands(&discovered), true).map(|_| ())
+}
+
+fn source_quality_input_sha256(
+    root: &Path,
+    commands: &[LocalGateCommand],
+) -> Result<String, String> {
+    ensure_clean_checkout(root)?;
+    let identity = candidate_seal::capture_current_identity(root)?;
+    let evidence_input = distribution_evidence::validation_cache_input_sha256(root)?;
+    let mut hasher = Sha256::new();
+    hash_source_quality_field(
+        &mut hasher,
+        b"domain",
+        b"autocad-mcp-source-quality-composition-v1",
+    );
+    hash_source_quality_field(
+        &mut hasher,
+        b"git-object-format",
+        identity.git_object_format.as_bytes(),
+    );
+    hash_source_quality_field(
+        &mut hasher,
+        b"source-commit",
+        identity.source_commit.as_bytes(),
+    );
+    hash_source_quality_field(
+        &mut hasher,
+        b"source-tree",
+        identity.source_tree_oid.as_bytes(),
+    );
+    hash_source_quality_field(
+        &mut hasher,
+        b"distribution-evidence-input",
+        evidence_input.as_bytes(),
+    );
+    for command in commands {
+        hash_source_quality_field(
+            &mut hasher,
+            b"local-gate-command",
+            render_local_gate_command(command).as_bytes(),
+        );
+    }
+    for mode in ["release", "preview"] {
+        hash_source_quality_field(&mut hasher, b"candidate-mode", mode.as_bytes());
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn hash_source_quality_field(hasher: &mut Sha256, label: &[u8], value: &[u8]) {
+    hasher.update((label.len() as u64).to_be_bytes());
+    hasher.update(label);
+    hasher.update((value.len() as u64).to_be_bytes());
+    hasher.update(value);
+}
+
+fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
+    let _lock = content_receipt::acquire_local_ci_lock(root)?;
+    ensure_clean_checkout(root)?;
+    let before = candidate_seal::capture_current_identity(root)?;
+    let discovered = discover_local_gate(root)?;
+    if !has_required_distribution_evidence_check(&discovered) {
+        return Err(
+            "source-quality candidate sealing requires the exact package-owned distribution-evidence check"
+                .to_owned(),
+        );
+    }
+    let commands = local_gate_commands(&discovered);
+    let rendered_commands = commands
+        .iter()
+        .map(render_local_gate_command)
+        .collect::<Vec<_>>();
+    let composition_command = format!(
+        "source-quality {}",
+        serde_json::to_string(&rendered_commands)
+            .map_err(|error| format!("serialize source-quality command inventory: {error}"))?
+    );
+    let mut sealed = None;
+    let composition = content_receipt::validate_or_run(
+        root,
+        SOURCE_QUALITY_RECEIPT_TARGET,
+        &composition_command,
+        || source_quality_input_sha256(root, &commands),
+        || {
+            let validation = run_local_gate_commands_with_receipts(root, &commands, true)?;
+            let candidate = match validation
+                .content_inputs
+                .get(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET)
+            {
+                Some(evidence_input) => {
+                    candidate_seal::run_ephemeral_after_validated_distribution_evidence(
+                        root,
+                        evidence_input,
+                    )?
+                }
+                None => candidate_seal::run_ephemeral(root)?,
+            };
+            if candidate != before {
+                return Err(format!(
+                    "source identity changed during source-quality validation; expected commit {} tree {}, sealed commit {} tree {}",
+                    before.source_commit,
+                    before.source_tree_oid,
+                    candidate.source_commit,
+                    candidate.source_tree_oid
+                ));
+            }
+            sealed = Some(candidate);
+            Ok(())
+        },
+    )?;
+    if composition.reused {
+        eprintln!(
+            "reused exact-tree source-quality composition receipt for {}",
+            before.source_commit
+        );
+    }
+    ensure_clean_checkout(root)?;
+    let after = candidate_seal::capture_current_identity(root)?;
+    if after != before {
+        return Err("source identity changed after source-quality validation".to_owned());
+    }
+    Ok(SourceQualityOutcome {
+        candidate: sealed.unwrap_or(before),
+        reused: composition.reused,
+    })
 }
 
 fn parse_windows_native_test_suite(value: &OsStr) -> Result<WindowsNativeTestSuite, String> {
@@ -800,8 +1005,62 @@ fn run_windows_native_tests(root: &Path, suite: WindowsNativeTestSuite) -> Resul
     })
 }
 
-fn report_windows_native_tests(suite: WindowsNativeTestSuite) -> ExitCode {
-    match run_windows_native_tests(&repository_root(), suite) {
+fn windows_native_semantic_input_sha256(root: &Path) -> Result<String, String> {
+    content_receipt::tracked_paths_sha256(
+        root,
+        &[
+            "Cargo.lock",
+            "Cargo.toml",
+            "rust-toolchain.toml",
+            "crates",
+            "tests/fixtures",
+            ".github/workflows/windows-native-harness.yml",
+        ],
+    )
+}
+
+fn run_windows_native_semantic_tests_with_receipt(root: &Path) -> Result<bool, String> {
+    if std::env::consts::OS != "windows" {
+        return Err("Windows semantic content receipts require a native Windows host".to_owned());
+    }
+    ensure_clean_checkout_for(root, "Windows content-receipt validation")?;
+    let command = WINDOWS_NATIVE_SEMANTIC_TESTS
+        .iter()
+        .map(|command| format!("{} {}", command.program, command.arguments.join(" ")))
+        .collect::<Vec<_>>()
+        .join(" && ");
+    let outcome = content_receipt::validate_or_run(
+        root,
+        WINDOWS_NATIVE_SEMANTIC_RECEIPT_TARGET,
+        &command,
+        || windows_native_semantic_input_sha256(root),
+        || run_windows_native_tests(root, WindowsNativeTestSuite::Semantic),
+    )?;
+    ensure_clean_checkout_for(root, "Windows content-receipt validation")?;
+    Ok(outcome.reused)
+}
+
+fn report_windows_native_tests(
+    suite: WindowsNativeTestSuite,
+    allow_content_receipt: bool,
+) -> ExitCode {
+    let result = if allow_content_receipt {
+        if suite != WindowsNativeTestSuite::Semantic {
+            Err(
+                "Windows content receipts are supported only for the closed semantic suite"
+                    .to_owned(),
+            )
+        } else {
+            run_windows_native_semantic_tests_with_receipt(&repository_root()).map(|reused| {
+                if reused {
+                    eprintln!("reused exact-content Windows semantic validation receipt");
+                }
+            })
+        }
+    } else {
+        run_windows_native_tests(&repository_root(), suite)
+    };
+    match result {
         Ok(()) => {
             eprintln!("Windows-native non-AutoCAD tests passed");
             ExitCode::SUCCESS
@@ -870,15 +1129,19 @@ fn git_command(root: &Path) -> Command {
     command
 }
 
-fn ensure_clean_checkout(root: &Path) -> Result<(), String> {
+fn ensure_clean_checkout_for(root: &Path, label: &str) -> Result<(), String> {
     let status = git_output(root, &["status", "--porcelain=v1", "--untracked-files=all"])?;
     if status.is_empty() {
         Ok(())
     } else {
         Err(format!(
-            "pre-push validation requires a clean checkout; commit or remove these paths:\n{status}"
+            "{label} requires a clean checkout; commit or remove these paths:\n{status}"
         ))
     }
+}
+
+fn ensure_clean_checkout(root: &Path) -> Result<(), String> {
+    ensure_clean_checkout_for(root, "pre-push validation")
 }
 
 fn parse_push_updates(input: &str) -> Result<Vec<PushUpdate>, String> {
@@ -971,15 +1234,15 @@ fn prepare_pre_push(root: &Path, input: &str) -> Result<Option<PreparedPrePush>,
 fn finish_pre_push(
     root: &Path,
     prepared: &PreparedPrePush,
-    sealed: &candidate_seal::CandidateIdentity,
+    validated: &candidate_seal::CandidateIdentity,
 ) -> Result<Option<String>, String> {
-    if sealed != &prepared.identity_before {
+    if validated != &prepared.identity_before {
         return Err(format!(
-            "pre-push source seal identity does not match the exact pushed HEAD; expected commit {} tree {}, sealed commit {} tree {}",
+            "pre-push validated source identity does not match the exact pushed HEAD; expected commit {} tree {}, validated commit {} tree {}",
             prepared.identity_before.source_commit,
             prepared.identity_before.source_tree_oid,
-            sealed.source_commit,
-            sealed.source_tree_oid
+            validated.source_commit,
+            validated.source_tree_oid
         ));
     }
     let head_after = git_output(root, &["rev-parse", "--verify", "HEAD"])?;
@@ -1011,7 +1274,42 @@ fn classify_full_gate_receipt_recapture<T: PartialEq>(
     }
 }
 
+fn rapid_pre_push_commands() -> Vec<LocalGateCommand> {
+    vec![
+        LocalGateCommand::new("git", &["diff", "--check"]),
+        LocalGateCommand::new("git", &["diff", "--cached", "--check"]),
+        LocalGateCommand::new("cargo", &["fmt", "--all", "--", "--check"]),
+    ]
+}
+
 fn run_pre_push(root: &Path, input: &str) -> Result<Option<String>, String> {
+    run_rapid_pre_push_with(
+        root,
+        input,
+        |root| run_local_gate_commands(root, &rapid_pre_push_commands()),
+        candidate_seal::capture_current_identity,
+    )
+}
+
+fn run_rapid_pre_push_with<G, O>(
+    root: &Path,
+    input: &str,
+    mut gate: G,
+    mut observe_source: O,
+) -> Result<Option<String>, String>
+where
+    G: FnMut(&Path) -> Result<(), String>,
+    O: FnMut(&Path) -> Result<candidate_seal::CandidateIdentity, String>,
+{
+    let Some(prepared) = prepare_pre_push(root, input)? else {
+        return Ok(None);
+    };
+    gate(root)?;
+    let observed = observe_source(root)?;
+    finish_pre_push(root, &prepared, &observed)
+}
+
+fn run_full_pre_push(root: &Path, input: &str) -> Result<Option<String>, String> {
     let Some(prepared) = prepare_pre_push(root, input)? else {
         return Ok(None);
     };
@@ -1363,7 +1661,7 @@ fn parse_distribution_mode(value: &OsStr) -> Result<DistributionMode, String> {
 }
 
 #[cfg(test)]
-fn run_pre_push_with<G, S>(
+fn run_full_pre_push_with<G, S>(
     root: &Path,
     input: &str,
     mut gate: G,
@@ -1598,14 +1896,47 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        [command] if command == "source-quality" => match run_source_quality(&repository_root()) {
+            Ok(outcome) => {
+                if outcome.reused {
+                    eprintln!(
+                        "exact-tree source-quality validation was reused for {}",
+                        outcome.candidate.source_commit
+                    );
+                } else {
+                    eprintln!(
+                        "source-quality gate and exact Release/Preview candidate regeneration passed for {}",
+                        outcome.candidate.source_commit
+                    );
+                }
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("ERROR: {error}");
+                ExitCode::FAILURE
+            }
+        },
         [command] if command == "windows-native-tests" => {
-            report_windows_native_tests(WindowsNativeTestSuite::All)
+            report_windows_native_tests(WindowsNativeTestSuite::All, false)
         }
         [command, suite_flag, suite]
             if command == "windows-native-tests" && suite_flag == "--suite" =>
         {
             match parse_windows_native_test_suite(suite) {
-                Ok(suite) => report_windows_native_tests(suite),
+                Ok(suite) => report_windows_native_tests(suite, false),
+                Err(error) => {
+                    eprintln!("ERROR: {error}");
+                    ExitCode::from(2)
+                }
+            }
+        }
+        [command, suite_flag, suite, receipt_flag]
+            if command == "windows-native-tests"
+                && suite_flag == "--suite"
+                && receipt_flag == "--content-receipt" =>
+        {
+            match parse_windows_native_test_suite(suite) {
+                Ok(suite) => report_windows_native_tests(suite, true),
                 Err(error) => {
                     eprintln!("ERROR: {error}");
                     ExitCode::from(2)
@@ -1638,24 +1969,33 @@ fn main() -> ExitCode {
                 }
             }
         }
-        [command, _remote_name, _remote_location] if command == "pre-push" => {
+        [command, _remote_name, _remote_location]
+            if command == "pre-push" || command == "pre-push-full" =>
+        {
             let pre_push_started = Instant::now();
+            let full = command == "pre-push-full";
+            let mode = if full { "full" } else { "rapid" };
             let mut input = String::new();
             if let Err(error) = std::io::stdin().read_to_string(&mut input) {
                 eprintln!("ERROR: failed to read pre-push records: {error}");
                 eprintln!(
-                    "local pre-push command completed in {:.3}s",
+                    "local {mode} pre-push command completed in {:.3}s",
                     pre_push_started.elapsed().as_secs_f64()
                 );
                 return ExitCode::FAILURE;
             }
-            let exit_code = match run_pre_push(&repository_root(), &input) {
+            let result = if full {
+                run_full_pre_push(&repository_root(), &input)
+            } else {
+                run_pre_push(&repository_root(), &input)
+            };
+            let exit_code = match result {
                 Ok(Some(commit)) => {
-                    eprintln!("local pre-push gate passed for {commit}");
+                    eprintln!("local {mode} pre-push gate passed for {commit}");
                     ExitCode::SUCCESS
                 }
                 Ok(None) => {
-                    eprintln!("local pre-push gate skipped: no commits are being pushed");
+                    eprintln!("local {mode} pre-push gate skipped: no commits are being pushed");
                     ExitCode::SUCCESS
                 }
                 Err(error) => {
@@ -1664,7 +2004,7 @@ fn main() -> ExitCode {
                 }
             };
             eprintln!(
-                "local pre-push command completed in {:.3}s",
+                "local {mode} pre-push command completed in {:.3}s",
                 pre_push_started.elapsed().as_secs_f64()
             );
             exit_code
@@ -1712,7 +2052,7 @@ fn main() -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask -- local-gate\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child>\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
+                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask -- local-gate\n       cargo run --locked -p xtask -- source-quality\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename] [--content-receipt]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- pre-push-full <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child>\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
             );
             ExitCode::from(2)
         }
@@ -1930,6 +2270,7 @@ mod tests {
                     name: "evidence".to_owned(),
                     bin: "example-evidence".to_owned(),
                     arguments: vec!["check".to_owned(), "path with space".to_owned()],
+                    content_receipt: None,
                 }],
                 profiles: vec![DiscoveredLocalGateProfile {
                     package_spec: "example@1.2.3".to_owned(),
@@ -2034,6 +2375,7 @@ mod tests {
                 name: "distribution-evidence".to_owned(),
                 bin: "distribution-evidence".to_owned(),
                 arguments: vec!["check".to_owned()],
+                content_receipt: Some(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET.to_owned()),
             }],
             profiles: Vec::new(),
         };
@@ -2050,6 +2392,10 @@ mod tests {
             },
             DiscoveredLocalGateCheck {
                 package_spec: "other@0.1.0".to_owned(),
+                ..exact.checks[0].clone()
+            },
+            DiscoveredLocalGateCheck {
+                content_receipt: None,
                 ..exact.checks[0].clone()
             },
         ] {
@@ -2130,6 +2476,39 @@ mod tests {
         let error = discover_local_gate_from_metadata(metadata)
             .expect_err("undeclared package-owned binary must fail closed");
         assert!(error.contains("names undeclared binary missing-binary"));
+    }
+
+    #[test]
+    fn local_gate_content_receipts_are_closed_to_distribution_evidence() {
+        let metadata = serde_json::from_value(serde_json::json!({
+            "workspace_members": ["path+file:///repo/crates/example#example@1.0.0"],
+            "packages": [{
+                "id": "path+file:///repo/crates/example#example@1.0.0",
+                "name": "example",
+                "version": "1.0.0",
+                "features": {},
+                "targets": [{
+                    "name": "example",
+                    "kind": ["bin"]
+                }],
+                "metadata": {
+                    "local-gate": {
+                        "schema-version": 1,
+                        "checks": [{
+                            "name": "example",
+                            "bin": "example",
+                            "arguments": ["check"],
+                            "content-receipt": "distribution-evidence"
+                        }]
+                    }
+                }
+            }]
+        }))
+        .expect("synthetic cargo metadata");
+
+        let error = discover_local_gate_from_metadata(metadata)
+            .expect_err("an unowned content-receipt target must fail closed");
+        assert!(error.contains("unsupported content receipt target distribution-evidence"));
     }
 
     #[test]
@@ -2329,7 +2708,7 @@ mod tests {
     }
 
     #[test]
-    fn pre_push_gates_and_source_seals_the_exact_pushed_head() {
+    fn full_pre_push_gates_and_source_seals_the_exact_pushed_head() {
         let repository = test_repository();
         let head = git_output(repository.path(), &["rev-parse", "--verify", "HEAD"]).unwrap();
         let tree =
@@ -2337,7 +2716,7 @@ mod tests {
         let gate_calls = Cell::new(0);
         let seal_calls = Cell::new(0);
         let input = format!("refs/heads/main {head} refs/heads/main 000000\n");
-        let result = run_pre_push_with(
+        let result = run_full_pre_push_with(
             repository.path(),
             &input,
             |_| {
@@ -2361,11 +2740,52 @@ mod tests {
     }
 
     #[test]
+    fn rapid_pre_push_admits_only_the_exact_pushed_head_without_candidate_work() {
+        let repository = test_repository();
+        let head = git_output(repository.path(), &["rev-parse", "--verify", "HEAD"]).unwrap();
+        let tree =
+            git_output(repository.path(), &["rev-parse", "--verify", "HEAD^{tree}"]).unwrap();
+        let gate_calls = Cell::new(0);
+        let observation_calls = Cell::new(0);
+        let input = format!("refs/heads/main {head} refs/heads/main 000000\n");
+        let result = run_rapid_pre_push_with(
+            repository.path(),
+            &input,
+            |_| {
+                gate_calls.set(gate_calls.get() + 1);
+                Ok(())
+            },
+            |_| {
+                observation_calls.set(observation_calls.get() + 1);
+                Ok(candidate_seal::CandidateIdentity {
+                    git_object_format: "sha1".to_owned(),
+                    source_commit: head.clone(),
+                    source_tree_oid: tree.clone(),
+                })
+            },
+        )
+        .expect("rapid admission should accept the unchanged pushed HEAD");
+
+        assert_eq!(result, Some(head));
+        assert_eq!(gate_calls.get(), 1);
+        assert_eq!(observation_calls.get(), 1);
+        let commands = rapid_pre_push_commands();
+        assert_eq!(commands.len(), 3);
+        assert!(commands.iter().all(|command| {
+            let rendered = render_local_gate_command(command);
+            !rendered.contains("clippy")
+                && !rendered.contains("test")
+                && !rendered.contains("source-candidate")
+                && !rendered.contains("distribution-evidence")
+        }));
+    }
+
+    #[test]
     fn pre_push_rejects_a_seal_for_any_other_commit() {
         let repository = test_repository();
         let head = git_output(repository.path(), &["rev-parse", "--verify", "HEAD"]).unwrap();
         let input = format!("refs/heads/main {head} refs/heads/main 000000\n");
-        let error = run_pre_push_with(
+        let error = run_full_pre_push_with(
             repository.path(),
             &input,
             |_| Ok(()),
@@ -2399,7 +2819,7 @@ mod tests {
                 source_tree_oid: "0".repeat(64),
             },
         ] {
-            let error = run_pre_push_with(
+            let error = run_full_pre_push_with(
                 repository.path(),
                 &input,
                 |_| Ok(()),
@@ -2412,7 +2832,7 @@ mod tests {
 
     #[test]
     fn deletion_only_push_does_not_manufacture_a_source_candidate() {
-        let result = run_pre_push_with(
+        let result = run_full_pre_push_with(
             Path::new("repository-is-not-consulted"),
             "(delete) 000000 refs/heads/old abc123\n",
             |_| panic!("deletion-only push must not run the gate"),

@@ -309,6 +309,20 @@ fn validate_candidate_directory_inventory(directory: &Path) -> Result<(), String
 }
 
 pub(crate) fn run_ephemeral(repository: &Path) -> Result<CandidateIdentity, String> {
+    run_ephemeral_internal(repository, None)
+}
+
+pub(crate) fn run_ephemeral_after_validated_distribution_evidence(
+    repository: &Path,
+    expected_validation_input_sha256: &str,
+) -> Result<CandidateIdentity, String> {
+    run_ephemeral_internal(repository, Some(expected_validation_input_sha256))
+}
+
+fn run_ephemeral_internal(
+    repository: &Path,
+    validated_distribution_evidence: Option<&str>,
+) -> Result<CandidateIdentity, String> {
     let total = Instant::now();
     let phase = Instant::now();
     populate_locked_sources(repository)?;
@@ -323,8 +337,19 @@ pub(crate) fn run_ephemeral(repository: &Path) -> Result<CandidateIdentity, Stri
         phase.elapsed().as_secs_f64()
     );
     let phase = Instant::now();
-    distribution_evidence::check(repository)
-        .map_err(|error| format!("revalidate reviewed distribution evidence: {error}"))?;
+    if let Some(expected) = validated_distribution_evidence {
+        let actual = distribution_evidence::validation_cache_input_sha256(repository)
+            .map_err(|error| format!("recapture validated distribution evidence: {error}"))?;
+        if actual != expected {
+            return Err(format!(
+                "validated distribution-evidence input changed before candidate preparation: expected {expected}, found {actual}"
+            ));
+        }
+        eprintln!("candidate seal reused the exact local distribution-evidence validation");
+    } else {
+        distribution_evidence::check(repository)
+            .map_err(|error| format!("revalidate reviewed distribution evidence: {error}"))?;
+    }
     require_current_identity(repository, &before, "distribution evidence validation")?;
     eprintln!(
         "candidate seal phase distribution evidence passed in {:.3}s",

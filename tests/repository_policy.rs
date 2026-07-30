@@ -15,9 +15,9 @@ const PROJECT_LICENSE: &str = "GPL-3.0-or-later";
 const CANONICAL_GPLV3_SHA256: &str =
     "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986";
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
-    "7fd1d8eb909b0edbcff58221b9daaf511b38afe8149d7ab4819b88ce6ad621b9";
+    "f22f21fc5cbc782bc19681ba20d35ff82c92ee5430580b6d36118a95e66e6248";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "cbc0efcb64e4718b79173e1349dc9a2d237a6932160da9d82bf57748d914925f";
+    "87e288cf6d17e9fb2bc87d53ca04c59bdcc08eeb888d974281fc73cf03eca1a4";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
     "b247c7c233c58ba997d0a63664adab8d057e0f80721e042705da777ef7da8709";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
@@ -2604,9 +2604,11 @@ fn local_pre_push_hook_scopes_incremental_compilation_to_serial_gate_work() {
     let incremental = hook
         .find("export CARGO_INCREMENTAL=1")
         .expect("pre-push hook must opt its serial Cargo work into incremental compilation");
+    let thin_command =
+        "exec cargo run --locked -p xtask --no-default-features --bin pre-push-dispatch -- \"$@\"";
     let coordinator = hook
-        .find("exec cargo run --locked -p xtask -- pre-push")
-        .expect("pre-push hook must launch the tracked coordinator");
+        .find(thin_command)
+        .expect("pre-push hook must launch the tracked thin dispatcher");
     assert!(
         incremental < coordinator,
         "incremental compilation must be enabled before the coordinator and its child gates launch"
@@ -2616,9 +2618,165 @@ fn local_pre_push_hook_scopes_incremental_compilation_to_serial_gate_work() {
         1,
         "the hook must have one closed incremental-compilation override"
     );
+    assert_eq!(
+        hook.matches("cargo run").count(),
+        1,
+        "the hook must launch exactly one Cargo coordinator"
+    );
+    assert!(
+        hook.contains("--no-default-features --bin pre-push-dispatch"),
+        "the hook must exclude the full xtask and product dependency graph"
+    );
+    assert!(
+        !hook.contains("-p xtask -- pre-push"),
+        "the hook must not bootstrap pre-push through the full xtask binary"
+    );
     assert!(
         !hook.contains("CARGO_TARGET_DIR"),
         "the hook must continue to use the repository-configured shared target"
+    );
+}
+
+#[test]
+fn thin_pre_push_dispatch_has_no_active_normal_or_build_dependencies() {
+    let repository = repository_root();
+    let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let output = Command::new(cargo)
+        .current_dir(&repository)
+        .args([
+            "metadata",
+            "--locked",
+            "--format-version",
+            "1",
+            "--no-default-features",
+        ])
+        .output()
+        .expect("no-default-features cargo metadata should run");
+    assert!(
+        output.status.success(),
+        "no-default-features cargo metadata failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("cargo metadata should emit JSON");
+    let xtask = metadata["packages"]
+        .as_array()
+        .expect("metadata packages should be an array")
+        .iter()
+        .find(|package| package["name"] == "xtask")
+        .expect("metadata should contain xtask");
+    let xtask_id = xtask["id"]
+        .as_str()
+        .expect("xtask package ID should be text");
+    let xtask_node = metadata["resolve"]["nodes"]
+        .as_array()
+        .expect("metadata resolve nodes should be an array")
+        .iter()
+        .find(|node| node["id"] == xtask_id)
+        .expect("metadata resolve should contain xtask");
+    let active_non_dev_dependencies = xtask_node["deps"]
+        .as_array()
+        .expect("xtask dependency nodes should be an array")
+        .iter()
+        .filter(|dependency| {
+            dependency["dep_kinds"]
+                .as_array()
+                .expect("dependency kinds should be an array")
+                .iter()
+                .any(|kind| kind["kind"].is_null() || kind["kind"] == "build")
+        })
+        .map(|dependency| dependency["name"].as_str().unwrap_or("<non-text>"))
+        .collect::<Vec<_>>();
+    assert!(
+        active_non_dev_dependencies.is_empty(),
+        "the no-default-features pre-push dispatcher must not activate normal or build dependencies: {active_non_dev_dependencies:?}"
+    );
+
+    let targets = xtask["targets"]
+        .as_array()
+        .expect("xtask targets should be an array");
+    let dispatcher = targets
+        .iter()
+        .find(|target| target["name"] == "pre-push-dispatch")
+        .expect("xtask must expose the thin pre-push dispatcher");
+    assert!(
+        dispatcher["required-features"].is_null(),
+        "the thin dispatcher must remain available without the full feature"
+    );
+    let full_xtask = targets
+        .iter()
+        .find(|target| target["name"] == "xtask")
+        .expect("xtask must retain its full coordinator");
+    assert_eq!(
+        full_xtask["required-features"],
+        serde_json::json!(["full"]),
+        "the full coordinator must remain feature-gated away from rapid pre-push"
+    );
+}
+
+#[test]
+fn content_validation_receipts_are_advisory_and_package_owned() {
+    let repository = repository_root();
+    let receipt_engine =
+        std::fs::read_to_string(repository.join("crates/xtask/src/content_receipt.rs"))
+            .expect("content receipt engine should be readable");
+    for boundary in [
+        r#"const RECEIPT_SCOPE: &str = "advisory_validation_cache_only";"#,
+        "release_authority: false,",
+        r#"const DISABLE_RECEIPTS_ENVIRONMENT: &str = "AUTOCAD_MCP_DISABLE_CONTENT_RECEIPTS";"#,
+        r#"const CACHE_COMPONENTS: [&str; 2] = ["local-ci-receipts", "v1"];"#,
+        "#[serde(deny_unknown_fields)]",
+    ] {
+        assert!(
+            receipt_engine.contains(boundary),
+            "content receipts must retain their non-authoritative boundary: {boundary}"
+        );
+    }
+    for forbidden in [
+        "owner_distribution_approval",
+        "signing_authority",
+        "publication_authority",
+        "native_autocad_certification",
+    ] {
+        assert!(
+            !receipt_engine.contains(forbidden),
+            "advisory content receipts must not acquire {forbidden}"
+        );
+    }
+
+    let declarations = WalkDir::new(repository.join("crates"))
+        .follow_links(false)
+        .into_iter()
+        .map(|entry| entry.expect("crate tree should be walkable"))
+        .filter(|entry| entry.file_type().is_file() && entry.file_name() == "Cargo.toml")
+        .filter_map(|entry| {
+            let contents = std::fs::read_to_string(entry.path())
+                .expect("Cargo manifest should be readable UTF-8");
+            contents.contains("content-receipt").then(|| {
+                entry
+                    .path()
+                    .strip_prefix(&repository)
+                    .expect("manifest should be repository-relative")
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        declarations,
+        ["crates/distribution/evidence/Cargo.toml"],
+        "content-receipt declarations must remain closed to reviewed package-owned checks"
+    );
+
+    let evidence_manifest =
+        std::fs::read_to_string(repository.join("crates/distribution/evidence/Cargo.toml"))
+            .expect("distribution-evidence manifest should be readable");
+    assert_eq!(
+        evidence_manifest
+            .matches(r#"content-receipt = "distribution-evidence""#)
+            .count(),
+        1,
+        "distribution evidence must own exactly one content receipt target"
     );
 }
 
@@ -3079,6 +3237,7 @@ fn assert_windows_development_cache_contract(
     name: &str,
     workflow: &str,
     dependency_cache_writer: bool,
+    content_receipt_cache: bool,
 ) {
     let restore = concat!(
         "uses: actions/cache/restore@",
@@ -3099,8 +3258,8 @@ fn assert_windows_development_cache_contract(
 
     assert_eq!(
         workflow.matches(restore).count(),
-        1,
-        "{name} must restore the one reviewed dependency cache"
+        1 + usize::from(content_receipt_cache),
+        "{name} cache-restore action inventory changed"
     );
     assert_eq!(
         workflow.matches(sccache).count(),
@@ -3115,7 +3274,7 @@ fn assert_windows_development_cache_contract(
     assert_eq!(
         workflow.matches("RUSTC_WRAPPER: sccache").count(),
         1,
-        "{name} must scope sccache to one development-test step"
+        "{name} must configure sccache exactly once"
     );
     assert_eq!(
         workflow.matches("SCCACHE_GHA_ENABLED: \"true\"").count(),
@@ -3129,6 +3288,21 @@ fn assert_windows_development_cache_contract(
         1,
         "{name} must normalize the checkout root for cross-workflow hits"
     );
+    let steps = workflow
+        .find("    steps:\n")
+        .expect("development workflow must have a steps block");
+    for variable in [
+        "RUSTC_WRAPPER: sccache",
+        "SCCACHE_BASEDIRS: ${{ github.workspace }}",
+        "SCCACHE_GHA_ENABLED: \"true\"",
+    ] {
+        assert!(
+            workflow
+                .find(variable)
+                .is_some_and(|position| position < steps),
+            "{name} must configure {variable} at job scope so every Cargo step inherits it"
+        );
+    }
     assert!(
         workflow.contains(cache_key),
         "{name} dependency cache must bind the runner, toolchain, and Cargo.lock"
@@ -3160,8 +3334,8 @@ fn assert_windows_development_cache_contract(
     if dependency_cache_writer {
         assert_eq!(
             workflow.matches(save).count(),
-            1,
-            "{name} must have exactly one reviewed dependency-cache writer"
+            1 + usize::from(content_receipt_cache),
+            "{name} cache-save action inventory changed"
         );
         assert!(workflow.contains(
             "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-dependencies.outputs.cache-hit != 'true' }}"
@@ -3172,6 +3346,79 @@ fn assert_windows_development_cache_contract(
             "{name} must remain restore-only for dependency caching"
         );
     }
+}
+
+fn assert_windows_semantic_receipt_cache_contract(workflow: &str) {
+    let path = "path: target/local-ci-receipts/v1/windows-native-semantic";
+    let key = "key: windows-semantic-receipt-v1-windows-2025-${{ runner.arch }}-${{ steps.windows-receipt-context.outputs.sha256 }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'crates/**', 'tests/fixtures/**', '.github/workflows/windows-native-harness.yml') }}";
+    assert_eq!(
+        workflow.matches(path).count(),
+        2,
+        "Windows semantic receipt restore and save must use one exact path"
+    );
+    assert_eq!(
+        workflow.matches(key).count(),
+        2,
+        "Windows semantic receipt restore and save must use one exact content key"
+    );
+    assert_eq!(
+        workflow.matches("id: windows-semantic-receipt").count(),
+        1,
+        "Windows semantic receipt must have one cache-hit source"
+    );
+    assert_eq!(
+        workflow.matches("id: windows-receipt-context").count(),
+        1,
+        "Windows semantic receipts must bind one hosted-image observation"
+    );
+    assert!(workflow.contains("$env:ImageOS`n$env:ImageVersion`n$env:RUNNER_OS`n$env:RUNNER_ARCH"));
+    assert!(workflow.contains(
+        "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.windows-semantic-receipt.outputs.cache-hit != 'true' }}"
+    ));
+    let semantic = workflow
+        .find("- name: Run the repository-owned Windows semantic tests")
+        .expect("Windows semantic step should exist");
+    let save = workflow
+        .find("- name: Save the trusted main Windows semantic receipt")
+        .expect("Windows semantic receipt save should exist");
+    let candidate = workflow
+        .find("- name: Seal the deterministic Windows target source candidate")
+        .expect("Windows candidate step should exist");
+    assert!(
+        semantic < save && save < candidate,
+        "a successful semantic result must be cached before independent candidate/build failures"
+    );
+    let receipt_restore = workflow
+        .split("- name: Restore an exact main-authored Windows semantic receipt")
+        .nth(1)
+        .and_then(|tail| {
+            tail.split("- name: Install the pinned shared compiler cache")
+                .next()
+        })
+        .expect("Windows semantic receipt restore block should be closed");
+    assert!(
+        !receipt_restore.contains("restore-keys:"),
+        "validation receipts must restore only an exact content key"
+    );
+    assert!(
+        !workflow.contains("path: target\n"),
+        "the Windows workflow must never cache the full Cargo target"
+    );
+}
+
+fn assert_workflow_path_routing(workflow: &str, expected_paths: &[&str]) {
+    for path in expected_paths {
+        assert_eq!(
+            workflow.matches(&format!("      - {path}\n")).count(),
+            2,
+            "workflow path routing must include {path} for both pull requests and main pushes"
+        );
+    }
+    assert_eq!(
+        workflow.matches("    paths:\n").count(),
+        2,
+        "workflow must have one pull-request and one push path filter"
+    );
 }
 
 fn assert_windows_only_test(source: &str, source_path: &str, test_name: &str) {
@@ -3249,7 +3496,22 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         .contains("cargo run --locked -p xtask -- windows-native-tests --suite guarded-rename"));
     assert!(xref_workflow
         .contains("path: target/xref-windows-guarded-rename-feasibility-evidence.json"));
-    assert_windows_development_cache_contract("XREF feasibility workflow", xref_workflow, false);
+    assert_windows_development_cache_contract(
+        "XREF feasibility workflow",
+        xref_workflow,
+        false,
+        false,
+    );
+    assert_workflow_path_routing(
+        xref_workflow,
+        &[
+            ".github/workflows/windows-xref-guarded-rename.yml",
+            "Cargo.lock",
+            "Cargo.toml",
+            "crates/**",
+            "rust-toolchain.toml",
+        ],
+    );
     assert_eq!(
         xref_workflow.matches("uses: ").count(),
         4,
@@ -3293,17 +3555,35 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
 
     assert_windows_workflow_envelope("native Windows workflow", native_workflow);
     assert!(native_workflow.contains("name: Windows-only non-AutoCAD evidence"));
-    assert_windows_development_cache_contract("native Windows workflow", native_workflow, true);
+    assert_windows_development_cache_contract(
+        "native Windows workflow",
+        native_workflow,
+        true,
+        true,
+    );
+    assert_windows_semantic_receipt_cache_contract(native_workflow);
+    assert_workflow_path_routing(
+        native_workflow,
+        &[
+            ".github/workflows/windows-native-harness.yml",
+            "Cargo.lock",
+            "Cargo.toml",
+            "crates/**",
+            "plugin/**",
+            "rust-toolchain.toml",
+            "tests/fixtures/**",
+        ],
+    );
     assert_eq!(
         native_workflow.matches("uses: ").count(),
-        4,
-        "native Windows workflow may import only checkout, cache restore/save, and sccache"
+        6,
+        "native Windows workflow may import only checkout, two cache restores, two cache saves, and sccache"
     );
     let expected_native_commands = [
         "rustup toolchain install --no-self-update",
+        "$bytes = [Text.Encoding]::UTF8.GetBytes(\"$env:ImageOS`n$env:ImageVersion`n$env:RUNNER_OS`n$env:RUNNER_ARCH\"); $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant(); \"sha256=$hash\" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append",
         "cargo fetch --locked",
-        "cargo run --locked -p xtask -- windows-native-tests --suite semantic",
-        "cargo run --locked -p distribution-evidence -- check",
+        "cargo run --locked -p xtask -- windows-native-tests --suite semantic --content-receipt",
         "cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-source-candidate --mode preview",
         "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight",
         "cargo run --locked -p release-packager -- desktop-smoke --binary target/windows-certification-preflight/artifacts/release/autocad-mcp.exe --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf",
@@ -3315,6 +3595,17 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         workflow_run_commands(native_workflow),
         expected_native_commands,
         "native Windows workflow command inventory changed"
+    );
+    assert!(
+        !native_workflow.contains("cargo run --locked -p distribution-evidence -- check"),
+        "the Windows workflow must not duplicate the full evidence check performed by candidate sealing"
+    );
+    let candidate_seal_source =
+        std::fs::read_to_string(repository.join("crates/xtask/src/candidate_seal.rs"))
+            .expect("candidate seal source should be readable");
+    assert!(
+        candidate_seal_source.contains("distribution_evidence::check(repository)"),
+        "source candidate sealing must retain its full distribution-evidence validation"
     );
 
     for (source_path, test_names) in [

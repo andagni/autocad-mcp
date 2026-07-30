@@ -13,6 +13,7 @@ schema-version = 1
 name = "distribution-evidence"
 bin = "distribution-evidence"
 arguments = ["check"]
+content-receipt = "distribution-evidence"
 
 [lib]
 name = "distribution_evidence"

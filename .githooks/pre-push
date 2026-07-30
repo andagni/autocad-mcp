@@ -7,4 +7,4 @@ export CARGO_INCREMENTAL=1
 
 repository_root=$(git rev-parse --show-toplevel)
 cd "$repository_root"
-exec cargo run --locked -p xtask -- pre-push "$@"
+exec cargo run --locked -p xtask --no-default-features --bin pre-push-dispatch -- "$@"

@@ -477,11 +477,37 @@ cargo run --locked -p xtask -- local-gate
 
 The gate runs repository-wide formatting, source-closure and third-party
 licence evidence, warnings-denied Clippy, default and feature-specific tests,
-and plugin/repository policy. The
-tracked pre-push hook repeats that gate for the exact clean checked-out commit,
-then seals and verifies both Release and Preview source candidates. It is a
-source-quality gate, not Windows-native AutoCAD, signing, package installation,
-or clean-host evidence.
+and plugin/repository policy. The tracked pre-push hook is a rapid dispatch
+gate: it binds every pushed ref to the exact clean checked-out HEAD, rejects
+whitespace errors, and checks repository formatting. It deliberately does not
+run the complete CI inventory or generate candidates on every push.
+
+The exhaustive platform-independent CI path remains local. Before integrating
+a development slice or requesting remote Windows or artifact work, run:
+
+```text
+cargo run --locked -p xtask -- source-quality
+```
+
+For a new source identity, this runs the complete local gate and regenerates
+and verifies both exact Release and Preview source candidates. Repeating it for
+the unchanged tree may reuse a prior successful exact-tree composition.
+Package-owned stable checks, currently third-party licence/source-closure
+validation, may also reuse a successful result across commits when their closed
+input set has not changed.
+
+These advisory receipts live under
+`target/local-ci-receipts/v1/` in the configured Cargo target directory. Each
+key binds the target input, command, receipt-engine source, Cargo and Rust
+versions, platform, relevant build environment, and Cargo configuration.
+Malformed, missing, or mismatched receipts are cache misses; they cannot grant
+release, signing, distribution, or native-host authority. Set
+`AUTOCAD_MCP_DISABLE_CONTENT_RECEIPTS=1` to force every validation to run.
+
+GitHub Actions are reserved for evidence that requires native Windows or for
+the explicitly dispatched Preview review candidate. These local source-quality
+checks are not Windows-native AutoCAD, signing, package-installation, or
+clean-host evidence.
 
 ## Run Windows-specific tests without AutoCAD
 
@@ -496,6 +522,14 @@ This runs the semantic and guarded-rename suites serially. AutoCAD is not
 required or launched, even if it is installed. GitHub Actions is the primary
 clean-host CI entrypoint and selects the suites independently with
 `--suite semantic` and `--suite guarded-rename`.
+
+The native workflow is routed only for paths that can affect its native tests,
+build inputs, or packaged payload. It restores the shared locked dependency
+cache and compiler cache for every Cargo step. Its semantic suite may reuse an
+exact, main-authored content receipt bound to the tracked test closure and
+hosted Windows image; pull requests can read but cannot publish that cache.
+The guarded-rename feasibility probe, source candidate, Windows binaries, and
+package/LSP smoke still run fresh whenever their workflow is dispatched.
 
 ## Build the Windows Preview desktop extension
 

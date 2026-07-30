@@ -341,6 +341,97 @@ pub fn check(repository: &Path) -> Result<EvidenceSummary, String> {
     run(repository, false, false)
 }
 
+/// Return the closed content identity used by advisory validation receipts.
+///
+/// This is deliberately cheaper than [`check`]: it validates the reviewed
+/// policy and its exact tracked inputs and outputs, but it does not regenerate
+/// the evidence from every checksum-verified registry archive. A caller may use
+/// this identity only to look up a prior successful `check` result recorded
+/// under an equally bound tool and execution context. The identity is not
+/// distribution approval, release evidence, or a substitute for an initial
+/// full validation.
+pub fn validation_cache_input_sha256(repository: &Path) -> Result<String, String> {
+    let policy_bytes =
+        read_regular_file(&repository.join(POLICY_PATH), "third-party licence policy")?;
+    let policy: ThirdPartyLicensePolicy =
+        serde_json::from_slice(&policy_bytes).map_err(|error| {
+            format!(
+                "parse third-party licence policy {}: {error}",
+                repository.join(POLICY_PATH).display()
+            )
+        })?;
+    validate_policy_shape(&policy)?;
+
+    let lock_bytes = read_regular_file(&repository.join("Cargo.lock"), "Cargo.lock")?;
+    let lock_sha256 = sha256(&lock_bytes);
+    if lock_sha256 != policy.reviewed_cargo_lock_sha256 {
+        return Err(format!(
+            "Cargo.lock SHA-256 is {lock_sha256}, but the third-party licence policy reviews {}",
+            policy.reviewed_cargo_lock_sha256
+        ));
+    }
+
+    let metadata = cargo_metadata(repository, MetadataMode::Complete)?;
+    let provenance = load_license_provenance(repository, &policy)?;
+    let owner_approval_schema = read_regular_file(
+        &repository.join(OWNER_APPROVAL_SCHEMA_PATH),
+        "owner distribution approval schema",
+    )?;
+    let owner_approval_schema_sha256 = sha256(&owner_approval_schema);
+    if owner_approval_schema_sha256 != policy.owner_distribution_approval.contract_schema_sha256 {
+        return Err(format!(
+            "owner distribution approval schema SHA-256 is {owner_approval_schema_sha256}, but the third-party licence policy expects {}",
+            policy.owner_distribution_approval.contract_schema_sha256
+        ));
+    }
+    let input_closure_sha256 = calculate_input_closure(
+        repository,
+        &lock_bytes,
+        &metadata,
+        &policy,
+        &provenance,
+        &owner_approval_schema,
+    )?;
+    if input_closure_sha256 != policy.reviewed_input_closure_sha256 {
+        return Err(format!(
+            "distribution evidence input-closure SHA-256 is {input_closure_sha256}, but the policy reviews {}",
+            policy.reviewed_input_closure_sha256
+        ));
+    }
+
+    let mut hasher = Sha256::new();
+    hash_framed(
+        &mut hasher,
+        b"receipt-domain",
+        b"autocad-mcp-distribution-evidence-validation-cache-v1",
+    );
+    hash_framed(&mut hasher, b"policy", &policy_bytes);
+    hash_framed(
+        &mut hasher,
+        b"reviewed-input-closure",
+        input_closure_sha256.as_bytes(),
+    );
+    for (path, expected) in [
+        (SBOM_PATH, policy.expected_sbom_sha256.as_str()),
+        (
+            WINDOWS_SOURCE_CLOSURE_SBOM_PATH,
+            policy.expected_windows_source_closure_sbom_sha256.as_str(),
+        ),
+        (NOTICES_PATH, policy.expected_notices_sha256.as_str()),
+    ] {
+        let bytes = read_regular_file(&repository.join(path), path)?;
+        let actual = sha256(&bytes);
+        if actual != expected {
+            return Err(format!(
+                "{path} SHA-256 is {actual}, but the reviewed policy expects {expected}"
+            ));
+        }
+        hash_framed(&mut hasher, b"tracked-artifact-path", path.as_bytes());
+        hash_framed(&mut hasher, b"tracked-artifact-bytes", &bytes);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 /// Regenerate the tracked distribution evidence atomically and validate the result.
 pub fn write(repository: &Path) -> Result<EvidenceSummary, String> {
     run(repository, true, false)

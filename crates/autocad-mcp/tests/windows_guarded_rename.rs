@@ -2799,29 +2799,24 @@ validation_errors={:?}; first_failure_case={:?}",
         }
         let installed_identity = file_identity(&prepared_guard.file);
         let installed_digest = hash_handle(&mut prepared_guard.file);
-        let current_path_observation = observe_path(&host);
+        let current_path_identity = path_identity(&host);
         let prepared_path_absent = std::fs::symlink_metadata(&prepared)
             .is_err_and(|error| error.kind() == io::ErrorKind::NotFound);
-        match (
-            installed_identity,
-            installed_digest,
-            current_path_observation,
-        ) {
-            (Ok(handle_identity), Ok(digest), Ok((path_identity, path_digest)))
+        match (installed_identity, installed_digest, current_path_identity) {
+            (Ok(handle_identity), Ok(digest), Ok(path_identity))
                 if handle_identity == prepared_identity
                     && path_identity == prepared_identity
                     && digest == prepared_digest
-                    && path_digest == prepared_digest
                     && prepared_path_absent =>
             {
                 recorder.evidence.projections.installed_handle_after =
                     Some(handle_identity.projection(digest.clone()));
                 recorder.evidence.projections.installed_path_after =
-                    Some(path_identity.projection(path_digest));
+                    Some(path_identity.projection(digest.clone()));
                 recorder.pass(
                     "installed_path_observation",
                     format!(
-                        "installed identity={}; digest={digest}; prepared path absent",
+                        "installed handle and path identity={}; guarded-handle digest={digest}; prepared path absent",
                         handle_identity.display()
                     ),
                     None,
@@ -3144,7 +3139,7 @@ validation_errors={:?}; first_failure_case={:?}",
             &guarded_path,
             FILE_RENAME_REPLACE_IF_EXISTS | FILE_RENAME_POSIX_SEMANTICS,
         )?;
-        let (current_identity, current_digest) = observe_path(&guarded_path)
+        let current_identity = path_identity(&guarded_path)
             .map_err(|error| NativeFailure::io("observe boundary path", error))?;
         let retained_identity = file_identity(&guarded.file)
             .map_err(|error| NativeFailure::io("reobserve boundary original", error))?;
@@ -3153,7 +3148,6 @@ validation_errors={:?}; first_failure_case={:?}",
         if current_identity != attacker_identity
             || retained_identity != guarded_identity
             || retained_digest != guarded_digest
-            || current_digest != attacker_digest
         {
             return Err(NativeFailure::after_api(
                 "boundary observation",
@@ -3164,9 +3158,9 @@ validation_errors={:?}; first_failure_case={:?}",
         }
         Ok(SameContentProjections {
             original_before: guarded_identity.projection(guarded_digest),
-            attacker_before: attacker_identity.projection(attacker_digest),
+            attacker_before: attacker_identity.projection(attacker_digest.clone()),
             retained_after: retained_identity.projection(retained_digest),
-            path_after: current_identity.projection(current_digest),
+            path_after: current_identity.projection(attacker_digest),
         })
     }
 
@@ -3462,16 +3456,18 @@ validation_errors={:?}; first_failure_case={:?}",
 
     fn source_evidence() -> SourceEvidence {
         let repository = repository_root();
+        let isolated_config = isolated_git_config(&repository);
+        let git = |arguments: &[&str]| match &isolated_config {
+            Ok(config) => git_output(&repository, config.as_ref(), arguments),
+            Err(error) => Err(error.clone()),
+        };
         SourceEvidence {
-            commit: git_output(&repository, &["rev-parse", "--verify", "HEAD"])
+            commit: git(&["rev-parse", "--verify", "HEAD"])
                 .unwrap_or_else(|error| format!("unavailable:{error}")),
-            tree: git_output(&repository, &["rev-parse", "--verify", "HEAD^{tree}"])
+            tree: git(&["rev-parse", "--verify", "HEAD^{tree}"])
                 .unwrap_or_else(|error| format!("unavailable:{error}")),
-            dirty: git_output(
-                &repository,
-                &["status", "--porcelain=v1", "--untracked-files=all"],
-            )
-            .map_or(true, |status| !status.is_empty()),
+            dirty: git(&["status", "--porcelain=v1", "--untracked-files=all"])
+                .map_or(true, |status| !status.is_empty()),
             harness_sha256: sha256_path(
                 &repository.join("crates/autocad-mcp/tests/windows_guarded_rename.rs"),
             )
@@ -3487,6 +3483,33 @@ validation_errors={:?}; first_failure_case={:?}",
         }
     }
 
+    fn isolated_git_config(repository: &Path) -> Result<tempfile::TempPath, String> {
+        if !repository.is_absolute() {
+            return Err("repository path for safe.directory is not absolute".to_string());
+        }
+        let config = tempfile::Builder::new()
+            .prefix("autocad-mcp-git-config-")
+            .tempfile()
+            .map_err(|error| format!("create isolated Git configuration: {error}"))?
+            .into_temp_path();
+        let output = isolated_git_command()
+            .arg("config")
+            .arg("--file")
+            .arg(&config)
+            .arg("--add")
+            .arg("safe.directory")
+            .arg(repository)
+            .output()
+            .map_err(|error| format!("write isolated Git safe.directory: {error}"))?;
+        if !output.status.success() {
+            return Err(format!(
+                "write isolated Git safe.directory: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ));
+        }
+        Ok(config)
+    }
+
     fn repository_root() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
@@ -3495,7 +3518,7 @@ validation_errors={:?}; first_failure_case={:?}",
             .to_path_buf()
     }
 
-    fn git_output(repository: &Path, arguments: &[&str]) -> Result<String, String> {
+    fn isolated_git_command() -> Command {
         let inherited_environment = [
             ("PATH", std::env::var_os("PATH")),
             ("SystemRoot", std::env::var_os("SystemRoot")),
@@ -3504,13 +3527,13 @@ validation_errors={:?}; first_failure_case={:?}",
             ("TEMP", std::env::var_os("TEMP")),
         ];
         let mut command = Command::new("git");
-        command.env_clear().current_dir(repository);
+        command.env_clear();
         for (name, value) in inherited_environment {
             if let Some(value) = value {
                 command.env(name, value);
             }
         }
-        let output = command
+        command
             .env("LC_ALL", "C")
             .env("GIT_CONFIG_NOSYSTEM", "1")
             .env("GIT_CONFIG_SYSTEM", "NUL")
@@ -3518,7 +3541,18 @@ validation_errors={:?}; first_failure_case={:?}",
             .env("GIT_CONFIG_COUNT", "0")
             .env("GIT_ATTR_NOSYSTEM", "1")
             .env("GIT_OPTIONAL_LOCKS", "0")
-            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_TERMINAL_PROMPT", "0");
+        command
+    }
+
+    fn git_output(
+        repository: &Path,
+        isolated_config: &Path,
+        arguments: &[&str],
+    ) -> Result<String, String> {
+        let output = isolated_git_command()
+            .current_dir(repository)
+            .env("GIT_CONFIG_GLOBAL", isolated_config)
             .args(arguments)
             .output()
             .map_err(|error| error.to_string())?;
