@@ -1,15 +1,15 @@
 {
   "schema_version": 2,
   "evidence_generator_schema_version": 7,
-  "evidence_document_created_utc": "2026-07-29T16:44:18Z",
-  "reviewed_cargo_lock_sha256": "d7843ac81e247037cf8705ce46057b57c94769eb02613ad7ce018e876cf0fac3",
-  "reviewed_input_closure_sha256": "7e8096eb586e283e6c396c2607a5e6090de4eb978e01f6907235f32aa6cd59dc",
-  "expected_sbom_sha256": "37365c43296ecfe1aaae48d316846ad74f822cc8bcb0d9ac3ee7caa4108e9185",
-  "expected_windows_source_closure_sbom_sha256": "19975e7f3f80777ddb2700fb4833d3d17a1903bec71c26328199a330443b6b0f",
-  "expected_notices_sha256": "9de2bbf38ab23fa207be1a3a4a7c38cba23dd6ad0310ecc89f4f76d1299448a5",
+  "evidence_document_created_utc": "2026-07-30T09:22:43Z",
+  "reviewed_cargo_lock_sha256": "227129d0f406bb1ddd8ff550249ae1c7ed5a5c9486352e077ad0bbabf238c73f",
+  "reviewed_input_closure_sha256": "cf9c092c9b56457e19ef3ba985aae471f07eb047f21311db3bee94249c77d39c",
+  "expected_sbom_sha256": "c3f2a76b83e1aaf07c3a9db7e55d14378f844e88b5923ce74814b8ff5f23c46f",
+  "expected_windows_source_closure_sbom_sha256": "258c94af678ca8adebaa6d32e59a739ffaebd9f0f7bc7f2578ad5dfa30aad8b1",
+  "expected_notices_sha256": "6b41e43faa569b4889cb2c8d36c9f341de793e6039b1e885d261d71b1feecc9f",
   "expected_license_provenance_sha256": "bfeb842c7343b9bd5bb981bbf201d5a536e081526c823382862a96ef410aa9b1",
-  "expected_total_packages": 323,
-  "expected_third_party_packages": 312,
+  "expected_total_packages": 267,
+  "expected_third_party_packages": 256,
   "expected_windows_source_closure_packages": 177,
   "expected_windows_source_closure_third_party_packages": 172,
   "allowed_registry_sources": [
@@ -45,18 +45,6 @@
   ],
   "expected_packages_without_retained_license_files": [
     {
-      "name": "jni",
-      "version": "0.22.4"
-    },
-    {
-      "name": "jni-macros",
-      "version": "0.22.4"
-    },
-    {
-      "name": "jni-sys-macros",
-      "version": "0.4.1"
-    },
-    {
       "name": "r-efi",
       "version": "5.3.0"
     },
@@ -67,10 +55,6 @@
     {
       "name": "rmcp-macros",
       "version": "1.7.0"
-    },
-    {
-      "name": "rustls-platform-verifier-android",
-      "version": "0.1.1"
     },
     {
       "name": "tower-lsp-macros",

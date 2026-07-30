@@ -6821,6 +6821,9 @@ sleep 5
         let fixture = dir.path().join("fixture.dxf");
         std::fs::write(&fixture, "fixture\n").unwrap();
         let manifest = manifest_for(PackageTarget::MacosArm64, &metadata());
+        // Leave a wide gap between the accepted completion bound and the
+        // inherited handle lifetime so a parallel test run cannot consume the
+        // whole timing margin while a real inherited-handle wait still fails.
         write_package(
             &package,
             &manifest,
@@ -6828,7 +6831,7 @@ sleep 5
                 r#"#!/bin/sh
 if [ "$1" = "list-tools" ]; then
   [ -n "$2" ] && exit 2
-  (sleep 5) &
+  (sleep 10) &
   exit 0
 fi
 exit 2
@@ -6849,7 +6852,7 @@ exit 2
         let elapsed = start.elapsed();
 
         assert!(
-            elapsed < std::time::Duration::from_secs(3),
+            elapsed < std::time::Duration::from_secs(7),
             "elapsed: {elapsed:?}, error: {err:#}"
         );
         let err = format!("{err:#}");
@@ -6863,7 +6866,7 @@ exit 2
 
     #[cfg(windows)]
     #[test]
-    fn windows_run_with_timeout_rejects_oversized_stdout() {
+    fn windows_native_semantic_run_with_timeout_rejects_oversized_stdout() {
         let mut command = Command::new("cmd");
         command.args([
             "/C",
@@ -6879,7 +6882,7 @@ exit 2
 
     #[cfg(windows)]
     #[test]
-    fn windows_run_with_timeout_terminates_process_tree_after_direct_child_exit() {
+    fn windows_native_semantic_run_with_timeout_terminates_process_tree_after_direct_child_exit() {
         let mut command = Command::new("cmd");
         command.args([
             "/C",

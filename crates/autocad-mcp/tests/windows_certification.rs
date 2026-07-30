@@ -7168,7 +7168,7 @@ mod certification_harness_tests {
 
     #[cfg(windows)]
     #[test]
-    fn certified_profile_registry_guard_owns_only_a_new_exact_subtree() {
+    fn windows_native_semantic_certified_profile_registry_guard_owns_only_a_new_exact_subtree() {
         use std::sync::atomic::{AtomicU64, Ordering};
         use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -7348,7 +7348,8 @@ mod certification_harness_tests {
 
     #[test]
     #[cfg(windows)]
-    fn exact_runtime_file_binding_denies_windows_write_delete_and_ancestor_rename() {
+    fn windows_native_semantic_exact_runtime_file_binding_denies_windows_write_delete_and_ancestor_rename(
+    ) {
         let current_exe = std::env::current_exe().unwrap();
         let current_exe_digest = xref_sha256_file(&current_exe).unwrap();
         let executable_binding = bind_exact_certification_file(
@@ -7830,7 +7831,7 @@ mod certification_harness_tests {
 
     #[cfg(windows)]
     #[test]
-    fn bounded_certification_runner_terminates_the_windows_process_tree() {
+    fn windows_native_semantic_bounded_certification_runner_terminates_the_windows_process_tree() {
         let directory = tempfile::tempdir().unwrap();
         let script_path = directory.path().join("spawn-descendant.ps1");
         let pid_path = directory.path().join("process-ids.txt");
@@ -7886,7 +7887,8 @@ Start-Sleep -Seconds 120
 
     #[cfg(windows)]
     #[test]
-    fn bounded_certification_runner_rejects_a_successful_parent_with_a_live_descendant() {
+    fn windows_native_semantic_bounded_certification_runner_rejects_a_successful_parent_with_a_live_descendant(
+    ) {
         let directory = tempfile::tempdir().unwrap();
         let script_path = directory.path().join("leave-descendant.ps1");
         let pid_path = directory.path().join("process-ids.txt");

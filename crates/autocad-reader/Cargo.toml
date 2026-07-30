@@ -9,12 +9,12 @@ publish = false
 [dependencies]
 acadrust = "=0.4.1"
 schemars = "1"
-serde = { version = "1", features = ["derive"] }
+serde.workspace = true
 
 [dev-dependencies]
-serde_json = "1"
-sha2 = "0.10"
-tempfile = "3"
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
 
 [lib]
 path = "src/mod.rs"

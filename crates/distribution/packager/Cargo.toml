@@ -11,14 +11,14 @@ anyhow = "1"
 autocad-mcp = { path = "../../autocad-mcp" }
 clap = { version = "4", features = ["derive"] }
 distribution-approval = { path = "../approval" }
-jsonschema = { version = "0.46", default-features = false }
+jsonschema.workspace = true
 plugin-validate = { path = "../plugin-validation" }
 release-qualification = { path = "../qualification", features = ["signing"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha2 = "0.10"
-tempfile = "3"
-walkdir = "2"
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+walkdir.workspace = true
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [target.'cfg(windows)'.dependencies]

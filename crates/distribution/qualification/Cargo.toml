@@ -24,9 +24,9 @@ signing = [
 
 [dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["std"] }
-serde = { version = "1", features = ["derive"] }
+serde.workspace = true
 serde_jcs = "=0.2.0"
-serde_json = "1"
+serde_json.workspace = true
 
 [dev-dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false, features = [

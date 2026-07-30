@@ -2795,7 +2795,7 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn activation_windows_observation_requires_a_fixed_file_version_resource() {
+    fn windows_native_semantic_activation_observation_requires_a_fixed_file_version_resource() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory
             .path()
@@ -2813,7 +2813,8 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn activation_windows_executable_launch_lease_guards_file_and_parent_through_spawn() {
+    fn windows_native_semantic_activation_executable_launch_lease_guards_file_and_parent_through_spawn(
+    ) {
         let directory = tempfile::tempdir().unwrap();
         let ancestor = directory.path().join("Autodesk");
         let parent = ancestor.join("AutoCAD 2027");
@@ -3197,7 +3198,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn accoreconsole_command_normalizes_only_autocad_path_arguments() {
+    fn windows_native_semantic_accoreconsole_command_normalizes_only_autocad_path_arguments() {
         let executable = Path::new(r"\\?\C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe");
         let drawing = Path::new(r"\\?\C:\drawings\host.dwg");
         let script = Path::new(r"\\?\C:\staging\transaction.scr");
@@ -3252,7 +3253,8 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn certified_profile_guard_allows_compatible_reader_and_denies_mutation_or_replacement() {
+    fn windows_native_semantic_certified_profile_guard_allows_compatible_reader_and_denies_mutation_or_replacement(
+    ) {
         use std::os::windows::ffi::OsStrExt;
         use std::os::windows::fs::OpenOptionsExt;
         use windows_sys::Win32::Storage::FileSystem::{
@@ -3371,7 +3373,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn certified_profile_guard_detects_transition_window_tampering() {
+    fn windows_native_semantic_certified_profile_guard_detects_transition_window_tampering() {
         let source_directory = tempfile::tempdir().unwrap();
         let source = source_directory.path().join("source.arg");
         let source_bytes = b"certified ARG bytes";
@@ -3480,7 +3482,8 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn unique_xref_profile_registry_lifecycle_refuses_adoption_and_cleans_owned_root() {
+    fn windows_native_semantic_unique_xref_profile_registry_lifecycle_refuses_adoption_and_cleans_owned_root(
+    ) {
         use windows_sys::Win32::{
             Foundation::ERROR_SUCCESS,
             System::Registry::{RegCloseKey, RegCreateKeyW, HKEY, HKEY_CURRENT_USER},
@@ -3521,7 +3524,8 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn bounded_windows_probe_runner_drains_all_bytes_while_retaining_a_strict_cap() {
+    fn windows_native_semantic_bounded_probe_runner_drains_all_bytes_while_retaining_a_strict_cap()
+    {
         let mut bytes = vec![b'a'; BOUNDED_CAPTURE_BYTES_PER_STREAM + 8192];
         *bytes.last_mut().unwrap() = b'z';
         let capture = spawn_bounded_capture(std::io::Cursor::new(bytes.clone()), "test");
@@ -3536,7 +3540,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn bounded_windows_probe_runner_observes_pre_spawn_cancellation() {
+    fn windows_native_semantic_bounded_probe_runner_observes_pre_spawn_cancellation() {
         let cancellation = BoundedProcessCancellation::default();
         cancellation.cancel();
         let error = run_windows_command_bounded(
@@ -3550,7 +3554,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn bounded_windows_probe_runner_linearizes_cancellation_before_resume() {
+    fn windows_native_semantic_bounded_probe_runner_linearizes_cancellation_before_resume() {
         let directory = tempfile::tempdir().unwrap();
         let side_effect = directory.path().join("resumed.txt");
         let cancellation = BoundedProcessCancellation::default();
@@ -3582,7 +3586,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn bounded_windows_probe_runner_terminates_inherited_pipe_tree_on_timeout() {
+    fn windows_native_semantic_bounded_probe_runner_terminates_inherited_pipe_tree_on_timeout() {
         let cancellation = BoundedProcessCancellation::default();
         let mut command = std::process::Command::new("cmd.exe");
         command.args(["/D", "/C", "ping.exe -n 30 127.0.0.1 >NUL"]);
@@ -3604,7 +3608,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn bounded_windows_probe_runner_cancels_and_joins_running_tree() {
+    fn windows_native_semantic_bounded_probe_runner_cancels_and_joins_running_tree() {
         let cancellation = BoundedProcessCancellation::default();
         let cancellation_signal = cancellation.clone();
         let canceller = std::thread::spawn(move || {

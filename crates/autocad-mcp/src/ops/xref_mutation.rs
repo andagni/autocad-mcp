@@ -5502,7 +5502,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn production_windows_transactional_install_is_atomic_and_guarded() {
+    fn windows_native_semantic_transactional_install_is_atomic_and_guarded() {
         use std::os::windows::fs::OpenOptionsExt;
 
         let directory = tempfile::tempdir().unwrap();
@@ -5573,7 +5573,7 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    fn production_windows_source_snapshot_excludes_every_original_path_read() {
+    fn windows_native_semantic_source_snapshot_excludes_every_original_path_read() {
         let directory = tempfile::tempdir().unwrap();
         let source = directory.path().join("source.dwg");
         let staging = directory.path().join("staging");

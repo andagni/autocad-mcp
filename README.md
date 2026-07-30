@@ -521,7 +521,9 @@ cargo run --locked -p xtask -- windows-native-tests
 This runs the semantic and guarded-rename suites serially. AutoCAD is not
 required or launched, even if it is installed. GitHub Actions is the primary
 clean-host CI entrypoint and selects the suites independently with
-`--suite semantic` and `--suite guarded-rename`.
+`--suite semantic` and `--suite guarded-rename`. The semantic inventory uses
+three prefix-closed harness invocations—MCP library, Windows integration, and
+packager—so Cargo does not relaunch separately for each selected test family.
 
 The native workflow is routed only for paths that can affect its native tests,
 build inputs, or packaged payload. It restores the shared locked dependency
@@ -530,11 +532,15 @@ exact, main-authored content receipt bound to the tracked test closure and
 hosted Windows image; pull requests can read but cannot publish that cache.
 The guarded-rename feasibility probe, source candidate, Windows binaries, and
 package/LSP smoke still run fresh whenever their workflow is dispatched.
-The semantic suite and Preview source-candidate seal are independent
-preflights: the workflow runs both even if one fails, reports their combined
-outcome, and starts binary construction only after both pass. The
-registry/profile, filesystem-guard, and process-tree tests inside the semantic
-suite remain serial to avoid cross-test state interference.
+The semantic suite, Preview source-candidate seal, and native binary build are
+independent validations: the workflow runs all three even if another fails.
+When the binary build succeeds, the desktop, LSP, and package checks also run
+independently; package smoke runs when package construction succeeds. A final
+aggregation step reports every runnable failure from the single workflow run,
+instead of stopping at the first failing stage. Cache publication is advisory
+and cannot mask a validation result. The registry/profile, filesystem-guard,
+and process-tree tests inside the semantic suite remain serial to avoid
+cross-test state interference.
 
 ## Build the Windows Preview desktop extension
 

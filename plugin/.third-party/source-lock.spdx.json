@@ -3,13 +3,13 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "AutoCAD-MCP Cargo.lock source dependency graph",
-  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-7e8096eb586e283e6c396c2607a5e6090de4eb978e01f6907235f32aa6cd59dc",
+  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-cf9c092c9b56457e19ef3ba985aae471f07eb047f21311db3bee94249c77d39c",
   "creationInfo": {
-    "created": "2026-07-29T16:44:18Z",
+    "created": "2026-07-30T09:22:43Z",
     "creators": [
       "Tool: AutoCAD-MCP distribution-evidence-7"
     ],
-    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1`, including workspace, development, build, and all-target dependencies. Cargo.lock SHA-256: d7843ac81e247037cf8705ce46057b57c94769eb02613ad7ce018e876cf0fac3. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
+    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1`, including workspace, development, build, and all-target dependencies. Cargo.lock SHA-256: 227129d0f406bb1ddd8ff550249ae1c7ed5a5c9486352e077ad0bbabf238c73f. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
   },
   "documentDescribes": [
     "SPDXRef-Package-130ec320e51ed7c366c24c909c227797f31ec6a016ac64b4553aa4aab5a2a576",
@@ -296,24 +296,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-33c88ea319858fa5ae0aca7a479bdea37acad605e15201300013e838a5a8751f",
-      "name": "atomic-waker",
-      "versionInfo": "1.1.2",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "Apache-2.0 OR MIT",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0 OR MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3, LICENSE-THIRD-PARTY sha256:6226d0632e2e1a80c23597e964da9812ae193c535fe058154afb034e94167aa5.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-ddd1ea628bf608caca8e6786d809588497d2c13e2d21b9c945fa2c8ec4fed5a8",
       "name": "auto_impl",
       "versionInfo": "1.3.0",
@@ -408,42 +390,6 @@
       "licenseComments": "Cargo manifest licence metadata: GPL-3.0-or-later. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Workspace package: no .crate archive or Cargo.lock package checksum applies; licence metadata is read from the workspace Cargo.toml bound by the evidence input-closure digest.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "AutoCAD-MCP workspace package."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-28796d48a2cecefef4bdb4a952b1d7c1a175371c7b266b248d3c2ee769cdcea1",
-      "name": "aws-lc-rs",
-      "versionInfo": "1.17.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "5ec2f1fc3ec205783a5da9a7e6c1509cc69dedf09a1949e412c1e18469326d00"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "ISC AND (Apache-2.0 OR ISC)",
-      "licenseComments": "Cargo manifest licence metadata: ISC AND (Apache-2.0 OR ISC). The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:b50b376e7d24a0598488b730c3034ffcd0b58dd36c0913a24b9903a3cfd04bf7.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-2b52141fd3bddd18b0676b5c08362f60fb10075cfd8b72f3f4064c1d4f1890cb",
-      "name": "aws-lc-sys",
-      "versionInfo": "0.41.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "1a2f9779ce85b93ab6170dd940ad0169b5766ff848247aff13bb788b832fe3f4"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "ISC AND (Apache-2.0 OR ISC) AND Apache-2.0 AND MIT AND BSD-3-Clause AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR ISC OR MIT-0)",
-      "licenseComments": "Cargo manifest licence metadata: ISC AND (Apache-2.0 OR ISC) AND Apache-2.0 AND MIT AND BSD-3-Clause AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR ISC OR MIT-0). The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
       "SPDXID": "SPDXRef-Package-f82aa68d2a3fcc69e406ed9776887a304287f00f97c2bf28c8ad28a8dc5fdeba",
@@ -806,24 +752,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-cb6320c96ab62231e62acfb9b379695513a602cb3e678de4873319a977026107",
-      "name": "cmake",
-      "versionInfo": "0.1.58",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "c0f78a02292a74a88ac736019ab962ece0bc380e3f977bf72e376c5d78ff0678"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-27528737a06cc42d82e8256393d64ac605da4b81626a405deb8a6342cae518b0",
       "name": "colorchoice",
       "versionInfo": "1.0.5",
@@ -842,24 +770,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-1ab0ecd024f9ff8551385476e9d63e25a2456f5647bd4d52f1094dc0a0bd7a28",
-      "name": "combine",
-      "versionInfo": "4.6.7",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:9bbc1b3dc4674a9ebb12c2a62f54fe3c08672539717f8d05828f684b6cc419a3.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-d6e26e74dc9d4400e0c654e3622344ac0c7f2ddeca5f1b32e1e4a2025e5b673a",
       "name": "const-oid",
       "versionInfo": "0.9.6",
@@ -874,24 +784,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0 OR MIT",
       "licenseComments": "Cargo manifest licence metadata: Apache-2.0 OR MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5, LICENSE-MIT sha256:bada9e7ed8dc00d63502053c455d7c8d7575dfb7e8277a2a832531844d900682.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-6fbcf3a0027ef44a07f36e577a6f63c6bde1b21690bc73d03fdcf3a3725ef14b",
-      "name": "core-foundation",
-      "versionInfo": "0.10.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -1208,24 +1100,6 @@
       "sourceInfo": "AutoCAD-MCP workspace package."
     },
     {
-      "SPDXID": "SPDXRef-Package-03bf456dc8e5cdc117a5abb88f9208a1c6ba72d50419d01c53807eaf2aaa4ab3",
-      "name": "dunce",
-      "versionInfo": "1.0.5",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "CC0-1.0 OR MIT-0 OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: CC0-1.0 OR MIT-0 OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-53d72773c36774850c637ee05a59bbc56d938c3ccba04227ad6c7b70f2486a3c",
       "name": "dyn-clone",
       "versionInfo": "1.0.20",
@@ -1460,24 +1334,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-4a9b9687914b3ee22ecd68b95ec85c7c57bff0ddc2e107177e5b4f3b883d389b",
-      "name": "fnv",
-      "versionInfo": "1.0.7",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0 / MIT. The Cargo value is not emitted as SPDX licenseDeclared because it uses non-SPDX slash syntax. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:65fdb6c76cd61612070c066eec9ecdb30ee74fb27859d0d9af58b9f499fd0c3e.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-ac93612cd56239fc7469279b365a6b8f39660d769bf51f0f2f1f4ea6d0c5200c",
       "name": "foldhash",
       "versionInfo": "0.2.0",
@@ -1528,24 +1384,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-ef9677ceff163a7b66bbe151c0e675763bf51c5f11e8c11beda1b006e42299bd",
-      "name": "fs_extra",
-      "versionInfo": "1.3.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:251ea8ccb1205ce5fa847d6e264d6b6753af62de2cecf2fd9abc0eb02c7c83fc.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -1766,24 +1604,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "name": "h2",
-      "versionInfo": "0.4.15",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "6cb093c84e8bd9b188d4c4a8cb6579fc016968d14c99882163cd3ff402a4f155"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:b21623012e6c453d944b0342c515b631cfcbf30704c2621b291526b69c10724d.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-3157df6a965f562e1cf3704ced06b39e5d5d4bdecf18bcbec816ad3f495d5e47",
       "name": "hashbrown",
       "versionInfo": "0.14.5",
@@ -1856,60 +1676,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc",
-      "name": "http",
-      "versionInfo": "1.4.2",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "6970f50e31d6fc17d3fa27329444bfa74e196cf62e95052a3f6fee181dba6425"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:8bb1b50b0e5c9399ae33bd35fab2769010fa6c14e8860c729a52295d84896b7a, LICENSE-MIT sha256:dc91f8200e4b2a1f9261035d4c18c33c246911a6c0f7b543d75347e61b249cff.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467",
-      "name": "http-body",
-      "versionInfo": "1.0.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:cddabf8adc6ccd6c3e68f5d71eac9fae3094116623cf23a46af0a5fd6b8ee813.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-b2116b949c6348b762210b8ee89bbdec7f935d795ba0b4e5996505c163454dbf",
-      "name": "http-body-util",
-      "versionInfo": "0.1.3",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "b021d93e26becf5dc7e1b75b1bed1fd93124b374ceb73f43d4d4eafec896a64a"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:b843fb7430efdf9732c834b6814beda44fccf3f0ddf7c9e030b39da17f6b159c.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-90d6f93837c24b6974212df7f617615256a4878b752bac983ce1977376e926dc",
       "name": "httparse",
       "versionInfo": "1.10.1",
@@ -1924,60 +1690,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:391a5396cec6230bfabd4ef4eb2350eb895bc5efce377a2218f5702ed020d3e3.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "name": "hyper",
-      "versionInfo": "1.10.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "55281c53a1894c864990125767da440a4e630446785086f52523b20033b74498"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:2d01890414494742ba4a509fcec8efa40f6d8be22cbd72be7cff08d6fda4ec89.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "name": "hyper-rustls",
-      "versionInfo": "0.27.9",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "33ca68d021ef39cf6463ab54c1d0f5daf03377b70561305bb89a8f83aab66e0f"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "Apache-2.0 OR ISC OR MIT",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0 OR ISC OR MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-ISC sha256:7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4, LICENSE-MIT sha256:709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "name": "hyper-util",
-      "versionInfo": "0.1.20",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "96547c2556ec9d12fb1578c4eaf448b04993e7fb79cbaad930a656880a6bdfa0"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:9e0a97848ea543aef745c98e84fde696a9a3e0735538f6daefdd3cb1942effc1.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -2216,24 +1928,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-14cf74610b4a7101425e1349300d5c7242f42c237b8ab741886db66f6819aa7d",
-      "name": "ipnet",
-      "versionInfo": "2.12.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "d98f6fed1fde3f8c21bc40a1abb88dd75e67924f9cffc3ef95607bad8017f8e2"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:87d9feb9238c6bd8e0024fc4733b06cff036f89f36d93b7df1c8a0549bbb7a5b, LICENSE-MIT sha256:47dc9ff29128ddfb4d6a0435383c9f89120bc374dbcc1dd00b933a0b28aa7865.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-c2b6fdc57ad982012ec5ec8a4b33e4bc9287c875889a23168ac9800d3c5a5a9f",
       "name": "is_terminal_polyfill",
       "versionInfo": "1.70.2",
@@ -2266,96 +1960,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a, LICENSE-MIT sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "name": "jni",
-      "versionInfo": "0.22.4",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "5efd9a482cf3a427f00d6b35f14332adc7902ce91efb778580e180ff90fa3498"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: no retained top-level licence/copying/notice file in the checksum-verified .crate archive.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-7c6e5ebfcb4e79fc5db0085f7bdf0a228798b38291b779abeabcb33e7163cbee",
-      "name": "jni-macros",
-      "versionInfo": "0.22.4",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "a00109accc170f0bdb141fed3e393c565b6f5e072365c3bd58f5b062591560a3"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: no retained top-level licence/copying/notice file in the checksum-verified .crate archive.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-d5da196afdf4f423e27b9b9cf2ddcc5def464fe199e4d30dae2b194c3cddf98c",
-      "name": "jni-sys",
-      "versionInfo": "0.4.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "c6377a88cb3910bee9b0fa88d4f42e1d2da8e79915598f65fb0c7ee14c878af2"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08, LICENSE-MIT sha256:1d85bd754b04ceec93e98e890edd1fa3c6a22e81bcb32135806beeccefa51cd1.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-f076bdf41a2e1ff18751d44e49b3a3279dc33720c169d5178e4b6cf770597896",
-      "name": "jni-sys-macros",
-      "versionInfo": "0.4.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "38c0b942f458fe50cdac086d2f946512305e5631e720728f2a61aabcd47a6264"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: no retained top-level licence/copying/notice file in the checksum-verified .crate archive.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-ee24a6c8e081695cdfce47073d9d42b025c6e620afb4932616fc871d07560192",
-      "name": "jobserver",
-      "versionInfo": "0.1.34",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "9afb3de4395d6b3e67a780b6de64b51c978ecf11cb9a462c66be7d4ca9039d33"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -2918,24 +2522,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-dac889d5f2af0fb36388be250891fdbeb4359565f7d9f34b66f2a230d3ffc4b2",
-      "name": "openssl-probe",
-      "versionInfo": "0.2.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-92f39d81d2f0d5e7b428818769ce5c7d303901a90abc2159edd3f493b759d5ed",
       "name": "outref",
       "versionInfo": "0.5.2",
@@ -3386,42 +2972,6 @@
       "sourceInfo": "AutoCAD-MCP workspace package."
     },
     {
-      "SPDXID": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "name": "reqwest",
-      "versionInfo": "0.13.4",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "219c5811de6525e5416c7d5d53bb656d3afdbc6c5af816e0802bcfa42dbdc1c3"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:751963a8b88c0e3a9f27e98933079fbcf09b9998b2c13ac49c2e4d58444520d6, LICENSE-MIT sha256:dd87e27dfbaa888cb77ea34592648a7743636b8dce07e49543bddda0fcfc73bc.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd",
-      "name": "ring",
-      "versionInfo": "0.17.14",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "a4689e6c2294d81e88dc6261c768b63bc4fcdb852be6d1352498b114f61383b7"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "Apache-2.0 AND ISC",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0 AND ISC. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:b3d734001a94efff3579978d953391aa7115f877657d25eb54037a43875d078a, LICENSE-BoringSSL sha256:005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d, LICENSE-other-bits sha256:f025ccfb7dfb6bdfedc75ca0f67acc69e6fb4998143d834f7c2f38a29989680f.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-ae82542544953e2130d143f49534d744d021490f5f0c364a969504bb65c4551d",
       "name": "rmcp",
       "versionInfo": "1.7.0",
@@ -3490,114 +3040,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "licenseComments": "Cargo manifest licence metadata: Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-Apache-2.0_WITH_LLVM-exception sha256:268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5, LICENSE-MIT sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba",
-      "name": "rustls",
-      "versionInfo": "0.23.40",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "ef86cd5876211988985292b91c96a8f2d298df24e75989a43a3c73f2d4d8168b"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "Apache-2.0 OR ISC OR MIT",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0 OR ISC OR MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-ISC sha256:7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4, LICENSE-MIT sha256:709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-e6b62949c63a7e8f1fffbc5c3d912cb59dc5a849b108b2da5218e1ec9f20fbda",
-      "name": "rustls-native-certs",
-      "versionInfo": "0.8.4",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "dab5152771c58876a2146916e53e35057e1a4dfa2b9df0f0305b07f611fdea4d"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "Apache-2.0 OR ISC OR MIT",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0 OR ISC OR MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:d75967ce788187f83c3bd3328210974acfc443d4dc44909f1d7e34f21623a0c6, LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-ISC sha256:7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4, LICENSE-MIT sha256:709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-280bde4e807bd4559c3f9f900dbc65176502494970ab80dad3e7b36542601d3a",
-      "name": "rustls-pki-types",
-      "versionInfo": "1.14.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "30a7197ae7eb376e574fe940d068c30fe0462554a3ddbe4eca7838e049c937a9"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:45fd05c4865e7c350b98ad7ac50e1b15462d49af4a91e9b0c9dd933dc9a69742, LICENSE-MIT sha256:9117d922e667125508dde62b02c1f57ed22f5ad21eb536aa2e2d99e1c796e639.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "name": "rustls-platform-verifier",
-      "versionInfo": "0.7.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "26d1e2536ce4f35f4846aa13bff16bd0ff40157cdb14cc056c7b14ba41233ba0"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4, LICENSE-MIT sha256:1c7cf76689c837a68ed8d704994e52a0f2940c087958f860d17f3186afbdcc0c.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-a90c35e9eff424270554e1e82c786087ddc16405b08d29cca9fd6086f9355791",
-      "name": "rustls-platform-verifier-android",
-      "versionInfo": "0.1.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: no retained top-level licence/copying/notice file in the checksum-verified .crate archive.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-8fe82fc650f5644c8bdd1813ed31ddd387130300459e53c729dc4fd4647448a2",
-      "name": "rustls-webpki",
-      "versionInfo": "0.103.13",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "ISC",
-      "licenseComments": "Cargo manifest licence metadata: ISC. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:5b698ca13897be3afdb7174256fa1574f8c6892b8bea1a66dd6469d3fe27885a.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -3692,24 +3134,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-7e21c5551e4b559ef9a64fe0ce08c2e965a183549e2489e7dbed9feb41ace9fc",
-      "name": "schannel",
-      "versionInfo": "0.1.29",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "91c1b7e4904c873ef0710c1f407dde2e6287de2bebc1bbbf7d430bb7cbffd939"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE.md sha256:aa72991ac35b4de0034da0afe943e62b48c4092fc2ba13ae47806d8e9a4ad551.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-d7b140186b34a07939e7917acdc0130b3ac65ecdc84611938daf8abee32f6c1b",
       "name": "schemars",
       "versionInfo": "1.2.1",
@@ -3760,42 +3184,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:fb77f0a9c53e473abe5103c8632ef9f0f2874d4fb3f17cb2d8c661aab9cee9d7.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d",
-      "name": "security-framework",
-      "versionInfo": "3.7.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "b7f4bc775c73d9a02cde8bf7b2ec4c9d12743edf609006c7facc23998404cd1d"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:91e934255ba3b2f21103d68c5581c23ef34aa95c4628e4405b8c901935e11c69.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-7f6cc0dc5cd45bcf07352ce366bd406a77a7eadd2f0c1ac88a2df6d65c1905ea",
-      "name": "security-framework-sys",
-      "versionInfo": "2.17.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:91e934255ba3b2f21103d68c5581c23ef34aa95c4628e4405b8c901935e11c69.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -4088,42 +3476,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-1dd26c9bf0b31462205194275271ab3b481a6de92c86d6b0f956233b3dd7822b",
-      "name": "simd_cesu8",
-      "versionInfo": "1.1.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "94f90157bb87cddf702797c5dadfa0be7d266cdf49e22da2fcaa32eff75b2c33"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "Apache-2.0 OR MIT",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0 OR MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-34f33b4c47bcbe27dd65a2329b3b12096ed643a6bab217e56d921655b6de1c8f",
-      "name": "simdutf8",
-      "versionInfo": "0.1.5",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-Apache sha256:0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9, LICENSE-MIT sha256:1847e0e0698142ed4347c1441a9fa81c8fbddd44b1d8bbcd5e3647f991759d7f.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-7f652d08f98260c30da9a080c3f277826db06ca338f50a400db97a33330991e4",
       "name": "slab",
       "versionInfo": "0.4.12",
@@ -4264,24 +3616,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a, LICENSE-MIT sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-4cc815bddc14d1fe11451eddda6b782dbb95a5f12cc153a62e496b40074d2a7e",
-      "name": "sync_wrapper",
-      "versionInfo": "1.0.2",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -4466,24 +3800,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-7b235b88efec2f5fc9fdc5e1fd933f63df9bf0f2196d2bbf6b6f142bc652465d",
-      "name": "tokio-rustls",
-      "versionInfo": "0.26.4",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:cc117d90b498b32b11a886f279b359da16a73c3b01efbb2f5cc004b20262334e, LICENSE-MIT sha256:e20fa2b8e0a2565f24a792b94b4bf4b6c2b9d36f781d8a9516e218a036e6677a.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-8cf7e80e986352b05bb06702c7c56671337400c2d244bd85dd790082a93d2615",
       "name": "tokio-util",
       "versionInfo": "0.7.18",
@@ -4516,42 +3832,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT",
       "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "name": "tower",
-      "versionInfo": "0.5.3",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "ebe5ef63511595f1344e2d5cfa636d973292adc0eec1f0ad45fae9f0851ab1d4"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "name": "tower-http",
-      "versionInfo": "0.6.11",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:5049cf464977eff4b4fcfa7988d84e74116956a3eb9d5f1d451b3f828f945233.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -4718,24 +3998,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-4791016c68921676c9d49c4ac9701c3e9071cc8db50c60a41d17b7686dc0e0e9",
-      "name": "try-lock",
-      "versionInfo": "0.2.5",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:c816a0749cdc6bf062a5111c159723de51b2bfac66a1dac2655abd9e6b1583eb.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-fb4c6a74bbf00a913c4c208029ddbf2e30211ecaa3a97c41de3e8c3ace0b4989",
       "name": "typenum",
       "versionInfo": "1.20.1",
@@ -4804,24 +4066,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT",
       "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-MIT sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-e69d0222acdbc35afb0389eb950dfc40e4d6cbbd66713ab641c023fee07edfba",
-      "name": "untrusted",
-      "versionInfo": "0.9.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "ISC",
-      "licenseComments": "Cargo manifest licence metadata: ISC. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE.txt sha256:7abd9b6960dcf7d4d0a48606a5b71bfe37d472db68d70637f3a58a56785f1621.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -4970,24 +4214,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-b580b20ef3972180fff4418d8b9801aee5ea5e0a9883c1b5218dcd9c1ff0235d",
-      "name": "want",
-      "versionInfo": "0.3.1",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT",
-      "licenseComments": "Cargo manifest licence metadata: MIT. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:a65f5d0a945d267751344c95665945b90c030ea107faf5c85d518929886187da.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-4b03d06a6e68987f681625dd2d790e050b7bed40d0f035cddc10438a1ea7ec5a",
       "name": "wasi",
       "versionInfo": "0.11.1+wasi-snapshot-preview1",
@@ -5033,24 +4259,6 @@
         {
           "algorithm": "SHA256",
           "checksumValue": "8ddb3f79143bced6de84270411622a2699cee572fc0875aeaf1e7867cf9fca1a"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-fa94cdd6e88d073525a75d670e468c9b1a687fb7f25c1a949b0208372f067da3",
-      "name": "wasm-bindgen-futures",
-      "versionInfo": "0.4.75",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "503b14d284f2c8dac03b819967e155ea753f573586193b2b2c95990cb5d69280"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -5110,42 +4318,6 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-445cc2da4546af8f99c0a3d875cce18652cf0e28f90fdf00701c5a75fa91e19d",
-      "name": "web-sys",
-      "versionInfo": "0.3.102",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "a6430a72df5eb332242960fe84b3002a241163998241eb596d4f739b9757061d"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-412583411a03f95e5aa4f68252ca9fe1b184ea5675b7bf82b2eae2d660e15962",
-      "name": "webpki-root-certs",
-      "versionInfo": "1.0.8",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "0d46a5a140e6f7afeccd8eae97eff335163939eac8b929834875168b29b3d267"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "CDLA-Permissive-2.0",
-      "licenseComments": "Cargo manifest licence metadata: CDLA-Permissive-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE sha256:e271993808fec50ab29350b39539cdec611a9103f827e0aa26d61da70e2d33f8.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -5294,24 +4466,6 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
-      "SPDXID": "SPDXRef-Package-a0c82ddc6dfab163395e9ceec3add235fc1a9ed6a580e992e8078da60f33b249",
-      "name": "windows-sys",
-      "versionInfo": "0.52.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
       "SPDXID": "SPDXRef-Package-3e20b48cc7f80ce7cc6dba229b50207497d767c02ad3fc8573f82e4e50b5a519",
       "name": "windows-sys",
       "versionInfo": "0.61.2",
@@ -5321,168 +4475,6 @@
         {
           "algorithm": "SHA256",
           "checksumValue": "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "name": "windows-targets",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "9b724f72796e036ab90c1021d4780d4d3d648aca59e491e6b98e725b84e99973"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-e09a508aaa12f410ea3f617a4ace23eda0272fe39312aefd95bcf05d0de468ba",
-      "name": "windows_aarch64_gnullvm",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "32a4622180e7a0ec044bb555404c800bc9fd9ec262ec147edd5989ccd0c02cd3"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-57986bf991be9cb3d6400a4a0629065b653746d4edf7f7a8ffa857577372aea5",
-      "name": "windows_aarch64_msvc",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "09ec2a7bb152e2252b53fa7803150007879548bc709c039df7627cabbd05d469"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-dd888222004f7ab0cccaadb7c42f394131e1b8efa208498cc42fc8e00671a7af",
-      "name": "windows_i686_gnu",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "8e9b5ad5ab802e97eb8e295ac6720e509ee4c243f69d781394014ebfe8bbfa0b"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-e81c2756a6d94c5760d16a07d26897f5b3dbd41459cf1b0fe80c1716f44f0b6b",
-      "name": "windows_i686_gnullvm",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "0eee52d38c090b3caa76c563b86c3a4bd71ef1a819287c19d586d7334ae8ed66"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-4420890de2ae2c90f05754bcf79f6d5370307307f6ba0da52539b0f3e2c2a135",
-      "name": "windows_i686_msvc",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "240948bc05c5e7c6dabba28bf89d89ffce3e303022809e73deaefe4f6ec56c66"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-56b883d231eca1df38994d5a1dec7f1f97281834853036761bfd32bf990c8b00",
-      "name": "windows_x86_64_gnu",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "147a5c80aabfbf0c7d901cb5895d1de30ef2907eb21fbbab29ca94c5b08b1a78"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-7865a69f63fac660367b44c0e6dfe83b29f16e66771069a3576d61cf663ad9b1",
-      "name": "windows_x86_64_gnullvm",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
-        }
-      ],
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: license-apache-2.0 sha256:c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b, license-mit sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.",
-      "copyrightText": "NOASSERTION",
-      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
-    },
-    {
-      "SPDXID": "SPDXRef-Package-3f32849fff5d9d3c8730512be211155bbb7a95aad5016bda3aa117036139f7e6",
-      "name": "windows_x86_64_msvc",
-      "versionInfo": "0.52.6",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
         }
       ],
       "licenseConcluded": "NOASSERTION",
@@ -5776,41 +4768,6 @@
   ],
   "relationships": [
     {
-      "spdxElementId": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-37ca213076933b2050bc7efb49af38b465b58dbf23b11b5072f76ae848ce1e4b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3d5c84913ea75315baf9c850cb4e5b47f86d31f596cf8548ecc161937b275a18"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4cc815bddc14d1fe11451eddda6b782dbb95a5f12cc153a62e496b40074d2a7e"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-83cbee9e217211d8c6dce2d8e202652b5f0981a4d945891e7a781e93c41c1c04"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8d73dc9a310b4cce7b86ed704f79c9422bbda00def68dafdff80a817baa7c0c2"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f82045715addfbdebb2cb2b05c7117c575a2980ef16afdc592225d28be4d8c3d"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-017e3a3972df9c0b14e1ce25a865d21c8066d0f55b7559298c54e1db4566eb78",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-1d1e44e3e76b927afb4f2e144ca66deac9b8f948fa5da7ba277d8b568324afbe"
@@ -6036,16 +4993,6 @@
       "relatedSpdxElement": "SPDXRef-Package-8d24d430ccc8c3bf788f2cb357eef2e52058242c3d37b2a910ed10d13d46d1e5"
     },
     {
-      "spdxElementId": "SPDXRef-Package-1ab0ecd024f9ff8551385476e9d63e25a2456f5647bd4d52f1094dc0a0bd7a28",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1ab0ecd024f9ff8551385476e9d63e25a2456f5647bd4d52f1094dc0a0bd7a28",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-d377e1c9f4076f2a46d8ef7f456b9de749ee28ce7508036aeb3e0fd1e57bd5ee"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-1ab17d138c28ccc9405a29de36fe80de97f2f7cd6e07894eb1412729900f236c",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-4ea429cf42452da755190a49940afa0b1b03c00cc03a4d42b928429ecb1279ef"
@@ -6156,61 +5103,6 @@
       "relatedSpdxElement": "SPDXRef-Package-8d3f851436389c99414d52772e8ac548dffef5bd01e5754dce775517cfef8729"
     },
     {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-0a8deacd6e9244ac1e5dd9767dfcf709c06eb7044f35509b9a274168554e4431"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-33c88ea319858fa5ae0aca7a479bdea37acad605e15201300013e838a5a8751f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-37ca213076933b2050bc7efb49af38b465b58dbf23b11b5072f76ae848ce1e4b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4a9b9687914b3ee22ecd68b95ec85c7c57bff0ddc2e107177e5b4f3b883d389b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-69d3e273886da5e254af64088d03ff5e20b1332e68352cdb17fcafa826132c3d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7f652d08f98260c30da9a080c3f277826db06ca338f50a400db97a33330991e4"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8cf7e80e986352b05bb06702c7c56671337400c2d244bd85dd790082a93d2615"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-ceb342c7006eb59ed39fabc6a1192d6522bca176fcf64b435fbec3975ffc647d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-1c68039e4b10b3703dff1cfaa68076ba92c58da01e8c3b96c14de21b8de79efa",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-4ea429cf42452da755190a49940afa0b1b03c00cc03a4d42b928429ecb1279ef"
@@ -6234,16 +5126,6 @@
       "spdxElementId": "SPDXRef-Package-1d7bfee1d8618f3e1ecf4aa879caa910e125a17bb66cc75e30676c3b0b87d91a",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-996c0ca7406d139675c7b6943f284c02166205a6d1cb34887259e6c87c3cdcd9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1dd26c9bf0b31462205194275271ab3b481a6de92c86d6b0f956233b3dd7822b",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-2a0fe388f972de8b27a9635205223220f41ac1993f18532dd30c4449bbef29c1"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-1dd26c9bf0b31462205194275271ab3b481a6de92c86d6b0f956233b3dd7822b",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-34f33b4c47bcbe27dd65a2329b3b12096ed643a6bab217e56d921655b6de1c8f"
     },
     {
       "spdxElementId": "SPDXRef-Package-1e97d029d5783b58abfdb47608424b09da45454d6c08d2bfe4bb082719c41825",
@@ -6316,11 +5198,6 @@
       "relatedSpdxElement": "SPDXRef-Package-e3e4551374d62a8f36e24060c6f2313a4e0a52b9aeadaabd5f3243a1e100065e"
     },
     {
-      "spdxElementId": "SPDXRef-Package-280bde4e807bd4559c3f9f900dbc65176502494970ab80dad3e7b36542601d3a",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-367c42217ee07d2edc2cb93b86d4326ff48c2e039081932b25c2fda2c9ea6f03"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-284eeb506de8308f496e41df412fa863087892330774a9ec4a85beab4b934630",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-103137c3daf0e272c4b32094353ba26e8834ea3e38d5d5725155d8617b2e5264"
@@ -6361,16 +5238,6 @@
       "relatedSpdxElement": "SPDXRef-Package-fb4c6a74bbf00a913c4c208029ddbf2e30211ecaa3a97c41de3e8c3ace0b4989"
     },
     {
-      "spdxElementId": "SPDXRef-Package-28796d48a2cecefef4bdb4a952b1d7c1a175371c7b266b248d3c2ee769cdcea1",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-2b52141fd3bddd18b0676b5c08362f60fb10075cfd8b72f3f4064c1d4f1890cb"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-28796d48a2cecefef4bdb4a952b1d7c1a175371c7b266b248d3c2ee769cdcea1",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-367c42217ee07d2edc2cb93b86d4326ff48c2e039081932b25c2fda2c9ea6f03"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-2901edbb4d515418741965594b7b0d453c54a0a22c6c9f64270f6c535595ff84",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-8d24d430ccc8c3bf788f2cb357eef2e52058242c3d37b2a910ed10d13d46d1e5"
@@ -6379,26 +5246,6 @@
       "spdxElementId": "SPDXRef-Package-2a0fe388f972de8b27a9635205223220f41ac1993f18532dd30c4449bbef29c1",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-50e5075ead076e40dfada3812ffcb088855c1238af27c163c595a175a4044949"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-2b52141fd3bddd18b0676b5c08362f60fb10075cfd8b72f3f4064c1d4f1890cb",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-03bf456dc8e5cdc117a5abb88f9208a1c6ba72d50419d01c53807eaf2aaa4ab3"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-2b52141fd3bddd18b0676b5c08362f60fb10075cfd8b72f3f4064c1d4f1890cb",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-cb6320c96ab62231e62acfb9b379695513a602cb3e678de4873319a977026107"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-2b52141fd3bddd18b0676b5c08362f60fb10075cfd8b72f3f4064c1d4f1890cb",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-ef9677ceff163a7b66bbe151c0e675763bf51c5f11e8c11beda1b006e42299bd"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-2b52141fd3bddd18b0676b5c08362f60fb10075cfd8b72f3f4064c1d4f1890cb",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f8f91edb624485b9742d637bf87f10d4ed5a873677c03deb8b977728a2d7b240"
     },
     {
       "spdxElementId": "SPDXRef-Package-2d081e251313c0569a1a176c24a97e06f77afdf4cb72ff433537671750b598d7",
@@ -6776,11 +5623,6 @@
       "relatedSpdxElement": "SPDXRef-Package-b3d2a43af8fd25f8943c0343c6fc92866a083c8a5a30205384c66c06aadd418b"
     },
     {
-      "spdxElementId": "SPDXRef-Package-412583411a03f95e5aa4f68252ca9fe1b184ea5675b7bf82b2eae2d660e15962",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-280bde4e807bd4559c3f9f900dbc65176502494970ab80dad3e7b36542601d3a"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-43721fe8cd357cd1a111b25a5ab8a023c85980baad773de7c76a01f41404d169",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-1e97d029d5783b58abfdb47608424b09da45454d6c08d2bfe4bb082719c41825"
@@ -6809,16 +5651,6 @@
       "spdxElementId": "SPDXRef-Package-43721fe8cd357cd1a111b25a5ab8a023c85980baad773de7c76a01f41404d169",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-f82045715addfbdebb2cb2b05c7117c575a2980ef16afdc592225d28be4d8c3d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-445cc2da4546af8f99c0a3d875cce18652cf0e28f90fdf00701c5a75fa91e19d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-0cf0f167bd26e3704f31a710a059409c246271e9fe860f02a8ec641243e8a01f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-445cc2da4546af8f99c0a3d875cce18652cf0e28f90fdf00701c5a75fa91e19d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-411cf344cebb36fc79adcb494e9e2ab69e960062e38cba063cfa95ad1b73a706"
     },
     {
       "spdxElementId": "SPDXRef-Package-4470904e59dc4b04a4dca38c4f22d8bc23ccfdf29b4b3dc8d48259fe74368f4c",
@@ -6886,11 +5718,6 @@
       "relatedSpdxElement": "SPDXRef-Package-3e20b48cc7f80ce7cc6dba229b50207497d767c02ad3fc8573f82e4e50b5a519"
     },
     {
-      "spdxElementId": "SPDXRef-Package-4cc815bddc14d1fe11451eddda6b782dbb95a5f12cc153a62e496b40074d2a7e",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-4d199fd032080caed8d8a45f7bd19b7730b038c62814e937fe1aa2c5daeb8296",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-34e1cea848535e4fc288c79b99b169b48f22697f382922526dc9e35e97d1fe1d"
@@ -6943,11 +5770,6 @@
     {
       "spdxElementId": "SPDXRef-Package-4d5101861bf7d9bca2b189db3e1a3653a8d42ef7c792aa6099bed0f5918d5260",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-4d5101861bf7d9bca2b189db3e1a3653a8d42ef7c792aa6099bed0f5918d5260",
-      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-6f3b73f6937e8ff6d6e9dc69f0e7a9801447068ed54ffef9745fb85f60faa071"
     },
     {
@@ -6979,11 +5801,6 @@
       "spdxElementId": "SPDXRef-Package-4d5101861bf7d9bca2b189db3e1a3653a8d42ef7c792aa6099bed0f5918d5260",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-ba32ff5283b5172e81aae69e9a42aa6ea72a7cbec41c4f0a86c1247bdca259eb"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-4d5101861bf7d9bca2b189db3e1a3653a8d42ef7c792aa6099bed0f5918d5260",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6"
     },
     {
       "spdxElementId": "SPDXRef-Package-4d5101861bf7d9bca2b189db3e1a3653a8d42ef7c792aa6099bed0f5918d5260",
@@ -7049,71 +5866,6 @@
       "spdxElementId": "SPDXRef-Package-50a7c3c3b185d122015872932cd2cee3898615f4fd2463a35b4d55828c3e37d0",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-dee43904dff55133cff987605c8dbfdec3c9e13673bc4e2e6e4b658f6a2cacec"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-33c88ea319858fa5ae0aca7a479bdea37acad605e15201300013e838a5a8751f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-37ca213076933b2050bc7efb49af38b465b58dbf23b11b5072f76ae848ce1e4b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3d5c84913ea75315baf9c850cb4e5b47f86d31f596cf8548ecc161937b275a18"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-44cf16a00264b6c7b733ece828cd79192d82e8f2df77475424444ef949b0acfb"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-90d6f93837c24b6974212df7f617615256a4878b752bac983ce1977376e926dc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-9f7a5f5c249eae1893cca314374fce551911e409ebb807109c5cca74c264f922"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-ae3e639bc18849e42d2efe2c0ecd40e8a72b219e56c4a4cb0d4dbcb937fdbc3f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-b580b20ef3972180fff4418d8b9801aee5ea5e0a9883c1b5218dcd9c1ff0235d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
     },
     {
       "spdxElementId": "SPDXRef-Package-51b74aa88c385fb858834fa5f4c4e0f309f5404a0d36eb36764811d92bd79a09",
@@ -7396,56 +6148,6 @@
       "relatedSpdxElement": "SPDXRef-Package-4cb49aa39feae69dd7fcd63e0345bce9e75f7155e457be2913661eb08e40ebe9"
     },
     {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-1a7d25815b45fbde5e4e5e05ed67a8af97d66f800e81187ac91fbde8ce5c5c00"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-2141956ac890887747cd0a0065a65ca2e94fa238850348d1d518814be278e327"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3d5c84913ea75315baf9c850cb4e5b47f86d31f596cf8548ecc161937b275a18"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-83cbee9e217211d8c6dce2d8e202652b5f0981a4d945891e7a781e93c41c1c04"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8d73dc9a310b4cce7b86ed704f79c9422bbda00def68dafdff80a817baa7c0c2"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f82045715addfbdebb2cb2b05c7117c575a2980ef16afdc592225d28be4d8c3d"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-63a4b6dfb063550250dccef2688740bd43eaf2d7a038b4a7089e3ebf8c4f4bea",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-1b81fb40810aa3b06fbca997a83df6e667cd65e92bc00379d49924a695cfc5eb"
@@ -7474,41 +6176,6 @@
       "spdxElementId": "SPDXRef-Package-671b42545efd467d85b1adb5787518b241b336e592d8617cbab59c8c09de56c3",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-881cd31a0a5f6fbf81a224e8b67f5eef2cb82fef6047d46498552a6e73ef56d5"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-37ca213076933b2050bc7efb49af38b465b58dbf23b11b5072f76ae848ce1e4b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7b235b88efec2f5fc9fdc5e1fd933f63df9bf0f2196d2bbf6b6f142bc652465d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f82045715addfbdebb2cb2b05c7117c575a2980ef16afdc592225d28be4d8c3d"
     },
     {
       "spdxElementId": "SPDXRef-Package-694b8b6c3f2b7c5b870704ad1e5387765617829f849d99a9503bd832c2639210",
@@ -7544,36 +6211,6 @@
       "spdxElementId": "SPDXRef-Package-6bca747ef1385cb23a70a2e3b79dcf9ca1b2be617787ba56fc8c6ed5efee65f2",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-5d25e1719f4b497e7fde04193261090965d87f27d13d21d3b7dc34e3d5dbc85d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-124c12898b44b3eb6800d5370c2913b7b053d9722a9ff8bee4e5bd95510066d7"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-280bde4e807bd4559c3f9f900dbc65176502494970ab80dad3e7b36542601d3a"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-28796d48a2cecefef4bdb4a952b1d7c1a175371c7b266b248d3c2ee769cdcea1"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-2ff43fd57e90a09cd8acfd85d59795148b88b0e302f9d7f9b7c8b95ba92a190c"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-367c42217ee07d2edc2cb93b86d4326ff48c2e039081932b25c2fda2c9ea6f03"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8fe82fc650f5644c8bdd1813ed31ddd387130300459e53c729dc4fd4647448a2"
     },
     {
       "spdxElementId": "SPDXRef-Package-6dae13722d0b3ac1854d7c17b6ec0ce7414bbb84b804af88f6643af95ca96c3f",
@@ -7654,16 +6291,6 @@
       "spdxElementId": "SPDXRef-Package-6f3b73f6937e8ff6d6e9dc69f0e7a9801447068ed54ffef9745fb85f60faa071",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-caf4327bd6554833f8beb1859ec90a3ba04f219ee01c3b020f70d0723fbdd37e"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6fbcf3a0027ef44a07f36e577a6f63c6bde1b21690bc73d03fdcf3a3725ef14b",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-393b49f5f7cfdc7b6cc80d39ac6f4fed5919cdd34b27dfcd53c6f9a41d56d489"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-6fbcf3a0027ef44a07f36e577a6f63c6bde1b21690bc73d03fdcf3a3725ef14b",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
     },
     {
       "spdxElementId": "SPDXRef-Package-6fc18a7398ecb2f21440ac93754cb2334f725246f3ad127214d3fd1322a308de",
@@ -7891,44 +6518,9 @@
       "relatedSpdxElement": "SPDXRef-Package-4b03d06a6e68987f681625dd2d790e050b7bed40d0f035cddc10438a1ea7ec5a"
     },
     {
-      "spdxElementId": "SPDXRef-Package-7b235b88efec2f5fc9fdc5e1fd933f63df9bf0f2196d2bbf6b6f142bc652465d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-37ca213076933b2050bc7efb49af38b465b58dbf23b11b5072f76ae848ce1e4b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7b235b88efec2f5fc9fdc5e1fd933f63df9bf0f2196d2bbf6b6f142bc652465d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-7c0b22442bea38eb57a9406fa2f02cf4a961e3b71fa26badf8b8cf674c884fd7",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-7f7df54c59f055df1dd091cab1a7a4db4e5c491f5e9be19a5a4e073e89197c2a"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7c6e5ebfcb4e79fc5db0085f7bdf0a228798b38291b779abeabcb33e7163cbee",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-1dd26c9bf0b31462205194275271ab3b481a6de92c86d6b0f956233b3dd7822b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7c6e5ebfcb4e79fc5db0085f7bdf0a228798b38291b779abeabcb33e7163cbee",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-2a0fe388f972de8b27a9635205223220f41ac1993f18532dd30c4449bbef29c1"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7c6e5ebfcb4e79fc5db0085f7bdf0a228798b38291b779abeabcb33e7163cbee",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4ea429cf42452da755190a49940afa0b1b03c00cc03a4d42b928429ecb1279ef"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7c6e5ebfcb4e79fc5db0085f7bdf0a228798b38291b779abeabcb33e7163cbee",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4f7ba78424464c157fd6ba071cf7f53ce7de7c1c7877246c123f83896fe661b2"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7c6e5ebfcb4e79fc5db0085f7bdf0a228798b38291b779abeabcb33e7163cbee",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-881cd31a0a5f6fbf81a224e8b67f5eef2cb82fef6047d46498552a6e73ef56d5"
     },
     {
       "spdxElementId": "SPDXRef-Package-7dca5146ec198624b1ec7e73272f9049a1b625dae9c5e9e2eaf81ec9d50023c0",
@@ -7941,34 +6533,9 @@
       "relatedSpdxElement": "SPDXRef-Package-2ff43fd57e90a09cd8acfd85d59795148b88b0e302f9d7f9b7c8b95ba92a190c"
     },
     {
-      "spdxElementId": "SPDXRef-Package-7e21c5551e4b559ef9a64fe0ce08c2e965a183549e2489e7dbed9feb41ace9fc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3e20b48cc7f80ce7cc6dba229b50207497d767c02ad3fc8573f82e4e50b5a519"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-7f2bdf83f538414ab72183e887a4bf2f9661e36cfdbf2fc26cfc1b2e4bcb90e6",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-996c0ca7406d139675c7b6943f284c02166205a6d1cb34887259e6c87c3cdcd9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7f6cc0dc5cd45bcf07352ce366bd406a77a7eadd2f0c1ac88a2df6d65c1905ea",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-393b49f5f7cfdc7b6cc80d39ac6f4fed5919cdd34b27dfcd53c6f9a41d56d489"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-7f6cc0dc5cd45bcf07352ce366bd406a77a7eadd2f0c1ac88a2df6d65c1905ea",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
     },
     {
       "spdxElementId": "SPDXRef-Package-7f7df54c59f055df1dd091cab1a7a4db4e5c491f5e9be19a5a4e073e89197c2a",
@@ -8321,26 +6888,6 @@
       "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
     },
     {
-      "spdxElementId": "SPDXRef-Package-8fe82fc650f5644c8bdd1813ed31ddd387130300459e53c729dc4fd4647448a2",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-280bde4e807bd4559c3f9f900dbc65176502494970ab80dad3e7b36542601d3a"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-8fe82fc650f5644c8bdd1813ed31ddd387130300459e53c729dc4fd4647448a2",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-28796d48a2cecefef4bdb4a952b1d7c1a175371c7b266b248d3c2ee769cdcea1"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-8fe82fc650f5644c8bdd1813ed31ddd387130300459e53c729dc4fd4647448a2",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e69d0222acdbc35afb0389eb950dfc40e4d6cbbd66713ab641c023fee07edfba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-8fe82fc650f5644c8bdd1813ed31ddd387130300459e53c729dc4fd4647448a2",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-908d969a967871bf4ba6301157ec33c677bd64e4457f383166cf4e04a0521225",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-4ea429cf42452da755190a49940afa0b1b03c00cc03a4d42b928429ecb1279ef"
@@ -8471,11 +7018,6 @@
       "relatedSpdxElement": "SPDXRef-Package-881cd31a0a5f6fbf81a224e8b67f5eef2cb82fef6047d46498552a6e73ef56d5"
     },
     {
-      "spdxElementId": "SPDXRef-Package-a0c82ddc6dfab163395e9ceec3add235fc1a9ed6a580e992e8078da60f33b249",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-a1df634ef5b1e5505ec7a80ba49f2e87d4553aee470ecd4db9af4e658019dd67",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-2e8370e2798e08f81d373f567f468d851d1a7f61ff3106f4a45ed25306c0d816"
@@ -8489,31 +7031,6 @@
       "spdxElementId": "SPDXRef-Package-a1df634ef5b1e5505ec7a80ba49f2e87d4553aee470ecd4db9af4e658019dd67",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-2141956ac890887747cd0a0065a65ca2e94fa238850348d1d518814be278e327"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-393b49f5f7cfdc7b6cc80d39ac6f4fed5919cdd34b27dfcd53c6f9a41d56d489"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6fbcf3a0027ef44a07f36e577a6f63c6bde1b21690bc73d03fdcf3a3725ef14b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7f6cc0dc5cd45bcf07352ce366bd406a77a7eadd2f0c1ac88a2df6d65c1905ea"
     },
     {
       "spdxElementId": "SPDXRef-Package-a25f7a1e3a46eea73803a7f29188e89b90a4a6a2b3ea57965218f494cb8ab2d0",
@@ -8646,16 +7163,6 @@
       "relatedSpdxElement": "SPDXRef-Package-f4102bd965972086d915b917415631dc49cd1f2aa5d212b199ef4fd7c29e1ae4"
     },
     {
-      "spdxElementId": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-44cf16a00264b6c7b733ece828cd79192d82e8f2df77475424444ef949b0acfb"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-ade93aac9315e49dbbde8ecd088b9c0a11570feef0c02aeadc5e1b8cc6ab55c9",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
@@ -8771,46 +7278,6 @@
       "relatedSpdxElement": "SPDXRef-Package-283f06d3aaa2304f7e08bd8667106f677c258dbfc7d148372638b69f5438d12b"
     },
     {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3f32849fff5d9d3c8730512be211155bbb7a95aad5016bda3aa117036139f7e6"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4420890de2ae2c90f05754bcf79f6d5370307307f6ba0da52539b0f3e2c2a135"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-56b883d231eca1df38994d5a1dec7f1f97281834853036761bfd32bf990c8b00"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-57986bf991be9cb3d6400a4a0629065b653746d4edf7f7a8ffa857577372aea5"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7865a69f63fac660367b44c0e6dfe83b29f16e66771069a3576d61cf663ad9b1"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-dd888222004f7ab0cccaadb7c42f394131e1b8efa208498cc42fc8e00671a7af"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e09a508aaa12f410ea3f617a4ace23eda0272fe39312aefd95bcf05d0de468ba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b18b69774198f5602dd8e006c9d61f5086b0ba20d841af7cc445a6c7a20f9807",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e81c2756a6d94c5760d16a07d26897f5b3dbd41459cf1b0fe80c1716f44f0b6b"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-b1e3235188209a63ba11dbb7f90c6e3f97fe7971df2f1a372363172750bf66cb",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-82c47d7fc3af0a64cf039ac3b23786c4f6cf9380a5d07f68a4507d51c803491b"
@@ -8824,31 +7291,6 @@
       "spdxElementId": "SPDXRef-Package-b1e3235188209a63ba11dbb7f90c6e3f97fe7971df2f1a372363172750bf66cb",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-cab2a12f19cc8872e810a22399fb8c6de167f56c3aa9ab771ab1df5875e0b6b5"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b2116b949c6348b762210b8ee89bbdec7f935d795ba0b4e5996505c163454dbf",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3d5c84913ea75315baf9c850cb4e5b47f86d31f596cf8548ecc161937b275a18"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b2116b949c6348b762210b8ee89bbdec7f935d795ba0b4e5996505c163454dbf",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b2116b949c6348b762210b8ee89bbdec7f935d795ba0b4e5996505c163454dbf",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b2116b949c6348b762210b8ee89bbdec7f935d795ba0b4e5996505c163454dbf",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b2116b949c6348b762210b8ee89bbdec7f935d795ba0b4e5996505c163454dbf",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
     },
     {
       "spdxElementId": "SPDXRef-Package-b34b24812b176daf03aa27719e9921fe57e2cd4af1b38e6853efb2c51c0095d4",
@@ -8879,76 +7321,6 @@
       "spdxElementId": "SPDXRef-Package-b3d2a43af8fd25f8943c0343c6fc92866a083c8a5a30205384c66c06aadd418b",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-c35ac527bceff4925a9dcb90afcde40b08fe112e365f66120e1cc15c71ac3a97"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b580b20ef3972180fff4418d8b9801aee5ea5e0a9883c1b5218dcd9c1ff0235d",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4791016c68921676c9d49c4ac9701c3e9071cc8db50c60a41d17b7686dc0e0e9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-2ff43fd57e90a09cd8acfd85d59795148b88b0e302f9d7f9b7c8b95ba92a190c"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-393b49f5f7cfdc7b6cc80d39ac6f4fed5919cdd34b27dfcd53c6f9a41d56d489"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3e20b48cc7f80ce7cc6dba229b50207497d767c02ad3fc8573f82e4e50b5a519"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-412583411a03f95e5aa4f68252ca9fe1b184ea5675b7bf82b2eae2d660e15962"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6fbcf3a0027ef44a07f36e577a6f63c6bde1b21690bc73d03fdcf3a3725ef14b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7f6cc0dc5cd45bcf07352ce366bd406a77a7eadd2f0c1ac88a2df6d65c1905ea"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8fe82fc650f5644c8bdd1813ed31ddd387130300459e53c729dc4fd4647448a2"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a90c35e9eff424270554e1e82c786087ddc16405b08d29cca9fd6086f9355791"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-b5c85dfa4c4e382c521d0926735a2eccac715f61990f647a77541ca35937014e"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e6b62949c63a7e8f1fffbc5c3d912cb59dc5a849b108b2da5218e1ec9f20fbda"
     },
     {
       "spdxElementId": "SPDXRef-Package-b79fa9096f0121acc4ce46b096f0d3e8df673f0df5d7a0321d25c8c3313f4142",
@@ -9004,161 +7376,6 @@
       "spdxElementId": "SPDXRef-Package-bc4838b021b39f5661dab26ef475c2a10b1179141dc6fc522aa2a06fa61d007b",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-cab2a12f19cc8872e810a22399fb8c6de167f56c3aa9ab771ab1df5875e0b6b5"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-00fafcb2de4df6a7a147b33fd09443ffddd323219b6c97dcd8abd32d8ff10112"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-0cf0f167bd26e3704f31a710a059409c246271e9fe860f02a8ec641243e8a01f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-1a7d25815b45fbde5e4e5e05ed67a8af97d66f800e81187ac91fbde8ce5c5c00"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-1c3b510a255b456567da9c4663a0a81c56ab314f8c37de726067ebfba58167fc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-280bde4e807bd4559c3f9f900dbc65176502494970ab80dad3e7b36542601d3a"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-34e1cea848535e4fc288c79b99b169b48f22697f382922526dc9e35e97d1fe1d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-37ca213076933b2050bc7efb49af38b465b58dbf23b11b5072f76ae848ce1e4b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3d5c84913ea75315baf9c850cb4e5b47f86d31f596cf8548ecc161937b275a18"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-411cf344cebb36fc79adcb494e9e2ab69e960062e38cba063cfa95ad1b73a706"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-445cc2da4546af8f99c0a3d875cce18652cf0e28f90fdf00701c5a75fa91e19d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4cc815bddc14d1fe11451eddda6b782dbb95a5f12cc153a62e496b40074d2a7e"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6391746c472550b77ee0128e785b3085c200f2177049aabcf690cea4266efade"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-682cfbd41d2ecbb1170df5b0e65fced11941f68ca36eef3c0da8419aba7029f8"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-6d3d91ab0340143f13a134b4de64d7a2f9cf48119d5828ce86096a93666edcba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7b235b88efec2f5fc9fdc5e1fd933f63df9bf0f2196d2bbf6b6f142bc652465d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-82c47d7fc3af0a64cf039ac3b23786c4f6cf9380a5d07f68a4507d51c803491b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8d73dc9a310b4cce7b86ed704f79c9422bbda00def68dafdff80a817baa7c0c2"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-ae3e639bc18849e42d2efe2c0ecd40e8a72b219e56c4a4cb0d4dbcb937fdbc3f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-b2116b949c6348b762210b8ee89bbdec7f935d795ba0b4e5996505c163454dbf"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-b5c85dfa4c4e382c521d0926735a2eccac715f61990f647a77541ca35937014e"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-b5d313801930a1e4f3c227231470b4ee73d6b7b05fd0b0b5fa6b9e9a1f07babe"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-cab2a12f19cc8872e810a22399fb8c6de167f56c3aa9ab771ab1df5875e0b6b5"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e3a007c3d982ae34948e5afaf6c6c0d93dc03cdaed76aa34c6de8bb22fa84ed9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f82045715addfbdebb2cb2b05c7117c575a2980ef16afdc592225d28be4d8c3d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f82aa68d2a3fcc69e406ed9776887a304287f00f97c2bf28c8ad28a8dc5fdeba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-bd4291652e50b4636eadc4f0aa2e665e3ef3ec487591e643ac092dad435f28f6",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-fa94cdd6e88d073525a75d670e468c9b1a687fb7f25c1a949b0208372f067da3"
     },
     {
       "spdxElementId": "SPDXRef-Package-be13190b502a471c13b9d19b3de883bd8df2ce59c0647bee1f79fbd36d3e78c1",
@@ -9401,11 +7618,6 @@
       "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
     },
     {
-      "spdxElementId": "SPDXRef-Package-cb6320c96ab62231e62acfb9b379695513a602cb3e678de4873319a977026107",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f8f91edb624485b9742d637bf87f10d4ed5a873677c03deb8b977728a2d7b240"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-ccc35675b37864a7b4793e1d36a0ae539243dfecda697128f141663ff3bc1287",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-130ec320e51ed7c366c24c909c227797f31ec6a016ac64b4553aa4aab5a2a576"
@@ -9476,81 +7688,6 @@
       "relatedSpdxElement": "SPDXRef-Package-d377e1c9f4076f2a46d8ef7f456b9de749ee28ce7508036aeb3e0fd1e57bd5ee"
     },
     {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-14cf74610b4a7101425e1349300d5c7242f42c237b8ab741886db66f6819aa7d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-34e1cea848535e4fc288c79b99b169b48f22697f382922526dc9e35e97d1fe1d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-37ca213076933b2050bc7efb49af38b465b58dbf23b11b5072f76ae848ce1e4b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-3d5c84913ea75315baf9c850cb4e5b47f86d31f596cf8548ecc161937b275a18"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-51ab593209b961910f96b5f878c4ee1f61e7acccb66b923effe803262ca5b2e6"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-69d3e273886da5e254af64088d03ff5e20b1332e68352cdb17fcafa826132c3d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7e2e278dd33c427339ae43ca07766ca0f6ab0b995e4d7354d521815d2f30d467"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8181403980d49452bb055e6636f4826a464152905d1d84ceba1661ebb0052a9a"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-8d73dc9a310b4cce7b86ed704f79c9422bbda00def68dafdff80a817baa7c0c2"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a821d57c42deb10c8ab7da4e605767902ee4ee54a2efcf52b1da5e82b8fe874d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-adb31ad075bd39c2e635653a2e48bcd06fa357c3653ea347625bfcd525c428cc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-ae3e639bc18849e42d2efe2c0ecd40e8a72b219e56c4a4cb0d4dbcb937fdbc3f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f82045715addfbdebb2cb2b05c7117c575a2980ef16afdc592225d28be4d8c3d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d53d185afcf257ebbe4423b30b5b88052d9f3f36ebf14b2bc76487c7b28f6a48",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f82aa68d2a3fcc69e406ed9776887a304287f00f97c2bf28c8ad28a8dc5fdeba"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-d545f2a88bea70650829cef032b56769895f7ce4ff75d46738b41eb0fa86fd03",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-2ff43fd57e90a09cd8acfd85d59795148b88b0e302f9d7f9b7c8b95ba92a190c"
@@ -9574,11 +7711,6 @@
       "spdxElementId": "SPDXRef-Package-d5d1fe332bf64f9ed797d4c495f0ea723d10d3ca6719730382ac3bcae44988e8",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-e6195c8a31e13106d8872b9ae9a9147a23288fb7e60af15cbe84b349d65fe939"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-d5da196afdf4f423e27b9b9cf2ddcc5def464fe199e4d30dae2b194c3cddf98c",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f076bdf41a2e1ff18751d44e49b3a3279dc33720c169d5178e4b6cf770597896"
     },
     {
       "spdxElementId": "SPDXRef-Package-d75c18c22c0ba3670bd32280ef189aea55237a6bb15d493e83f828d54f9ef7f3",
@@ -9686,71 +7818,6 @@
       "relatedSpdxElement": "SPDXRef-Package-881cd31a0a5f6fbf81a224e8b67f5eef2cb82fef6047d46498552a6e73ef56d5"
     },
     {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-0d1632f5eb2b11430e94891276edf28a1739a90931d05cdb6249a46eb614fa88"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-1ab0ecd024f9ff8551385476e9d63e25a2456f5647bd4d52f1094dc0a0bd7a28"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-1dd26c9bf0b31462205194275271ab3b481a6de92c86d6b0f956233b3dd7822b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-283f06d3aaa2304f7e08bd8667106f677c258dbfc7d148372638b69f5438d12b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7c6e5ebfcb4e79fc5db0085f7bdf0a228798b38291b779abeabcb33e7163cbee"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-b5c85dfa4c4e382c521d0926735a2eccac715f61990f647a77541ca35937014e"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-c4c2d9e5a9ce7fd080a77ab24dd4c4b2b70c49b9de6f44dae17c061d34a2761f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-d5da196afdf4f423e27b9b9cf2ddcc5def464fe199e4d30dae2b194c3cddf98c"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6a6fd88b0c4cbdbb984a5ff991d79c716e2a2d2ac21f41b666a03be14f1c5e4",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f1d9b202281f173023482286808e43e1e7f1eeeaad0b4e4d956a36866a5b9605"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6b62949c63a7e8f1fffbc5c3d912cb59dc5a849b108b2da5218e1ec9f20fbda",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-280bde4e807bd4559c3f9f900dbc65176502494970ab80dad3e7b36542601d3a"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6b62949c63a7e8f1fffbc5c3d912cb59dc5a849b108b2da5218e1ec9f20fbda",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7e21c5551e4b559ef9a64fe0ce08c2e965a183549e2489e7dbed9feb41ace9fc"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6b62949c63a7e8f1fffbc5c3d912cb59dc5a849b108b2da5218e1ec9f20fbda",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a21205df6530c152a7df18c7bd5184cf940675d7c4b0e6bf766a32bc8c74457d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-e6b62949c63a7e8f1fffbc5c3d912cb59dc5a849b108b2da5218e1ec9f20fbda",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-dac889d5f2af0fb36388be250891fdbeb4359565f7d9f34b66f2a230d3ffc4b2"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-e7167f35bc24dee2c7e1c593cdaa21fa42352ff3df577cc8aa693f5119090ad0",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-4ea429cf42452da755190a49940afa0b1b03c00cc03a4d42b928429ecb1279ef"
@@ -9774,56 +7841,6 @@
       "spdxElementId": "SPDXRef-Package-ec9bf705d502aa784c84e7e2d30f70056e548afdfdfdc1257189d4154157875c",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-283f06d3aaa2304f7e08bd8667106f677c258dbfc7d148372638b69f5438d12b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-283f06d3aaa2304f7e08bd8667106f677c258dbfc7d148372638b69f5438d12b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-7af81e4dae5d6dac00b68536f693d9ac91a1ad820c94e2802f1d3ea0d3d5341b"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-a0c82ddc6dfab163395e9ceec3add235fc1a9ed6a580e992e8078da60f33b249"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-e69d0222acdbc35afb0389eb950dfc40e4d6cbbd66713ab641c023fee07edfba"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ecdf1e25e3f1edcc78ca966ff660512319846dba14fef83183e5a8b967b261dd",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-f8f91edb624485b9742d637bf87f10d4ed5a873677c03deb8b977728a2d7b240"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ee24a6c8e081695cdfce47073d9d42b025c6e620afb4932616fc871d07560192",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-ee24a6c8e081695cdfce47073d9d42b025c6e620afb4932616fc871d07560192",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-caf4327bd6554833f8beb1859ec90a3ba04f219ee01c3b020f70d0723fbdd37e"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-f076bdf41a2e1ff18751d44e49b3a3279dc33720c169d5178e4b6cf770597896",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4ea429cf42452da755190a49940afa0b1b03c00cc03a4d42b928429ecb1279ef"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-f076bdf41a2e1ff18751d44e49b3a3279dc33720c169d5178e4b6cf770597896",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-4f7ba78424464c157fd6ba071cf7f53ce7de7c1c7877246c123f83896fe661b2"
     },
     {
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
@@ -9903,32 +7920,12 @@
     {
       "spdxElementId": "SPDXRef-Package-f8f91edb624485b9742d637bf87f10d4ed5a873677c03deb8b977728a2d7b240",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-f8f91edb624485b9742d637bf87f10d4ed5a873677c03deb8b977728a2d7b240",
-      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-83931635efc86c4031d16dc9dd2316c043b260b1339d789a4be3ec2e5359bf8a"
     },
     {
       "spdxElementId": "SPDXRef-Package-f8f91edb624485b9742d637bf87f10d4ed5a873677c03deb8b977728a2d7b240",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-b5ad4f1f206d5053be866a926bfdf8f7979afbaddb8e0a6f4714a535041dc95d"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-f8f91edb624485b9742d637bf87f10d4ed5a873677c03deb8b977728a2d7b240",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-ee24a6c8e081695cdfce47073d9d42b025c6e620afb4932616fc871d07560192"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-fa94cdd6e88d073525a75d670e468c9b1a687fb7f25c1a949b0208372f067da3",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-0cf0f167bd26e3704f31a710a059409c246271e9fe860f02a8ec641243e8a01f"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-fa94cdd6e88d073525a75d670e468c9b1a687fb7f25c1a949b0208372f067da3",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-411cf344cebb36fc79adcb494e9e2ab69e960062e38cba063cfa95ad1b73a706"
     },
     {
       "spdxElementId": "SPDXRef-Package-faf534d2ad67b8d789e43e485bc0af1b7a709fe9895f9d1e3f047c574c0c5987",

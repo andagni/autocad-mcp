@@ -948,7 +948,7 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn activation_windows_fixed_local_volume_admission_rejects_unc() {
+    fn windows_native_semantic_activation_fixed_local_volume_admission_rejects_unc() {
         let directory = tempfile::tempdir().unwrap();
         require_fixed_local_windows_path(directory.path()).unwrap();
 
@@ -960,7 +960,7 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn activation_windows_exact_override_rejects_unc_before_canonicalization() {
+    fn windows_native_semantic_activation_exact_override_rejects_unc_before_canonicalization() {
         let error = resolve_exact_override(
             ActivationMode::Preview,
             Some(std::ffi::OsStr::new(
@@ -978,7 +978,8 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn activation_windows_registry_root_seam_reads_exact_language_and_location_and_cleans_up() {
+    fn windows_native_semantic_activation_registry_root_seam_reads_exact_language_and_location_and_cleans_up(
+    ) {
         use std::sync::atomic::{AtomicU64, Ordering};
         use windows_sys::Win32::{
             Foundation::ERROR_SUCCESS,

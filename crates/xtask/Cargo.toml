@@ -40,17 +40,17 @@ distribution-evidence = { path = "../distribution/evidence", optional = true }
 flate2 = { version = "1", optional = true }
 object = { version = "=0.39.1", default-features = false, features = ["read_core", "pe"], optional = true }
 release-packager = { path = "../distribution/packager", optional = true }
-serde = { version = "1", features = ["derive"], optional = true }
-serde_json = { version = "1", optional = true }
-sha2 = { version = "0.10", optional = true }
-tempfile = { version = "3", optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 plugin-validate = { path = "../distribution/plugin-validation" }
 proc-macro2 = "1"
 semver = "1"
 syn = { version = "2", features = ["full", "visit"] }
-walkdir = "2"
+walkdir.workspace = true
 
 [[test]]
 name = "repository_policy"

@@ -79,6 +79,7 @@ jobs:
 
       - name: Save the trusted main dependency cache
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-dependencies.outputs.cache-hit != 'true' }}
+        continue-on-error: true
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
@@ -100,6 +101,7 @@ jobs:
 
       - name: Save the trusted main Windows semantic receipt
         if: ${{ always() && steps.windows_semantic.outcome == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.windows-semantic-receipt.outputs.cache-hit != 'true' }}
+        continue-on-error: true
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: target/local-ci-receipts/v1/windows-native-semantic
@@ -110,11 +112,46 @@ jobs:
         continue-on-error: true
         run: cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-source-candidate --mode preview
 
-      - name: Require every independent Windows preflight
+      - name: Build and inspect the native Release, instrumented, and Preview binaries
+        id: windows_build
+        continue-on-error: true
+        run: cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight
+
+      - name: Exercise the exact ARG-bound release binary through the Claude Desktop lifecycle
+        id: desktop_smoke
+        if: ${{ always() && steps.windows_build.outcome == 'success' }}
+        continue-on-error: true
+        run: cargo run --locked -p release-packager -- desktop-smoke --binary target/windows-certification-preflight/artifacts/release/autocad-mcp.exe --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf
+
+      - name: Exercise the exact staged AutoLISP language server
+        id: lsp_smoke
+        if: ${{ always() && steps.windows_build.outcome == 'success' }}
+        continue-on-error: true
+        run: cargo run --locked -p release-packager -- lsp-smoke --binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe
+
+      - name: Build the visibly marked Preview MCPB
+        id: preview_package
+        if: ${{ always() && steps.windows_build.outcome == 'success' }}
+        continue-on-error: true
+        run: cargo run --locked -p release-packager -- package --target windows-x64 --binary target/windows-certification-preflight/artifacts/preview/autocad-mcp.exe --lsp-binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe --out-dir target/windows-preview-package --preview
+
+      - name: Smoke the Preview package, LSP, and experimental tool surface
+        id: preview_package_smoke
+        if: ${{ always() && steps.preview_package.outcome == 'success' }}
+        continue-on-error: true
+        run: cargo run --locked -p release-packager -- smoke --package target/windows-preview-package/autocad-mcp-windows-x64-preview.mcpb --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf --require-executable --require-lsp-executable
+
+      - name: Require every runnable Windows validation
+        if: ${{ always() }}
         shell: pwsh
         env:
           WINDOWS_SEMANTIC_OUTCOME: ${{ steps.windows_semantic.outcome }}
           WINDOWS_SOURCE_CANDIDATE_OUTCOME: ${{ steps.windows_source_candidate.outcome }}
+          WINDOWS_BUILD_OUTCOME: ${{ steps.windows_build.outcome }}
+          DESKTOP_SMOKE_OUTCOME: ${{ steps.desktop_smoke.outcome }}
+          LSP_SMOKE_OUTCOME: ${{ steps.lsp_smoke.outcome }}
+          PREVIEW_PACKAGE_OUTCOME: ${{ steps.preview_package.outcome }}
+          PREVIEW_PACKAGE_SMOKE_OUTCOME: ${{ steps.preview_package_smoke.outcome }}
         run: |
           $failures = @()
           if ($env:WINDOWS_SEMANTIC_OUTCOME -cne "success") {
@@ -123,24 +160,24 @@ jobs:
           if ($env:WINDOWS_SOURCE_CANDIDATE_OUTCOME -cne "success") {
             $failures += "Preview source-candidate sealing"
           }
+          if ($env:WINDOWS_BUILD_OUTCOME -cne "success") {
+            $failures += "Release, instrumented, and Preview binary build"
+          } else {
+            if ($env:DESKTOP_SMOKE_OUTCOME -cne "success") {
+              $failures += "Claude Desktop binary lifecycle smoke"
+            }
+            if ($env:LSP_SMOKE_OUTCOME -cne "success") {
+              $failures += "AutoLISP LSP lifecycle smoke"
+            }
+            if ($env:PREVIEW_PACKAGE_OUTCOME -cne "success") {
+              $failures += "Preview MCPB construction"
+            } elseif ($env:PREVIEW_PACKAGE_SMOKE_OUTCOME -cne "success") {
+              $failures += "Preview MCPB smoke"
+            }
+          }
           if ($failures.Count -ne 0) {
             foreach ($failure in $failures) {
-              Write-Host "::error title=Independent Windows preflight failure::$failure"
+              Write-Host "::error title=Windows validation failure::$failure"
             }
-            throw "$($failures.Count) independent Windows preflight check(s) failed: $($failures -join '; ')"
+            throw "$($failures.Count) Windows validation stage(s) failed: $($failures -join '; ')"
           }
-
-      - name: Build and inspect the native Release, instrumented, and Preview binaries
-        run: cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight
-
-      - name: Exercise the exact ARG-bound release binary through the Claude Desktop lifecycle
-        run: cargo run --locked -p release-packager -- desktop-smoke --binary target/windows-certification-preflight/artifacts/release/autocad-mcp.exe --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf
-
-      - name: Exercise the exact staged AutoLISP language server
-        run: cargo run --locked -p release-packager -- lsp-smoke --binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe
-
-      - name: Build the visibly marked Preview MCPB
-        run: cargo run --locked -p release-packager -- package --target windows-x64 --binary target/windows-certification-preflight/artifacts/preview/autocad-mcp.exe --lsp-binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe --out-dir target/windows-preview-package --preview
-
-      - name: Smoke the Preview package, LSP, and experimental tool surface
-        run: cargo run --locked -p release-packager -- smoke --package target/windows-preview-package/autocad-mcp-windows-x64-preview.mcpb --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf --require-executable --require-lsp-executable

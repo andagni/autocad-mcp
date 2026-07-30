@@ -17,9 +17,9 @@ const CANONICAL_GPLV3_SHA256: &str =
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
     "54c1d868f130d93270fc07c53df6c28ee4465878070b9603c0cbba69c4161db1";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "711a91deadec7de97f63a8e959af33d153f3d0a747fcd682a7051a4683217150";
+    "713f14dc4cda569733472cd6e077c952eac7e0072508e994ba3a158696e60e40";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
-    "b247c7c233c58ba997d0a63664adab8d057e0f80721e042705da777ef7da8709";
+    "061b991abd7b73b4f74addec2b4fb69e9a0c27a1bd3474f5e57d956d49cbab73";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
     "ff8efca13765d492da22711f73935d09f95871dfa30d2275844f6ec182956240";
 const MCPB_VALIDATOR_LOCK_SHA256: &str =
@@ -2814,6 +2814,63 @@ fn content_validation_receipts_are_advisory_and_package_owned() {
 }
 
 #[test]
+fn jsonschema_is_workspace_owned_without_resolver_or_tls_defaults() {
+    let repository = repository_root();
+    let root_manifest = std::fs::read_to_string(repository.join("Cargo.toml"))
+        .expect("workspace manifest should be readable");
+    assert_eq!(
+        root_manifest
+            .lines()
+            .filter(|line| {
+                line.trim() == "jsonschema = { version = \"0.46\", default-features = false }"
+            })
+            .count(),
+        1,
+        "the workspace must own one resolver-free jsonschema dependency policy"
+    );
+
+    let metadata = cargo_metadata(&repository);
+    let mut consumers = metadata["packages"]
+        .as_array()
+        .expect("cargo metadata packages should be an array")
+        .iter()
+        .flat_map(|package| {
+            let package_name = package["name"]
+                .as_str()
+                .expect("package name should be text");
+            package["dependencies"]
+                .as_array()
+                .expect("package dependencies should be an array")
+                .iter()
+                .filter(|dependency| dependency["name"] == "jsonschema")
+                .map(move |dependency| {
+                    assert_eq!(
+                        dependency["uses_default_features"], false,
+                        "{package_name} must not enable jsonschema file, HTTP, or TLS resolver defaults"
+                    );
+                    (
+                        package_name.to_owned(),
+                        dependency["kind"]
+                            .as_str()
+                            .unwrap_or("normal")
+                            .to_owned(),
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+    consumers.sort();
+    assert_eq!(
+        consumers,
+        [
+            ("distribution-approval".to_owned(), "dev".to_owned()),
+            ("plugin-validate".to_owned(), "normal".to_owned()),
+            ("release-packager".to_owned(), "normal".to_owned()),
+        ],
+        "the reviewed jsonschema consumer set changed"
+    );
+}
+
+#[test]
 fn project_license_is_canonical_and_consistent() {
     let repository = repository_root();
     let root_license = std::fs::read(repository.join("LICENSE"))
@@ -3437,52 +3494,118 @@ fn assert_windows_semantic_receipt_cache_contract(workflow: &str) {
     let candidate = workflow
         .find("- name: Seal the deterministic Windows target source candidate")
         .expect("Windows candidate step should exist");
-    let aggregate = workflow
-        .find("- name: Require every independent Windows preflight")
-        .expect("Windows independent-preflight aggregate should exist");
     let build = workflow
         .find("- name: Build and inspect the native Release, instrumented, and Preview binaries")
         .expect("Windows native binary build step should exist");
+    let desktop = workflow
+        .find("- name: Exercise the exact ARG-bound release binary through the Claude Desktop lifecycle")
+        .expect("Windows release-binary smoke step should exist");
+    let lsp = workflow
+        .find("- name: Exercise the exact staged AutoLISP language server")
+        .expect("Windows LSP smoke step should exist");
+    let package = workflow
+        .find("- name: Build the visibly marked Preview MCPB")
+        .expect("Windows Preview package step should exist");
+    let package_smoke = workflow
+        .find("- name: Smoke the Preview package, LSP, and experimental tool surface")
+        .expect("Windows Preview package smoke step should exist");
+    let aggregate = workflow
+        .find("- name: Require every runnable Windows validation")
+        .expect("Windows validation aggregate should exist");
     assert!(
-        semantic < save && save < candidate && candidate < aggregate && aggregate < build,
-        "both independent preflights must finish before their aggregate can admit artifact construction"
+        semantic < save
+            && save < candidate
+            && candidate < build
+            && build < desktop
+            && desktop < lsp
+            && lsp < package
+            && package < package_smoke
+            && package_smoke < aggregate,
+        "the Windows stages and terminal aggregate are out of order"
     );
     assert_eq!(
         workflow.matches("continue-on-error: true").count(),
-        2,
-        "only the two independent Windows preflights may defer failure to the aggregate"
+        9,
+        "the two advisory cache saves and seven runnable Windows validations must defer failure appropriately"
     );
     let semantic_block = &workflow[semantic..save];
     assert!(semantic_block.contains("id: windows_semantic"));
     assert!(semantic_block.contains("continue-on-error: true"));
-    let candidate_block = &workflow[candidate..aggregate];
+    let save_block = &workflow[save..candidate];
+    assert!(
+        save_block.contains("continue-on-error: true"),
+        "semantic receipt publication must remain advisory"
+    );
+    let candidate_block = &workflow[candidate..build];
     assert!(candidate_block.contains("id: windows_source_candidate"));
     assert!(candidate_block.contains("continue-on-error: true"));
-    let aggregate_block = &workflow[aggregate..build];
+    let build_block = &workflow[build..desktop];
+    assert!(build_block.contains("id: windows_build"));
+    assert!(build_block.contains("continue-on-error: true"));
+    assert!(
+        !build_block.contains("\n        if:"),
+        "the Windows build must run independently of semantic and source-candidate failures"
+    );
+    for (name, block, step_id) in [
+        (
+            "desktop smoke",
+            &workflow[desktop..lsp],
+            "id: desktop_smoke",
+        ),
+        ("LSP smoke", &workflow[lsp..package], "id: lsp_smoke"),
+        (
+            "Preview package",
+            &workflow[package..package_smoke],
+            "id: preview_package",
+        ),
+    ] {
+        assert!(block.contains(step_id), "{name} step id changed");
+        assert!(
+            block.contains("if: ${{ always() && steps.windows_build.outcome == 'success' }}"),
+            "{name} must run whenever the independent binary build succeeded"
+        );
+        assert!(
+            block.contains("continue-on-error: true"),
+            "{name} must defer failure to the terminal aggregate"
+        );
+    }
+    let package_smoke_block = &workflow[package_smoke..aggregate];
+    assert!(package_smoke_block.contains("id: preview_package_smoke"));
+    assert!(package_smoke_block
+        .contains("if: ${{ always() && steps.preview_package.outcome == 'success' }}"));
+    assert!(package_smoke_block.contains("continue-on-error: true"));
+    let aggregate_block = &workflow[aggregate..];
     for required in [
         "WINDOWS_SEMANTIC_OUTCOME: ${{ steps.windows_semantic.outcome }}",
         "WINDOWS_SOURCE_CANDIDATE_OUTCOME: ${{ steps.windows_source_candidate.outcome }}",
+        "WINDOWS_BUILD_OUTCOME: ${{ steps.windows_build.outcome }}",
+        "DESKTOP_SMOKE_OUTCOME: ${{ steps.desktop_smoke.outcome }}",
+        "LSP_SMOKE_OUTCOME: ${{ steps.lsp_smoke.outcome }}",
+        "PREVIEW_PACKAGE_OUTCOME: ${{ steps.preview_package.outcome }}",
+        "PREVIEW_PACKAGE_SMOKE_OUTCOME: ${{ steps.preview_package_smoke.outcome }}",
         "$failures += \"Windows semantic validation\"",
         "$failures += \"Preview source-candidate sealing\"",
+        "$failures += \"Release, instrumented, and Preview binary build\"",
+        "$failures += \"Claude Desktop binary lifecycle smoke\"",
+        "$failures += \"AutoLISP LSP lifecycle smoke\"",
+        "$failures += \"Preview MCPB construction\"",
+        "$failures += \"Preview MCPB smoke\"",
+        "Write-Host \"::error title=Windows validation failure::$failure\"",
         "if ($failures.Count -ne 0)",
-        "throw \"$($failures.Count) independent Windows preflight check(s) failed: $($failures -join '; ')\"",
+        "throw \"$($failures.Count) Windows validation stage(s) failed: $($failures -join '; ')\"",
     ] {
         assert!(
             aggregate_block.contains(required),
-            "Windows independent-preflight aggregate is missing: {required}"
+            "Windows validation aggregate is missing: {required}"
         );
     }
     assert!(
-        !aggregate_block.contains("continue-on-error: true"),
-        "the terminal Windows preflight aggregate must fail the job"
+        aggregate_block.contains("if: ${{ always() }}"),
+        "the Windows validation aggregate must run after every preceding outcome"
     );
-    let first_artifact_step = &workflow[build..workflow
-        .find("- name: Exercise the exact ARG-bound release binary through the Claude Desktop lifecycle")
-        .expect("Windows release-binary smoke step should exist")];
     assert!(
-        !first_artifact_step.contains("continue-on-error:")
-            && !first_artifact_step.contains("\n        if:"),
-        "artifact construction must inherit the successful aggregate as a hard prerequisite"
+        !aggregate_block.contains("continue-on-error: true"),
+        "the terminal Windows validation aggregate must fail the job"
     );
     let receipt_restore = workflow
         .split("- name: Restore an exact main-authored Windows semantic receipt")
@@ -3692,12 +3815,12 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         "cargo fetch --locked",
         "cargo run --locked -p xtask -- windows-native-tests --suite semantic --content-receipt",
         "cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-source-candidate --mode preview",
-        "|",
         "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight",
         "cargo run --locked -p release-packager -- desktop-smoke --binary target/windows-certification-preflight/artifacts/release/autocad-mcp.exe --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf",
         "cargo run --locked -p release-packager -- lsp-smoke --binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe",
         "cargo run --locked -p release-packager -- package --target windows-x64 --binary target/windows-certification-preflight/artifacts/preview/autocad-mcp.exe --lsp-binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe --out-dir target/windows-preview-package --preview",
         "cargo run --locked -p release-packager -- smoke --package target/windows-preview-package/autocad-mcp-windows-x64-preview.mcpb --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf --require-executable --require-lsp-executable",
+        "|",
     ];
     assert_eq!(
         workflow_run_commands(native_workflow),
@@ -3720,53 +3843,58 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         (
             "crates/autocad-mcp/src/engine.rs",
             &[
-                "accoreconsole_command_normalizes_only_autocad_path_arguments",
-                "certified_profile_guard_allows_compatible_reader_and_denies_mutation_or_replacement",
-                "certified_profile_guard_detects_transition_window_tampering",
-                "unique_xref_profile_registry_lifecycle_refuses_adoption_and_cleans_owned_root",
-                "bounded_windows_probe_runner_drains_all_bytes_while_retaining_a_strict_cap",
-                "bounded_windows_probe_runner_observes_pre_spawn_cancellation",
-                "bounded_windows_probe_runner_linearizes_cancellation_before_resume",
-                "bounded_windows_probe_runner_terminates_inherited_pipe_tree_on_timeout",
-                "bounded_windows_probe_runner_cancels_and_joins_running_tree",
-                "activation_windows_observation_requires_a_fixed_file_version_resource",
-                "activation_windows_executable_launch_lease_guards_file_and_parent_through_spawn",
+                "windows_native_semantic_accoreconsole_command_normalizes_only_autocad_path_arguments",
+                "windows_native_semantic_certified_profile_guard_allows_compatible_reader_and_denies_mutation_or_replacement",
+                "windows_native_semantic_certified_profile_guard_detects_transition_window_tampering",
+                "windows_native_semantic_unique_xref_profile_registry_lifecycle_refuses_adoption_and_cleans_owned_root",
+                "windows_native_semantic_bounded_probe_runner_drains_all_bytes_while_retaining_a_strict_cap",
+                "windows_native_semantic_bounded_probe_runner_observes_pre_spawn_cancellation",
+                "windows_native_semantic_bounded_probe_runner_linearizes_cancellation_before_resume",
+                "windows_native_semantic_bounded_probe_runner_terminates_inherited_pipe_tree_on_timeout",
+                "windows_native_semantic_bounded_probe_runner_cancels_and_joins_running_tree",
+                "windows_native_semantic_activation_observation_requires_a_fixed_file_version_resource",
+                "windows_native_semantic_activation_executable_launch_lease_guards_file_and_parent_through_spawn",
             ][..],
         ),
         (
             "crates/autocad-mcp/src/activation_platform.rs",
             &[
-                "activation_windows_exact_override_rejects_unc_before_canonicalization",
-                "activation_windows_fixed_local_volume_admission_rejects_unc",
-                "activation_windows_registry_root_seam_reads_exact_language_and_location_and_cleans_up",
+                "windows_native_semantic_activation_exact_override_rejects_unc_before_canonicalization",
+                "windows_native_semantic_activation_fixed_local_volume_admission_rejects_unc",
+                "windows_native_semantic_activation_registry_root_seam_reads_exact_language_and_location_and_cleans_up",
             ][..],
         ),
         (
             "crates/autocad-mcp/src/ops/xref_mutation.rs",
             &[
-                "production_windows_transactional_install_is_atomic_and_guarded",
-                "production_windows_source_snapshot_excludes_every_original_path_read",
+                "windows_native_semantic_transactional_install_is_atomic_and_guarded",
+                "windows_native_semantic_source_snapshot_excludes_every_original_path_read",
             ][..],
         ),
         (
             "crates/autocad-mcp/tests/windows_certification.rs",
             &[
-                "certified_profile_registry_guard_owns_only_a_new_exact_subtree",
-                "exact_runtime_file_binding_denies_windows_write_delete_and_ancestor_rename",
-                "bounded_certification_runner_terminates_the_windows_process_tree",
-                "bounded_certification_runner_rejects_a_successful_parent_with_a_live_descendant",
+                "windows_native_semantic_certified_profile_registry_guard_owns_only_a_new_exact_subtree",
+                "windows_native_semantic_exact_runtime_file_binding_denies_windows_write_delete_and_ancestor_rename",
+                "windows_native_semantic_bounded_certification_runner_terminates_the_windows_process_tree",
+                "windows_native_semantic_bounded_certification_runner_rejects_a_successful_parent_with_a_live_descendant",
             ][..],
         ),
         (
             "crates/distribution/packager/src/smoke.rs",
             &[
-                "windows_run_with_timeout_rejects_oversized_stdout",
-                "windows_run_with_timeout_terminates_process_tree_after_direct_child_exit",
+                "windows_native_semantic_run_with_timeout_rejects_oversized_stdout",
+                "windows_native_semantic_run_with_timeout_terminates_process_tree_after_direct_child_exit",
             ][..],
         ),
     ] {
         let source = std::fs::read_to_string(repository.join(source_path))
             .unwrap_or_else(|error| panic!("read {source_path}: {error}"));
+        assert_eq!(
+            source.matches("fn windows_native_semantic_").count(),
+            test_names.len(),
+            "the prefix-selected Windows semantic inventory changed in {source_path}"
+        );
         for test_name in test_names {
             assert_windows_only_test(&source, source_path, test_name);
         }
@@ -3854,7 +3982,11 @@ fn preview_review_workflow_is_signed_protected_and_non_publishing() {
     assert!(workflow.contains("    needs: build-preview-inputs"));
     assert!(workflow
         .contains("    needs:\n      - build-preview-inputs\n      - sign-preview-binaries"));
-    assert!(workflow.contains("CARGO_INCREMENTAL: \"0\""));
+    assert_eq!(
+        workflow.matches("CARGO_INCREMENTAL: \"0\"").count(),
+        2,
+        "only the two Cargo-owning Preview jobs may configure compilation"
+    );
     assert!(workflow.contains("persist-credentials: false"));
     assert!(workflow.contains("GITHUB_REF -cne \"refs/heads/main\""));
     assert!(workflow.contains("source_commit must exactly equal the checked-out main commit"));
@@ -3901,6 +4033,12 @@ fn preview_review_workflow_is_signed_protected_and_non_publishing() {
     let package_job = &workflow[package_job_start..validation_job_start];
     let validation_job = &workflow[validation_job_start..attestation_job_start];
     let attestation_job = &workflow[attestation_job_start..];
+    let cache_restore_action =
+        "uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0";
+    let cache_save_action =
+        "uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0";
+    let sccache_action =
+        "uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10";
     assert!(!build_job.contains("${{ secrets."));
     assert!(!build_job.contains("${{ vars."));
     assert!(!build_job.contains("environment:"));
@@ -3928,10 +4066,134 @@ fn preview_review_workflow_is_signed_protected_and_non_publishing() {
     assert!(!attestation_job.contains("git "));
     assert!(!attestation_job.contains("npm "));
 
+    for (name, job) in [
+        ("Preview input build", build_job),
+        ("Preview package review", package_job),
+    ] {
+        assert_eq!(
+            job.matches("RUSTC_WRAPPER: sccache").count(),
+            1,
+            "{name} must configure one shared compiler cache"
+        );
+        assert_eq!(
+            job.matches("SCCACHE_BASEDIRS: ${{ github.workspace }}")
+                .count(),
+            1,
+            "{name} must normalize the checkout root for compiler-cache reuse"
+        );
+        assert_eq!(
+            job.matches("SCCACHE_GHA_ENABLED: \"true\"").count(),
+            1,
+            "{name} must use the GitHub Actions compiler-cache backend"
+        );
+        assert_eq!(
+            job.matches(sccache_action).count(),
+            1,
+            "{name} must install the reviewed sccache action"
+        );
+        assert_eq!(
+            job.matches("version: \"v0.15.0\"").count(),
+            1,
+            "{name} must pin the reviewed sccache binary"
+        );
+        assert_eq!(
+            job.matches(cache_restore_action).count(),
+            1,
+            "{name} must restore the shared dependency cache"
+        );
+        let steps = job
+            .find("    steps:\n")
+            .expect("Cargo-owning Preview job should have a steps block");
+        let sccache = job
+            .find("- name: Install the pinned shared compiler cache")
+            .expect("Cargo-owning Preview job should install sccache");
+        let restore = job
+            .find("- name: Restore the shared locked Cargo dependency cache")
+            .expect("Cargo-owning Preview job should restore dependencies");
+        let fetch = job
+            .find("run: cargo fetch --locked")
+            .expect("Cargo-owning Preview job should fetch locked dependencies");
+        assert!(
+            sccache < restore && restore < fetch,
+            "{name} cache initialization must precede the first Cargo command"
+        );
+        for variable in [
+            "RUSTC_WRAPPER: sccache",
+            "SCCACHE_BASEDIRS: ${{ github.workspace }}",
+            "SCCACHE_GHA_ENABLED: \"true\"",
+        ] {
+            assert!(
+                job.find(variable).is_some_and(|position| position < steps),
+                "{name} must configure {variable} at job scope"
+            );
+        }
+    }
+    assert_eq!(
+        build_job.matches(cache_save_action).count(),
+        1,
+        "the authorized unsigned-build job must own dependency-cache publication"
+    );
+    assert!(build_job
+        .contains("if: ${{ steps.preview-build-cargo-dependencies.outputs.cache-hit != 'true' }}"));
+    let dependency_cache_save = build_job
+        .find("- name: Save the authorized Preview dependency cache")
+        .expect("Preview input build should publish a missing dependency cache");
+    let evidence_check = build_job
+        .find("- name: Revalidate source-closure and third-party licence evidence")
+        .expect("Preview input build should retain its evidence check");
+    assert!(
+        build_job[dependency_cache_save..evidence_check].contains("continue-on-error: true"),
+        "dependency-cache publication must remain advisory"
+    );
+    assert!(
+        !package_job.contains(cache_save_action),
+        "the packaging job must remain restore-only for shared dependencies"
+    );
+    for (name, job) in [
+        ("signing", signing_job),
+        ("supplemental validation", validation_job),
+        ("attestation", attestation_job),
+    ] {
+        for forbidden in [
+            "RUSTC_WRAPPER",
+            "SCCACHE_",
+            sccache_action,
+            cache_restore_action,
+            cache_save_action,
+            "cargo-registry-v1-",
+        ] {
+            assert!(
+                !job.contains(forbidden),
+                "{name} job must remain isolated from compilation caching: {forbidden}"
+            );
+        }
+    }
+    assert_eq!(
+        workflow
+            .matches("cargo-registry-v1-windows-2025-${{ runner.arch }}-")
+            .count(),
+        5,
+        "Preview dependency-cache key and restore-prefix inventory changed"
+    );
+    assert_eq!(workflow.matches("~/.cargo/registry/index").count(), 3);
+    assert_eq!(workflow.matches("~/.cargo/registry/cache").count(), 3);
+    assert_eq!(workflow.matches("restore-keys:").count(), 2);
+    for forbidden in [
+        "~/.cargo/registry/src",
+        "~/.cargo/git",
+        "enableCrossOsArchive",
+        "path: target\n",
+    ] {
+        assert!(
+            !workflow.contains(forbidden),
+            "Preview workflow cache contains forbidden state: {forbidden}"
+        );
+    }
+
     assert_eq!(
         workflow.matches("uses: ").count(),
-        12,
-        "Preview candidate workflow may import only the reviewed checkout, artifact, Node, and attestation actions"
+        17,
+        "Preview candidate workflow may import only the reviewed checkout, cache, artifact, Node, and attestation actions"
     );
     for line in workflow.lines().map(str::trim) {
         let Some(action) = line
@@ -3967,6 +4229,9 @@ fn preview_review_workflow_is_signed_protected_and_non_publishing() {
         "uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0";
     let attest_action = "uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0";
     assert_eq!(workflow.matches(checkout_action).count(), 2);
+    assert_eq!(workflow.matches(sccache_action).count(), 2);
+    assert_eq!(workflow.matches(cache_restore_action).count(), 2);
+    assert_eq!(workflow.matches(cache_save_action).count(), 1);
     assert_eq!(workflow.matches(download_action).count(), 5);
     assert_eq!(workflow.matches(upload_action).count(), 3);
     assert_eq!(workflow.matches(setup_node_action).count(), 1);

@@ -180,72 +180,7 @@ const WINDOWS_NATIVE_SEMANTIC_TESTS: &[CommandSpec] = &[
             "-p",
             "autocad-mcp",
             "--lib",
-            "activation_windows_",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--lib",
-            "accoreconsole_command_normalizes_only_autocad_path_arguments",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--lib",
-            "certified_profile_guard",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--lib",
-            "unique_xref_profile_registry_lifecycle_refuses_adoption_and_cleans_owned_root",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--lib",
-            "bounded_windows_probe_runner_",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--lib",
-            "production_windows_",
+            "windows_native_semantic_",
             "--",
             "--test-threads=1",
         ],
@@ -259,49 +194,7 @@ const WINDOWS_NATIVE_SEMANTIC_TESTS: &[CommandSpec] = &[
             "autocad-mcp",
             "--test",
             "windows_certification",
-            "certified_profile_registry_guard_owns_only_a_new_exact_subtree",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--test",
-            "windows_certification",
-            "exact_runtime_file_binding_denies_windows_write_delete_and_ancestor_rename",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--test",
-            "windows_certification",
-            "bounded_certification_runner_terminates_the_windows_process_tree",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    CommandSpec {
-        program: "cargo",
-        arguments: &[
-            "test",
-            "--locked",
-            "-p",
-            "autocad-mcp",
-            "--test",
-            "windows_certification",
-            "bounded_certification_runner_rejects_a_successful_parent_with_a_live_descendant",
+            "windows_native_semantic_",
             "--",
             "--test-threads=1",
         ],
@@ -313,7 +206,8 @@ const WINDOWS_NATIVE_SEMANTIC_TESTS: &[CommandSpec] = &[
             "--locked",
             "-p",
             "release-packager",
-            "windows_run_with_timeout_",
+            "--lib",
+            "windows_native_semantic_",
             "--",
             "--test-threads=1",
         ],
@@ -2705,17 +2599,9 @@ mod tests {
         assert_eq!(
             semantic,
             [
-                "cargo test --locked -p autocad-mcp --lib activation_windows_ -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --lib accoreconsole_command_normalizes_only_autocad_path_arguments -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --lib certified_profile_guard -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --lib unique_xref_profile_registry_lifecycle_refuses_adoption_and_cleans_owned_root -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --lib bounded_windows_probe_runner_ -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --lib production_windows_ -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --test windows_certification certified_profile_registry_guard_owns_only_a_new_exact_subtree -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --test windows_certification exact_runtime_file_binding_denies_windows_write_delete_and_ancestor_rename -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --test windows_certification bounded_certification_runner_terminates_the_windows_process_tree -- --test-threads=1",
-                "cargo test --locked -p autocad-mcp --test windows_certification bounded_certification_runner_rejects_a_successful_parent_with_a_live_descendant -- --test-threads=1",
-                "cargo test --locked -p release-packager windows_run_with_timeout_ -- --test-threads=1",
+                "cargo test --locked -p autocad-mcp --lib windows_native_semantic_ -- --test-threads=1",
+                "cargo test --locked -p autocad-mcp --test windows_certification windows_native_semantic_ -- --test-threads=1",
+                "cargo test --locked -p release-packager --lib windows_native_semantic_ -- --test-threads=1",
             ]
         );
         assert_eq!(
@@ -2819,7 +2705,7 @@ mod tests {
             WindowsNativeTestSuite::Semantic,
             |_, _| {
                 calls.set(calls.get() + 1);
-                if matches!(calls.get(), 2 | 5) {
+                if matches!(calls.get(), 1 | 3) {
                     Err(format!("simulated failure {}", calls.get()))
                 } else {
                     Ok(())
@@ -2832,8 +2718,8 @@ mod tests {
             error.starts_with("2 Windows-native test command(s) failed:\n"),
             "{error}"
         );
-        assert!(error.contains("simulated failure 2"), "{error}");
-        assert!(error.contains("simulated failure 5"), "{error}");
+        assert!(error.contains("simulated failure 1"), "{error}");
+        assert!(error.contains("simulated failure 3"), "{error}");
     }
 
     #[test]
