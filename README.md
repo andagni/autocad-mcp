@@ -491,18 +491,25 @@ cargo run --locked -p xtask -- source-quality
 
 For a new source identity, this runs the complete local gate and regenerates
 and verifies both exact Release and Preview source candidates. Repeating it for
-the unchanged tree may reuse a prior successful exact-tree composition.
+the unchanged commit and execution context may reuse a prior successful
+source-quality plan.
 Package-owned stable checks, currently third-party licence/source-closure
-validation, may also reuse a successful result across commits when their closed
-input set has not changed.
+validation, expose a stable `input-id` subcommand through package metadata and
+may reuse a successful result across commits when that closed input identity
+has not changed.
 
-These advisory receipts live under
-`target/local-ci-receipts/v1/` in the configured Cargo target directory. Each
-key binds the target input, command, receipt-engine source, Cargo and Rust
-versions, platform, relevant build environment, and Cargo configuration.
-Malformed, missing, or mismatched receipts are cache misses; they cannot grant
-release, signing, distribution, or native-host authority. Set
-`AUTOCAD_MCP_DISABLE_CONTENT_RECEIPTS=1` to force every validation to run.
+One advisory receipt engine stores these results under
+`autocad-mcp/validation-receipts/v1/` in the Git common directory, outside
+Cargo build output, so `cargo clean` does not erase them. Every receipt binds a
+commit/tree or declared content closure, a normalized validation plan, the
+receipt engine, toolchain, platform, relevant environment, Cargo
+configuration, and repository storage identity. A completed plan can satisfy
+only an exact subset of its steps: in particular, source-quality can satisfy
+the equivalent local-gate portion of `pre-push-full`, while pre-push still
+regenerates and verifies distribution evidence and both source candidates.
+Malformed, unsafe, missing, or mismatched receipts are cache misses; no receipt
+grants release, signing, distribution, or native-host authority. Set
+`AUTOCAD_MCP_DISABLE_VALIDATION_RECEIPTS=1` to force every validation to run.
 
 GitHub Actions are reserved for evidence that requires native Windows or for
 the explicitly dispatched Preview review candidate. These local source-quality
@@ -528,7 +535,7 @@ packager—so Cargo does not relaunch separately for each selected test family.
 The native workflow is routed only for paths that can affect its native tests,
 build inputs, or packaged payload. It restores the shared locked dependency
 cache and compiler cache for every Cargo step. Its semantic suite may reuse an
-exact, main-authored content receipt bound to the tracked test closure and
+exact, main-authored validation receipt bound to the tracked test closure and
 hosted Windows image; pull requests can read but cannot publish that cache.
 The guarded-rename feasibility probe, source candidate, Windows binaries, and
 package/LSP smoke still run fresh whenever their workflow is dispatched.

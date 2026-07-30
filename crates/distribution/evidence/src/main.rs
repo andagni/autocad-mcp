@@ -126,6 +126,21 @@ fn report_from_repository(operation: fn(&Path) -> Result<EvidenceSummary, String
     }
 }
 
+fn report_input_id() -> ExitCode {
+    let result = repository_root()
+        .and_then(|repository| distribution_evidence::validation_cache_input_sha256(&repository));
+    match result {
+        Ok(input_id) => {
+            println!("{input_id}");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("ERROR: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
     match arguments.as_slice() {
@@ -134,9 +149,10 @@ fn main() -> ExitCode {
         [command] if command == "release-gate" => {
             report_from_repository(distribution_evidence::release_gate)
         }
+        [command] if command == "input-id" => report_input_id(),
         _ => {
             eprintln!(
-                "usage: cargo run --locked -p distribution-evidence -- <check|write|release-gate>"
+                "usage: cargo run --locked -p distribution-evidence -- <check|write|release-gate|input-id>"
             );
             ExitCode::from(2)
         }

@@ -15,11 +15,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 mod candidate_seal;
-mod content_receipt;
 mod pe_imports;
-mod pre_push_receipt;
 mod preview_e2e;
 mod source_bundle;
+mod validation_receipt;
 mod windows_preflight;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -32,7 +31,7 @@ struct CommandSpec {
 struct LocalGateCommand {
     program: String,
     arguments: Vec<String>,
-    content_receipt: Option<String>,
+    receipt_input: Option<LocalGateReceiptInput>,
 }
 
 impl LocalGateCommand {
@@ -43,9 +42,16 @@ impl LocalGateCommand {
                 .iter()
                 .map(|argument| (*argument).to_owned())
                 .collect(),
-            content_receipt: None,
+            receipt_input: None,
         }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct LocalGateReceiptInput {
+    namespace: String,
+    program: String,
+    arguments: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,8 +93,8 @@ struct PackageLocalGateCheck {
     name: String,
     bin: String,
     arguments: Vec<String>,
-    #[serde(default, rename = "content-receipt")]
-    content_receipt: Option<String>,
+    #[serde(default, rename = "input-id-arguments")]
+    input_id_arguments: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -114,7 +120,7 @@ struct DiscoveredLocalGateCheck {
     name: String,
     bin: String,
     arguments: Vec<String>,
-    content_receipt: Option<String>,
+    input_id_arguments: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -135,7 +141,7 @@ struct DiscoveredLocalGate {
 
 #[derive(Debug, Default, Eq, PartialEq)]
 struct LocalGateValidation {
-    content_inputs: BTreeMap<String, String>,
+    receipt_inputs: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -234,8 +240,11 @@ const WINDOWS_GUARDED_RENAME_TEST: CommandSpec = CommandSpec {
 const WINDOWS_GUARDED_RENAME_EVIDENCE_ENV: &str =
     "AUTOCAD_MCP_WINDOWS_GUARDED_RENAME_FEASIBILITY_EVIDENCE";
 const DISTRIBUTION_EVIDENCE_RECEIPT_TARGET: &str = "distribution-evidence";
-const SOURCE_QUALITY_RECEIPT_TARGET: &str = "source-quality";
 const WINDOWS_NATIVE_SEMANTIC_RECEIPT_TARGET: &str = "windows-native-semantic";
+const SOURCE_VALIDATION_SUBJECT_NAMESPACE: &str = "repository-source";
+const SOURCE_CANDIDATE_STEP_ID: &str = "source-candidate/release-preview";
+const SOURCE_CANDIDATE_STEP_COMMAND: &str =
+    "xtask source-candidate-seal --mode release --mode preview --verify";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum WindowsNativeTestSuite {
@@ -357,12 +366,13 @@ fn discover_local_gate_from_metadata(
                     package.name, package.version
                 )
             })?;
-        if local_gate.schema_version != 1 {
+        if !matches!(local_gate.schema_version, 1 | 2) {
             return Err(format!(
-                "package.metadata.local-gate for {} {} has schema-version {}, expected 1",
+                "package.metadata.local-gate for {} {} has schema-version {}, expected 1 or 2",
                 package.name, package.version, local_gate.schema_version
             ));
         }
+        let local_gate_schema_version = local_gate.schema_version;
         if local_gate.checks.is_empty() && local_gate.profiles.is_empty() {
             return Err(format!(
                 "package.metadata.local-gate for {} {} declares no checks or profiles",
@@ -404,18 +414,21 @@ fn discover_local_gate_from_metadata(
             for argument in &check.arguments {
                 require_local_gate_argument(argument, &package_spec, &check.name)?;
             }
-            if let Some(target) = check.content_receipt.as_deref() {
-                require_local_gate_token(target, "content receipt target")?;
-                if target != DISTRIBUTION_EVIDENCE_RECEIPT_TARGET
-                    || package.name != "distribution-evidence"
-                    || check.name != "distribution-evidence"
-                    || check.bin != "distribution-evidence"
-                    || check.arguments != ["check"]
-                {
+            if let Some(input_id_arguments) = check.input_id_arguments.as_ref() {
+                if local_gate_schema_version != 2 {
                     return Err(format!(
-                        "package {package_spec} local-gate check {} declares unsupported content receipt target {target}",
+                        "package {package_spec} local-gate check {} requires schema-version 2 for input-id-arguments",
                         check.name
                     ));
+                }
+                if input_id_arguments.is_empty() {
+                    return Err(format!(
+                        "package {package_spec} local-gate check {} has no input-id arguments",
+                        check.name
+                    ));
+                }
+                for argument in input_id_arguments {
+                    require_local_gate_argument(argument, &package_spec, &check.name)?;
                 }
             }
             checks.push(DiscoveredLocalGateCheck {
@@ -423,7 +436,7 @@ fn discover_local_gate_from_metadata(
                 name: check.name,
                 bin: check.bin,
                 arguments: check.arguments,
-                content_receipt: check.content_receipt,
+                input_id_arguments: check.input_id_arguments,
             });
         }
 
@@ -573,10 +586,28 @@ fn local_gate_commands(discovered: &DiscoveredLocalGate) -> Vec<LocalGateCommand
             "--".to_owned(),
         ];
         arguments.extend(check.arguments.iter().cloned());
+        let receipt_input = check.input_id_arguments.as_ref().map(|input_arguments| {
+            let mut arguments = vec![
+                "run".to_owned(),
+                "--quiet".to_owned(),
+                "--locked".to_owned(),
+                "-p".to_owned(),
+                check.package_spec.clone(),
+                "--bin".to_owned(),
+                check.bin.clone(),
+                "--".to_owned(),
+            ];
+            arguments.extend(input_arguments.iter().cloned());
+            LocalGateReceiptInput {
+                namespace: check.name.clone(),
+                program: "cargo".to_owned(),
+                arguments,
+            }
+        });
         commands.push(LocalGateCommand {
             program: "cargo".to_owned(),
             arguments,
-            content_receipt: check.content_receipt.clone(),
+            receipt_input,
         });
     }
 
@@ -644,7 +675,7 @@ fn local_gate_profile_command(
     LocalGateCommand {
         program: "cargo".to_owned(),
         arguments,
-        content_receipt: None,
+        receipt_input: None,
     }
 }
 
@@ -652,6 +683,82 @@ fn render_local_gate_command(command: &LocalGateCommand) -> String {
     let arguments = serde_json::to_string(&command.arguments)
         .expect("local-gate argv serialization cannot fail");
     format!("{} {arguments}", command.program)
+}
+
+fn render_receipt_input_command(input: &LocalGateReceiptInput) -> String {
+    let arguments = serde_json::to_string(&input.arguments)
+        .expect("receipt input argv serialization cannot fail");
+    format!("{} {arguments}", input.program)
+}
+
+fn local_gate_validation_plan(
+    commands: &[LocalGateCommand],
+) -> Result<validation_receipt::ValidationPlan, String> {
+    validation_receipt::ValidationPlan::new(
+        commands
+            .iter()
+            .enumerate()
+            .map(|(index, command)| {
+                (
+                    format!("local-gate/{:04}", index + 1),
+                    render_local_gate_command(command),
+                )
+            })
+            .collect(),
+    )
+}
+
+fn source_quality_validation_plan(
+    commands: &[LocalGateCommand],
+) -> Result<validation_receipt::ValidationPlan, String> {
+    local_gate_validation_plan(commands)?
+        .with_step(SOURCE_CANDIDATE_STEP_ID, SOURCE_CANDIDATE_STEP_COMMAND)
+}
+
+fn source_validation_subject(
+    identity: &candidate_seal::CandidateIdentity,
+) -> Result<validation_receipt::ValidationSubject, String> {
+    validation_receipt::ValidationSubject::git_commit_tree(
+        SOURCE_VALIDATION_SUBJECT_NAMESPACE,
+        &identity.git_object_format,
+        &identity.source_commit,
+        &identity.source_tree_oid,
+    )
+}
+
+fn capture_package_input_id(
+    root: &Path,
+    input: &LocalGateReceiptInput,
+) -> Result<validation_receipt::ValidationSubject, String> {
+    let rendered = render_receipt_input_command(input);
+    let output = Command::new(&input.program)
+        .args(&input.arguments)
+        .current_dir(root)
+        .env("CARGO_INCREMENTAL", "1")
+        .output()
+        .map_err(|error| {
+            format!("failed to launch package-owned input-id command {rendered}: {error}")
+        })?;
+    if !output.status.success() {
+        return Err(format!(
+            "package-owned input-id command failed with {}: {rendered}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    if output.stdout.len() > 1024 || output.stderr.len() > 64 * 1024 {
+        return Err("package-owned input-id output exceeds its closed size limit".to_owned());
+    }
+    let stdout = std::str::from_utf8(&output.stdout)
+        .map_err(|error| format!("package-owned input-id output is not UTF-8: {error}"))?;
+    let digest = stdout
+        .strip_suffix("\r\n")
+        .or_else(|| stdout.strip_suffix('\n'))
+        .ok_or_else(|| "package-owned input-id must end with one newline".to_owned())?;
+    if digest.contains(['\r', '\n']) {
+        return Err("package-owned input-id must contain exactly one line".to_owned());
+    }
+    validation_receipt::ValidationSubject::content_closure(&input.namespace, digest)
 }
 
 fn has_required_distribution_evidence_check(discovered: &DiscoveredLocalGate) -> bool {
@@ -663,7 +770,10 @@ fn has_required_distribution_evidence_check(discovered: &DiscoveredLocalGate) ->
             && check.name == "distribution-evidence"
             && check.bin == "distribution-evidence"
             && check.arguments == ["check"]
-            && check.content_receipt.as_deref() == Some(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET)
+            && check
+                .input_id_arguments
+                .as_deref()
+                .is_some_and(|arguments| arguments == ["input-id"])
     })
 }
 
@@ -687,7 +797,7 @@ fn run_local_gate_command(root: &Path, command: &LocalGateCommand) -> Result<(),
 fn run_local_gate_commands_with_receipts(
     root: &Path,
     commands: &[LocalGateCommand],
-    allow_content_receipts: bool,
+    allow_validation_receipts: bool,
 ) -> Result<LocalGateValidation, String> {
     let total_started = Instant::now();
     let mut validation = LocalGateValidation::default();
@@ -695,27 +805,32 @@ fn run_local_gate_commands_with_receipts(
         let rendered = render_local_gate_command(command);
         eprintln!("[{}/{}] {rendered}", index + 1, commands.len());
         let stage_started = Instant::now();
-        let reused = if allow_content_receipts {
-            match command.content_receipt.as_deref() {
-                Some(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET) => {
-                    let outcome = content_receipt::validate_or_run(
+        let reused = if allow_validation_receipts {
+            match command.receipt_input.as_ref() {
+                Some(input) => {
+                    let receipt_plan = validation_receipt::ValidationPlan::new(vec![(
+                        format!("package-check/{}", input.namespace),
+                        format!(
+                            "{rendered}; input-id {}",
+                            render_receipt_input_command(input)
+                        ),
+                    )])?;
+                    let outcome = validation_receipt::validate_or_run(
                         root,
-                        DISTRIBUTION_EVIDENCE_RECEIPT_TARGET,
-                        &rendered,
-                        || distribution_evidence::validation_cache_input_sha256(root),
+                        &receipt_plan,
+                        || capture_package_input_id(root, input),
                         || run_local_gate_command(root, command),
                     )?;
-                    if let Some(input) = outcome.input_sha256 {
+                    if let Some(content_sha256) = outcome
+                        .subject
+                        .as_ref()
+                        .and_then(validation_receipt::ValidationSubject::content_sha256)
+                    {
                         validation
-                            .content_inputs
-                            .insert(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET.to_owned(), input);
+                            .receipt_inputs
+                            .insert(input.namespace.clone(), content_sha256.to_owned());
                     }
                     outcome.reused
-                }
-                Some(other) => {
-                    return Err(format!(
-                        "unsupported local-gate content receipt target {other}"
-                    ))
                 }
                 None => {
                     run_local_gate_command(root, command)?;
@@ -732,7 +847,7 @@ fn run_local_gate_commands_with_receipts(
             index + 1,
             commands.len(),
             stage_elapsed.as_secs_f64(),
-            if reused { " (content receipt)" } else { "" }
+            if reused { " (validation receipt)" } else { "" }
         );
     }
     eprintln!(
@@ -747,66 +862,13 @@ fn run_local_gate_commands(root: &Path, commands: &[LocalGateCommand]) -> Result
 }
 
 fn run_local_gate(root: &Path) -> Result<(), String> {
-    let _lock = content_receipt::acquire_local_ci_lock(root)?;
+    let _lock = validation_receipt::acquire_local_ci_lock(root)?;
     let discovered = discover_local_gate(root)?;
     run_local_gate_commands_with_receipts(root, &local_gate_commands(&discovered), true).map(|_| ())
 }
 
-fn source_quality_input_sha256(
-    root: &Path,
-    commands: &[LocalGateCommand],
-) -> Result<String, String> {
-    ensure_clean_checkout(root)?;
-    let identity = candidate_seal::capture_current_identity(root)?;
-    let evidence_input = distribution_evidence::validation_cache_input_sha256(root)?;
-    let mut hasher = Sha256::new();
-    hash_source_quality_field(
-        &mut hasher,
-        b"domain",
-        b"autocad-mcp-source-quality-composition-v1",
-    );
-    hash_source_quality_field(
-        &mut hasher,
-        b"git-object-format",
-        identity.git_object_format.as_bytes(),
-    );
-    hash_source_quality_field(
-        &mut hasher,
-        b"source-commit",
-        identity.source_commit.as_bytes(),
-    );
-    hash_source_quality_field(
-        &mut hasher,
-        b"source-tree",
-        identity.source_tree_oid.as_bytes(),
-    );
-    hash_source_quality_field(
-        &mut hasher,
-        b"distribution-evidence-input",
-        evidence_input.as_bytes(),
-    );
-    for command in commands {
-        hash_source_quality_field(
-            &mut hasher,
-            b"local-gate-command",
-            render_local_gate_command(command).as_bytes(),
-        );
-    }
-    for mode in ["release", "preview"] {
-        hash_source_quality_field(&mut hasher, b"candidate-mode", mode.as_bytes());
-    }
-    Ok(format!("{:x}", hasher.finalize()))
-}
-
-fn hash_source_quality_field(hasher: &mut Sha256, label: &[u8], value: &[u8]) {
-    hasher.update((label.len() as u64).to_be_bytes());
-    hasher.update(label);
-    hasher.update((value.len() as u64).to_be_bytes());
-    hasher.update(value);
-}
-
 fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
-    let _lock = content_receipt::acquire_local_ci_lock(root)?;
+    let _lock = validation_receipt::acquire_local_ci_lock(root)?;
     ensure_clean_checkout(root)?;
     let before = candidate_seal::capture_current_identity(root)?;
     let discovered = discover_local_gate(root)?;
@@ -817,25 +879,19 @@ fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
         );
     }
     let commands = local_gate_commands(&discovered);
-    let rendered_commands = commands
-        .iter()
-        .map(render_local_gate_command)
-        .collect::<Vec<_>>();
-    let composition_command = format!(
-        "source-quality {}",
-        serde_json::to_string(&rendered_commands)
-            .map_err(|error| format!("serialize source-quality command inventory: {error}"))?
-    );
+    let plan = source_quality_validation_plan(&commands)?;
     let mut sealed = None;
-    let composition = content_receipt::validate_or_run(
+    let composition = validation_receipt::validate_or_run(
         root,
-        SOURCE_QUALITY_RECEIPT_TARGET,
-        &composition_command,
-        || source_quality_input_sha256(root, &commands),
+        &plan,
+        || {
+            ensure_clean_checkout(root)?;
+            source_validation_subject(&candidate_seal::capture_current_identity(root)?)
+        },
         || {
             let validation = run_local_gate_commands_with_receipts(root, &commands, true)?;
             let candidate = match validation
-                .content_inputs
+                .receipt_inputs
                 .get(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET)
             {
                 Some(evidence_input) => {
@@ -861,7 +917,7 @@ fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
     )?;
     if composition.reused {
         eprintln!(
-            "reused exact-tree source-quality composition receipt for {}",
+            "reused exact-commit source-quality validation receipt for {}",
             before.source_commit
         );
     }
@@ -991,7 +1047,7 @@ fn run_windows_native_tests(root: &Path, suite: WindowsNativeTestSuite) -> Resul
 }
 
 fn windows_native_semantic_input_sha256(root: &Path) -> Result<String, String> {
-    content_receipt::tracked_paths_sha256(
+    validation_receipt::tracked_paths_sha256(
         root,
         &[
             "Cargo.lock",
@@ -1006,33 +1062,50 @@ fn windows_native_semantic_input_sha256(root: &Path) -> Result<String, String> {
 
 fn run_windows_native_semantic_tests_with_receipt(root: &Path) -> Result<bool, String> {
     if std::env::consts::OS != "windows" {
-        return Err("Windows semantic content receipts require a native Windows host".to_owned());
+        return Err(
+            "Windows semantic validation receipts require a native Windows host".to_owned(),
+        );
     }
-    ensure_clean_checkout_for(root, "Windows content-receipt validation")?;
-    let command = WINDOWS_NATIVE_SEMANTIC_TESTS
+    ensure_clean_checkout_for(root, "Windows validation-receipt validation")?;
+    let rendered_commands = WINDOWS_NATIVE_SEMANTIC_TESTS
         .iter()
         .map(|command| format!("{} {}", command.program, command.arguments.join(" ")))
-        .collect::<Vec<_>>()
-        .join(" && ");
-    let outcome = content_receipt::validate_or_run(
+        .collect::<Vec<_>>();
+    let plan = validation_receipt::ValidationPlan::new(
+        rendered_commands
+            .iter()
+            .enumerate()
+            .map(|(index, command)| {
+                (
+                    format!("windows-semantic/{:04}", index + 1),
+                    command.clone(),
+                )
+            })
+            .collect(),
+    )?;
+    let outcome = validation_receipt::validate_or_run(
         root,
-        WINDOWS_NATIVE_SEMANTIC_RECEIPT_TARGET,
-        &command,
-        || windows_native_semantic_input_sha256(root),
+        &plan,
+        || {
+            validation_receipt::ValidationSubject::content_closure(
+                WINDOWS_NATIVE_SEMANTIC_RECEIPT_TARGET,
+                &windows_native_semantic_input_sha256(root)?,
+            )
+        },
         || run_windows_native_tests(root, WindowsNativeTestSuite::Semantic),
     )?;
-    ensure_clean_checkout_for(root, "Windows content-receipt validation")?;
+    ensure_clean_checkout_for(root, "Windows validation-receipt validation")?;
     Ok(outcome.reused)
 }
 
 fn report_windows_native_tests(
     suite: WindowsNativeTestSuite,
-    allow_content_receipt: bool,
+    allow_validation_receipt: bool,
 ) -> ExitCode {
-    let result = if allow_content_receipt {
+    let result = if allow_validation_receipt {
         if suite != WindowsNativeTestSuite::Semantic {
             Err(
-                "Windows content receipts are supported only for the closed semantic suite"
+                "Windows validation receipts are supported only for the closed semantic suite"
                     .to_owned(),
             )
         } else {
@@ -1306,45 +1379,39 @@ fn run_full_pre_push(root: &Path, input: &str) -> Result<Option<String>, String>
         );
     }
     let commands = local_gate_commands(&discovered);
-    let rendered_commands = commands
-        .iter()
-        .map(render_local_gate_command)
-        .collect::<Vec<_>>();
-    let receipt_inputs = match pre_push_receipt::capture_pre_push_receipt_inputs(
+    let receipt_plan = local_gate_validation_plan(&commands)?;
+    let receipt_subject = source_validation_subject(&prepared.identity_before)?;
+    let receipt_inputs = match validation_receipt::capture_validation(
         root,
-        &prepared.identity_before.git_object_format,
-        &prepared.identity_before.source_commit,
-        &prepared.identity_before.source_tree_oid,
-        &rendered_commands,
+        receipt_subject.clone(),
+        receipt_plan.clone(),
     ) {
         Ok(inputs) => Some(inputs),
         Err(error) => {
-            eprintln!("advisory pre-push receipt unavailable; running full gate: {error}");
+            eprintln!("advisory validation receipt unavailable; running full gate: {error}");
             None
         }
     };
     if let Some(before) = receipt_inputs.as_ref() {
-        if pre_push_receipt::pre_push_receipt_hit(root, before) {
+        if validation_receipt::receipt_hit(root, before) {
             eprintln!(
-                "exact-commit recorded-context local pre-push receipt matched {}; reusing the completed local gate before fresh distribution-evidence and source-candidate checks",
+                "exact-commit validation receipt matched {}; reusing its completed local-gate subset before fresh distribution-evidence and source-candidate checks",
                 prepared.head_before
             );
             let sealed = candidate_seal::run_ephemeral(root)?;
-            let after = pre_push_receipt::capture_pre_push_receipt_inputs(
+            let after = validation_receipt::capture_validation(
                 root,
-                &prepared.identity_before.git_object_format,
-                &prepared.identity_before.source_commit,
-                &prepared.identity_before.source_tree_oid,
-                &rendered_commands,
+                receipt_subject.clone(),
+                receipt_plan.clone(),
             )
             .map_err(|error| {
                 format!(
-                    "pre-push receipt inputs could not be recaptured after source-candidate validation: {error}"
+                    "validation receipt inputs could not be recaptured after source-candidate validation: {error}"
                 )
             })?;
             if &after != before {
                 return Err(
-                    "pre-push receipt inputs changed during source-candidate validation; retry the push"
+                    "validation receipt inputs changed during source-candidate validation; retry the push"
                         .to_owned(),
                 );
             }
@@ -1359,32 +1426,29 @@ fn run_full_pre_push(root: &Path, input: &str) -> Result<Option<String>, String>
     if let Some(before) = receipt_inputs {
         match classify_full_gate_receipt_recapture(
             &before,
-            pre_push_receipt::capture_pre_push_receipt_inputs(
-                root,
-                &prepared.identity_before.git_object_format,
-                &prepared.identity_before.source_commit,
-                &prepared.identity_before.source_tree_oid,
-                &rendered_commands,
-            ),
+            validation_receipt::capture_validation(root, receipt_subject, receipt_plan),
         ) {
             FullGateReceiptRecapture::Stable(after) => {
-                match pre_push_receipt::record_pre_push_receipt(root, &after) {
+                match validation_receipt::record_receipt(root, &after) {
                     Ok(path) => {
-                        eprintln!("recorded advisory pre-push receipt {}", path.display())
+                        eprintln!(
+                            "recorded advisory local-gate validation receipt {}",
+                            path.display()
+                        )
                     }
                     Err(error) => {
-                        eprintln!("advisory pre-push receipt was not recorded: {error}")
+                        eprintln!("advisory validation receipt was not recorded: {error}")
                     }
                 }
             }
             FullGateReceiptRecapture::Changed => {
                 eprintln!(
-                    "advisory pre-push receipt was not recorded because its recorded context changed during the successful full gate"
+                    "advisory validation receipt was not recorded because its context changed during the successful full gate"
                 );
             }
             FullGateReceiptRecapture::Unavailable(error) => {
                 eprintln!(
-                    "advisory pre-push receipt was not recorded because its context could not be recaptured: {error}"
+                    "advisory validation receipt was not recorded because its context could not be recaptured: {error}"
                 );
             }
         }
@@ -1885,7 +1949,7 @@ fn main() -> ExitCode {
             Ok(outcome) => {
                 if outcome.reused {
                     eprintln!(
-                        "exact-tree source-quality validation was reused for {}",
+                        "exact-commit source-quality validation was reused for {}",
                         outcome.candidate.source_commit
                     );
                 } else {
@@ -1918,7 +1982,7 @@ fn main() -> ExitCode {
         [command, suite_flag, suite, receipt_flag]
             if command == "windows-native-tests"
                 && suite_flag == "--suite"
-                && receipt_flag == "--content-receipt" =>
+                && receipt_flag == "--validation-receipt" =>
         {
             match parse_windows_native_test_suite(suite) {
                 Ok(suite) => report_windows_native_tests(suite, true),
@@ -2037,7 +2101,7 @@ fn main() -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask -- local-gate\n       cargo run --locked -p xtask -- source-quality\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename] [--content-receipt]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- pre-push-full <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child>\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
+                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask -- local-gate\n       cargo run --locked -p xtask -- source-quality\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename] [--validation-receipt]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- pre-push-full <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child>\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
             );
             ExitCode::from(2)
         }
@@ -2260,7 +2324,7 @@ mod tests {
                     name: "evidence".to_owned(),
                     bin: "example-evidence".to_owned(),
                     arguments: vec!["check".to_owned(), "path with space".to_owned()],
-                    content_receipt: None,
+                    input_id_arguments: None,
                 }],
                 profiles: vec![DiscoveredLocalGateProfile {
                     package_spec: "example@1.2.3".to_owned(),
@@ -2420,7 +2484,7 @@ mod tests {
                 name: "distribution-evidence".to_owned(),
                 bin: "distribution-evidence".to_owned(),
                 arguments: vec!["check".to_owned()],
-                content_receipt: Some(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET.to_owned()),
+                input_id_arguments: Some(vec!["input-id".to_owned()]),
             }],
             profiles: Vec::new(),
         };
@@ -2440,7 +2504,7 @@ mod tests {
                 ..exact.checks[0].clone()
             },
             DiscoveredLocalGateCheck {
-                content_receipt: None,
+                input_id_arguments: None,
                 ..exact.checks[0].clone()
             },
         ] {
@@ -2451,6 +2515,25 @@ mod tests {
                 }
             ));
         }
+    }
+
+    #[test]
+    fn source_quality_plan_strictly_satisfies_the_pre_push_local_gate_subset() {
+        let commands = vec![
+            LocalGateCommand::new("git", &["diff", "--check"]),
+            LocalGateCommand::new("cargo", &["test", "--locked", "--workspace"]),
+        ];
+        let local_gate = local_gate_validation_plan(&commands).unwrap();
+        let source_quality = source_quality_validation_plan(&commands).unwrap();
+        assert!(source_quality.satisfies(&local_gate));
+        assert!(!local_gate.satisfies(&source_quality));
+
+        let changed = local_gate_validation_plan(&[
+            LocalGateCommand::new("git", &["diff", "--check"]),
+            LocalGateCommand::new("cargo", &["test", "--locked", "--all-targets"]),
+        ])
+        .unwrap();
+        assert!(!source_quality.satisfies(&changed));
     }
 
     #[test]
@@ -2558,7 +2641,7 @@ mod tests {
     }
 
     #[test]
-    fn local_gate_content_receipts_are_closed_to_distribution_evidence() {
+    fn package_owned_input_id_requires_the_versioned_metadata_contract() {
         let metadata = serde_json::from_value(serde_json::json!({
             "workspace_members": ["path+file:///repo/crates/example#example@1.0.0"],
             "packages": [{
@@ -2577,7 +2660,7 @@ mod tests {
                             "name": "example",
                             "bin": "example",
                             "arguments": ["check"],
-                            "content-receipt": "distribution-evidence"
+                            "input-id-arguments": ["input-id"]
                         }]
                     }
                 }
@@ -2586,8 +2669,8 @@ mod tests {
         .expect("synthetic cargo metadata");
 
         let error = discover_local_gate_from_metadata(metadata)
-            .expect_err("an unowned content-receipt target must fail closed");
-        assert!(error.contains("unsupported content receipt target distribution-evidence"));
+            .expect_err("schema-version 1 must not silently acquire input-id semantics");
+        assert!(error.contains("requires schema-version 2 for input-id-arguments"));
     }
 
     #[test]

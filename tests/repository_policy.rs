@@ -17,7 +17,7 @@ const CANONICAL_GPLV3_SHA256: &str =
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
     "54c1d868f130d93270fc07c53df6c28ee4465878070b9603c0cbba69c4161db1";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "713f14dc4cda569733472cd6e077c952eac7e0072508e994ba3a158696e60e40";
+    "0804fb1655c441a3496f2765c286466fcf6d1c17acac12bad25ef4506f01f06c";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
     "061b991abd7b73b4f74addec2b4fb69e9a0c27a1bd3474f5e57d956d49cbab73";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
@@ -2748,34 +2748,44 @@ fn thin_pre_push_dispatch_has_no_active_normal_or_build_dependencies() {
 }
 
 #[test]
-fn content_validation_receipts_are_advisory_and_package_owned() {
+fn validation_receipts_are_durable_advisory_and_package_owned() {
     let repository = repository_root();
     let receipt_engine =
-        std::fs::read_to_string(repository.join("crates/xtask/src/content_receipt.rs"))
-            .expect("content receipt engine should be readable");
+        std::fs::read_to_string(repository.join("crates/xtask/src/validation_receipt.rs"))
+            .expect("validation receipt engine should be readable");
     for boundary in [
-        r#"const RECEIPT_SCOPE: &str = "advisory_validation_cache_only";"#,
+        r#"const RECEIPT_SCOPE: &str = "advisory_local_validation_only";"#,
         "release_authority: false,",
-        r#"const DISABLE_RECEIPTS_ENVIRONMENT: &str = "AUTOCAD_MCP_DISABLE_CONTENT_RECEIPTS";"#,
-        r#"const CACHE_COMPONENTS: [&str; 2] = ["local-ci-receipts", "v1"];"#,
+        "distribution_authority: false,",
+        "signing_authority: false,",
+        "native_host_authority: false,",
+        r#"const DISABLE_RECEIPTS_ENVIRONMENT: &str = "AUTOCAD_MCP_DISABLE_VALIDATION_RECEIPTS";"#,
+        r#"const CACHE_COMPONENTS: [&str; 3] = ["autocad-mcp", "validation-receipts", "v1"];"#,
+        r#"const SUBJECTS_COMPONENT: &str = "subjects";"#,
+        "fn plan_satisfies(",
+        "fn git_common_directory(",
         "#[serde(deny_unknown_fields)]",
     ] {
         assert!(
             receipt_engine.contains(boundary),
-            "content receipts must retain their non-authoritative boundary: {boundary}"
+            "validation receipts must retain their durable non-authoritative boundary: {boundary}"
         );
     }
-    for forbidden in [
-        "owner_distribution_approval",
-        "signing_authority",
-        "publication_authority",
-        "native_autocad_certification",
-    ] {
+    for forbidden in ["owner_distribution_approval", "publication_authority"] {
         assert!(
             !receipt_engine.contains(forbidden),
-            "advisory content receipts must not acquire {forbidden}"
+            "advisory validation receipts must not acquire {forbidden}"
         );
     }
+    assert!(
+        !repository
+            .join("crates/xtask/src/content_receipt.rs")
+            .exists()
+            && !repository
+                .join("crates/xtask/src/pre_push_receipt.rs")
+                .exists(),
+        "legacy receipt engines must be removed after migration"
+    );
 
     let declarations = WalkDir::new(repository.join("crates"))
         .follow_links(false)
@@ -2785,7 +2795,7 @@ fn content_validation_receipts_are_advisory_and_package_owned() {
         .filter_map(|entry| {
             let contents = std::fs::read_to_string(entry.path())
                 .expect("Cargo manifest should be readable UTF-8");
-            contents.contains("content-receipt").then(|| {
+            contents.contains("input-id-arguments").then(|| {
                 entry
                     .path()
                     .strip_prefix(&repository)
@@ -2798,7 +2808,7 @@ fn content_validation_receipts_are_advisory_and_package_owned() {
     assert_eq!(
         declarations,
         ["crates/distribution/evidence/Cargo.toml"],
-        "content-receipt declarations must remain closed to reviewed package-owned checks"
+        "input-id declarations must remain package-owned and explicit"
     );
 
     let evidence_manifest =
@@ -2806,10 +2816,18 @@ fn content_validation_receipts_are_advisory_and_package_owned() {
             .expect("distribution-evidence manifest should be readable");
     assert_eq!(
         evidence_manifest
-            .matches(r#"content-receipt = "distribution-evidence""#)
+            .matches(r#"input-id-arguments = ["input-id"]"#)
             .count(),
         1,
-        "distribution evidence must own exactly one content receipt target"
+        "distribution evidence must own exactly one stable input-id subcommand"
+    );
+    assert!(evidence_manifest.contains("schema-version = 2"));
+    let evidence_cli =
+        std::fs::read_to_string(repository.join("crates/distribution/evidence/src/main.rs"))
+            .expect("distribution-evidence CLI should be readable");
+    assert!(
+        evidence_cli.contains(r#"[command] if command == "input-id" => report_input_id(),"#),
+        "the package-owned input-id declaration must resolve to a real CLI subcommand"
     );
 }
 
@@ -3337,7 +3355,7 @@ fn assert_windows_development_cache_contract(
     name: &str,
     workflow: &str,
     dependency_cache_writer: bool,
-    content_receipt_cache: bool,
+    validation_receipt_cache: bool,
 ) {
     let restore = concat!(
         "uses: actions/cache/restore@",
@@ -3358,7 +3376,7 @@ fn assert_windows_development_cache_contract(
 
     assert_eq!(
         workflow.matches(restore).count(),
-        1 + usize::from(content_receipt_cache),
+        1 + usize::from(validation_receipt_cache),
         "{name} cache-restore action inventory changed"
     );
     assert_eq!(
@@ -3444,7 +3462,7 @@ fn assert_windows_development_cache_contract(
     if dependency_cache_writer {
         assert_eq!(
             workflow.matches(save).count(),
-            1 + usize::from(content_receipt_cache),
+            1 + usize::from(validation_receipt_cache),
             "{name} cache-save action inventory changed"
         );
         assert!(workflow.contains(
@@ -3459,8 +3477,8 @@ fn assert_windows_development_cache_contract(
 }
 
 fn assert_windows_semantic_receipt_cache_contract(workflow: &str) {
-    let path = "path: target/local-ci-receipts/v1/windows-native-semantic";
-    let key = "key: windows-semantic-receipt-v1-windows-2025-${{ runner.arch }}-${{ steps.windows-receipt-context.outputs.sha256 }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'crates/**', 'tests/fixtures/**', '.github/workflows/windows-native-harness.yml') }}";
+    let path = "path: .git/autocad-mcp/validation-receipts/v1/subjects";
+    let key = "key: windows-semantic-receipt-v2-windows-2025-${{ runner.arch }}-${{ steps.windows-receipt-context.outputs.sha256 }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'crates/**', 'tests/fixtures/**', '.github/workflows/windows-native-harness.yml') }}";
     assert_eq!(
         workflow.matches(path).count(),
         2,
@@ -3813,7 +3831,7 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         "rustup toolchain install --no-self-update",
         "$bytes = [Text.Encoding]::UTF8.GetBytes(\"$env:ImageOS`n$env:ImageVersion`n$env:RUNNER_OS`n$env:RUNNER_ARCH\"); $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant(); \"sha256=$hash\" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append",
         "cargo fetch --locked",
-        "cargo run --locked -p xtask -- windows-native-tests --suite semantic --content-receipt",
+        "cargo run --locked -p xtask -- windows-native-tests --suite semantic --validation-receipt",
         "cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-source-candidate --mode preview",
         "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight",
         "cargo run --locked -p release-packager -- desktop-smoke --binary target/windows-certification-preflight/artifacts/release/autocad-mcp.exe --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf",
