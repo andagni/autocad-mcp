@@ -7385,9 +7385,13 @@ mod certification_harness_tests {
         let binary = parent.join("autocad-mcp.exe");
         std::fs::write(&binary, b"release-binary-one").unwrap();
         let digest = xref_sha256_file(&binary).unwrap();
-        let binding =
-            bind_exact_certification_file(binary.to_str().unwrap(), &digest, "release binary")
-                .unwrap();
+        let canonical_binary = binary.canonicalize().unwrap();
+        let binding = bind_exact_certification_file(
+            canonical_binary.to_str().unwrap(),
+            &digest,
+            "release binary",
+        )
+        .unwrap();
 
         assert!(
             std::fs::OpenOptions::new()
