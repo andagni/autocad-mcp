@@ -1034,6 +1034,7 @@ where
     }
 
     let commands = windows_native_test_commands(suite);
+    let mut failures = Vec::new();
     for (index, command) in commands.iter().enumerate() {
         eprintln!(
             "[{}/{}] {} {}",
@@ -1042,9 +1043,26 @@ where
             command.program,
             command.arguments.join(" ")
         );
-        run(root, command)?;
+        if let Err(error) = run(root, command) {
+            eprintln!("[{}/{}] FAILED: {error}", index + 1, commands.len());
+            failures.push(format!(
+                "[{}/{}] {} {}: {error}",
+                index + 1,
+                commands.len(),
+                command.program,
+                command.arguments.join(" ")
+            ));
+        }
     }
-    Ok(())
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} Windows-native test command(s) failed:\n{}",
+            failures.len(),
+            failures.join("\n")
+        ))
+    }
 }
 
 fn run_windows_native_tests(root: &Path, suite: WindowsNativeTestSuite) -> Result<(), String> {
@@ -2793,7 +2811,7 @@ mod tests {
     }
 
     #[test]
-    fn windows_native_tests_stop_at_the_first_failure() {
+    fn windows_native_tests_report_every_failure_in_one_run() {
         let calls = Cell::new(0);
         let error = run_windows_native_tests_with(
             Path::new("unused"),
@@ -2801,16 +2819,21 @@ mod tests {
             WindowsNativeTestSuite::Semantic,
             |_, _| {
                 calls.set(calls.get() + 1);
-                if calls.get() == 2 {
-                    Err("simulated failure".to_owned())
+                if matches!(calls.get(), 2 | 5) {
+                    Err(format!("simulated failure {}", calls.get()))
                 } else {
                     Ok(())
                 }
             },
         )
-        .expect_err("a failed command must stop the suite");
-        assert_eq!(error, "simulated failure");
-        assert_eq!(calls.get(), 2);
+        .expect_err("failed commands must fail the complete suite");
+        assert_eq!(calls.get(), WINDOWS_NATIVE_SEMANTIC_TESTS.len());
+        assert!(
+            error.starts_with("2 Windows-native test command(s) failed:\n"),
+            "{error}"
+        );
+        assert!(error.contains("simulated failure 2"), "{error}");
+        assert!(error.contains("simulated failure 5"), "{error}");
     }
 
     #[test]

@@ -1241,6 +1241,8 @@ pub(crate) struct ProductionOriginalHostGuard {
     file: std::cell::RefCell<Option<File>>,
     #[cfg(target_os = "windows")]
     transaction: WindowsFileTransaction,
+    #[cfg(target_os = "windows")]
+    commit_continuity: WindowsCommitContinuityGuard,
 }
 
 impl ProductionOriginalHostGuard {
@@ -1252,6 +1254,11 @@ impl ProductionOriginalHostGuard {
     #[cfg(target_os = "windows")]
     fn close_transaction_file(&self) {
         self.file.borrow_mut().take();
+    }
+
+    #[cfg(target_os = "windows")]
+    fn close_commit_continuity_file(&self) {
+        self.commit_continuity.file.borrow_mut().take();
     }
 }
 
@@ -2169,6 +2176,8 @@ fn unlock_output_file(_file: &File) {}
 const WINDOWS_HOST_LOCK_SHARE_MODE: u32 = 0x0000_0001;
 #[cfg(any(test, target_os = "windows"))]
 const WINDOWS_PREPARED_LOCK_SHARE_MODE: u32 = 0;
+#[cfg(target_os = "windows")]
+const WINDOWS_COMMIT_CONTINUITY_SHARE_MODE: u32 = 0x0000_0001 | 0x0000_0002;
 
 #[cfg(any(test, target_os = "windows"))]
 fn windows_host_lock_blocks_competing_write(share_mode: u32) -> bool {
@@ -2194,6 +2203,28 @@ enum WindowsFileTransactionState {
 struct WindowsFileTransaction {
     handle: std::os::windows::io::OwnedHandle,
     state: std::cell::Cell<WindowsFileTransactionState>,
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Debug)]
+struct WindowsCommitContinuityGuard {
+    // Keep the reader handle before the transaction so it is closed first.
+    file: std::cell::RefCell<Option<File>>,
+    transaction: WindowsFileTransaction,
+}
+
+#[cfg(target_os = "windows")]
+impl WindowsCommitContinuityGuard {
+    fn ensure_active(&self) -> Result<(), XrefBoundaryError> {
+        self.transaction.ensure_active()?;
+        if self.file.borrow().is_some() {
+            Ok(())
+        } else {
+            Err(XrefBoundaryError::new(
+                "Windows commit-continuity reader is no longer open",
+            ))
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -2288,6 +2319,43 @@ impl WindowsFileTransaction {
         Ok(unsafe { File::from_raw_handle(handle) })
     }
 
+    fn open_reader(
+        &self,
+        path: &Path,
+        share_mode: u32,
+        context: &str,
+    ) -> Result<File, XrefBoundaryError> {
+        use std::os::windows::{ffi::OsStrExt, io::FromRawHandle};
+        use windows_sys::Win32::{
+            Foundation::{GENERIC_READ, INVALID_HANDLE_VALUE},
+            Storage::FileSystem::{CreateFileTransactedW, FILE_ATTRIBUTE_NORMAL, OPEN_EXISTING},
+        };
+
+        self.ensure_active()?;
+        let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        let handle = unsafe {
+            CreateFileTransactedW(
+                path.as_ptr(),
+                GENERIC_READ,
+                share_mode,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,
+                std::ptr::null_mut(),
+                self.raw_handle(),
+                std::ptr::null(),
+                std::ptr::null(),
+            )
+        };
+        if handle == INVALID_HANDLE_VALUE {
+            return Err(XrefBoundaryError::new(format!(
+                "{context}: {}",
+                io::Error::last_os_error()
+            )));
+        }
+        Ok(unsafe { File::from_raw_handle(handle) })
+    }
+
     fn commit(&self) -> Result<(), XrefBoundaryError> {
         use windows_sys::Win32::Storage::FileSystem::CommitTransaction;
 
@@ -2352,7 +2420,8 @@ fn validate_production_host_replacement_guard(
             "Windows host lock permits a competing delete or path replacement",
         ));
     }
-    lock.transaction.ensure_active()
+    lock.transaction.ensure_active()?;
+    lock.commit_continuity.ensure_active()
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -2371,10 +2440,24 @@ fn lock_host_file(path: &Path) -> Result<ProductionOriginalHostGuard, XrefBounda
         WINDOWS_HOST_LOCK_SHARE_MODE,
         "open original host in file transaction",
     )?;
+    // A reader in a separate transaction can coexist with the writer while
+    // excluding non-transacted writers. Its missing delete share also excludes
+    // ordinary deletion and path replacement. Retaining it across the writer's
+    // commit gives the ordinary installed guard a race-free handoff.
+    let continuity_transaction = WindowsFileTransaction::new()?;
+    let continuity_file = continuity_transaction.open_reader(
+        path,
+        WINDOWS_COMMIT_CONTINUITY_SHARE_MODE,
+        "open original host commit-continuity reader",
+    )?;
     Ok(ProductionOriginalHostGuard {
         path: path.to_path_buf(),
         file: std::cell::RefCell::new(Some(file)),
         transaction,
+        commit_continuity: WindowsCommitContinuityGuard {
+            file: std::cell::RefCell::new(Some(continuity_file)),
+            transaction: continuity_transaction,
+        },
     })
 }
 
@@ -2455,17 +2538,13 @@ fn install_prepared_output_transactionally(
     // publish the host bytes and sibling deletion atomically.
     prepared.guarded.close_transaction_file();
     original.close_transaction_file();
-    // This ordinary handle reads the committed pre-transaction view while TxF
-    // still owns the writer lock. Its immutable no-write/no-delete share mode
-    // remains valid across an in-place transaction commit, so it becomes the
-    // installed-host guard without any release/reacquire namespace window.
-    let installed_guard = match lock_installed_file_before_commit(&prepared.destination) {
-        Ok(guard) => guard,
-        Err(error) => {
-            return Err(rollback_precommit_install(&original.transaction, error));
-        }
-    };
     original.transaction.commit()?;
+    // The separate transacted reader remains live across commit. TxF excludes
+    // non-transacted writers through that reader, and its missing delete share
+    // excludes ordinary deletion and path replacement. Acquire the immutable
+    // ordinary guard before releasing that continuity reader.
+    let installed_guard = lock_installed_file_after_commit(&prepared.destination)?;
+    original.close_commit_continuity_file();
     Ok(installed_guard)
 }
 
@@ -2485,7 +2564,7 @@ fn rollback_precommit_install(
 }
 
 #[cfg(target_os = "windows")]
-fn lock_installed_file_before_commit(
+fn lock_installed_file_after_commit(
     path: &Path,
 ) -> Result<ProductionGuardedOutputFile, XrefBoundaryError> {
     use std::os::windows::fs::OpenOptionsExt;
@@ -2494,9 +2573,7 @@ fn lock_installed_file_before_commit(
         .read(true)
         .share_mode(windows_primitives::FILE_SHARE_READ)
         .open(path)
-        .map_err(boundary_io(
-            "open committed host view with pre-commit installed guard",
-        ))?;
+        .map_err(boundary_io("open committed host with installed guard"))?;
     Ok(ProductionGuardedOutputFile {
         file: std::cell::RefCell::new(Some(file)),
     })
@@ -5477,6 +5554,18 @@ mod tests {
             original_observation.identity
         );
         assert_eq!(installed_observation.digest, prepared_observation.digest);
+        let competing_installed_write = OpenOptions::new()
+            .write(true)
+            .share_mode(
+                windows_primitives::FILE_SHARE_READ
+                    | windows_primitives::FILE_SHARE_WRITE
+                    | windows_primitives::FILE_SHARE_DELETE,
+            )
+            .open(&host);
+        assert!(
+            competing_installed_write.is_err(),
+            "the installed guard must exclude an outside write"
+        );
         assert!(fs::remove_file(&host).is_err());
         assert_eq!(fs::read(&host).unwrap(), b"replacement-host");
         assert!(!output.exists());
