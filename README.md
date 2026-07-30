@@ -530,6 +530,11 @@ exact, main-authored content receipt bound to the tracked test closure and
 hosted Windows image; pull requests can read but cannot publish that cache.
 The guarded-rename feasibility probe, source candidate, Windows binaries, and
 package/LSP smoke still run fresh whenever their workflow is dispatched.
+The semantic suite and Preview source-candidate seal are independent
+preflights: the workflow runs both even if one fails, reports their combined
+outcome, and starts binary construction only after both pass. The
+registry/profile, filesystem-guard, and process-tree tests inside the semantic
+suite remain serial to avoid cross-test state interference.
 
 ## Build the Windows Preview desktop extension
 

@@ -94,17 +94,41 @@ jobs:
           key: windows-semantic-receipt-v1-windows-2025-${{ runner.arch }}-${{ steps.windows-receipt-context.outputs.sha256 }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'crates/**', 'tests/fixtures/**', '.github/workflows/windows-native-harness.yml') }}
 
       - name: Run the repository-owned Windows semantic tests
+        id: windows_semantic
+        continue-on-error: true
         run: cargo run --locked -p xtask -- windows-native-tests --suite semantic --content-receipt
 
       - name: Save the trusted main Windows semantic receipt
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.windows-semantic-receipt.outputs.cache-hit != 'true' }}
+        if: ${{ always() && steps.windows_semantic.outcome == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.windows-semantic-receipt.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: target/local-ci-receipts/v1/windows-native-semantic
           key: windows-semantic-receipt-v1-windows-2025-${{ runner.arch }}-${{ steps.windows-receipt-context.outputs.sha256 }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'crates/**', 'tests/fixtures/**', '.github/workflows/windows-native-harness.yml') }}
 
       - name: Seal the deterministic Windows target source candidate
+        id: windows_source_candidate
+        continue-on-error: true
         run: cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-source-candidate --mode preview
+
+      - name: Require every independent Windows preflight
+        shell: pwsh
+        env:
+          WINDOWS_SEMANTIC_OUTCOME: ${{ steps.windows_semantic.outcome }}
+          WINDOWS_SOURCE_CANDIDATE_OUTCOME: ${{ steps.windows_source_candidate.outcome }}
+        run: |
+          $failures = @()
+          if ($env:WINDOWS_SEMANTIC_OUTCOME -cne "success") {
+            $failures += "Windows semantic validation"
+          }
+          if ($env:WINDOWS_SOURCE_CANDIDATE_OUTCOME -cne "success") {
+            $failures += "Preview source-candidate sealing"
+          }
+          if ($failures.Count -ne 0) {
+            foreach ($failure in $failures) {
+              Write-Host "::error title=Independent Windows preflight failure::$failure"
+            }
+            throw "$($failures.Count) independent Windows preflight check(s) failed: $($failures -join '; ')"
+          }
 
       - name: Build and inspect the native Release, instrumented, and Preview binaries
         run: cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight

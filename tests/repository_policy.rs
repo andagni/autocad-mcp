@@ -17,7 +17,7 @@ const CANONICAL_GPLV3_SHA256: &str =
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
     "54c1d868f130d93270fc07c53df6c28ee4465878070b9603c0cbba69c4161db1";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "5c4578575f0aed1266322a67d8fc362bd2ff578948f5c483dd1d9dfeb48412b3";
+    "711a91deadec7de97f63a8e959af33d153f3d0a747fcd682a7051a4683217150";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
     "b247c7c233c58ba997d0a63664adab8d057e0f80721e042705da777ef7da8709";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
@@ -3426,7 +3426,7 @@ fn assert_windows_semantic_receipt_cache_contract(workflow: &str) {
     );
     assert!(workflow.contains("$env:ImageOS`n$env:ImageVersion`n$env:RUNNER_OS`n$env:RUNNER_ARCH"));
     assert!(workflow.contains(
-        "if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.windows-semantic-receipt.outputs.cache-hit != 'true' }}"
+        "if: ${{ always() && steps.windows_semantic.outcome == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.windows-semantic-receipt.outputs.cache-hit != 'true' }}"
     ));
     let semantic = workflow
         .find("- name: Run the repository-owned Windows semantic tests")
@@ -3437,9 +3437,52 @@ fn assert_windows_semantic_receipt_cache_contract(workflow: &str) {
     let candidate = workflow
         .find("- name: Seal the deterministic Windows target source candidate")
         .expect("Windows candidate step should exist");
+    let aggregate = workflow
+        .find("- name: Require every independent Windows preflight")
+        .expect("Windows independent-preflight aggregate should exist");
+    let build = workflow
+        .find("- name: Build and inspect the native Release, instrumented, and Preview binaries")
+        .expect("Windows native binary build step should exist");
     assert!(
-        semantic < save && save < candidate,
-        "a successful semantic result must be cached before independent candidate/build failures"
+        semantic < save && save < candidate && candidate < aggregate && aggregate < build,
+        "both independent preflights must finish before their aggregate can admit artifact construction"
+    );
+    assert_eq!(
+        workflow.matches("continue-on-error: true").count(),
+        2,
+        "only the two independent Windows preflights may defer failure to the aggregate"
+    );
+    let semantic_block = &workflow[semantic..save];
+    assert!(semantic_block.contains("id: windows_semantic"));
+    assert!(semantic_block.contains("continue-on-error: true"));
+    let candidate_block = &workflow[candidate..aggregate];
+    assert!(candidate_block.contains("id: windows_source_candidate"));
+    assert!(candidate_block.contains("continue-on-error: true"));
+    let aggregate_block = &workflow[aggregate..build];
+    for required in [
+        "WINDOWS_SEMANTIC_OUTCOME: ${{ steps.windows_semantic.outcome }}",
+        "WINDOWS_SOURCE_CANDIDATE_OUTCOME: ${{ steps.windows_source_candidate.outcome }}",
+        "$failures += \"Windows semantic validation\"",
+        "$failures += \"Preview source-candidate sealing\"",
+        "if ($failures.Count -ne 0)",
+        "throw \"$($failures.Count) independent Windows preflight check(s) failed: $($failures -join '; ')\"",
+    ] {
+        assert!(
+            aggregate_block.contains(required),
+            "Windows independent-preflight aggregate is missing: {required}"
+        );
+    }
+    assert!(
+        !aggregate_block.contains("continue-on-error: true"),
+        "the terminal Windows preflight aggregate must fail the job"
+    );
+    let first_artifact_step = &workflow[build..workflow
+        .find("- name: Exercise the exact ARG-bound release binary through the Claude Desktop lifecycle")
+        .expect("Windows release-binary smoke step should exist")];
+    assert!(
+        !first_artifact_step.contains("continue-on-error:")
+            && !first_artifact_step.contains("\n        if:"),
+        "artifact construction must inherit the successful aggregate as a hard prerequisite"
     );
     let receipt_restore = workflow
         .split("- name: Restore an exact main-authored Windows semantic receipt")
@@ -3649,6 +3692,7 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         "cargo fetch --locked",
         "cargo run --locked -p xtask -- windows-native-tests --suite semantic --content-receipt",
         "cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-source-candidate --mode preview",
+        "|",
         "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight",
         "cargo run --locked -p release-packager -- desktop-smoke --binary target/windows-certification-preflight/artifacts/release/autocad-mcp.exe --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf",
         "cargo run --locked -p release-packager -- lsp-smoke --binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe",
