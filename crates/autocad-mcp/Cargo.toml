@@ -14,6 +14,7 @@ name = "xref-certification-failpoints"
 features = ["xref-certification-failpoints"]
 clippy = true
 test = false
+targets = ["lib", "bin:autocad-mcp"]
 
 [[package.metadata.local-gate.profiles]]
 name = "preview"

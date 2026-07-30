@@ -47,6 +47,11 @@ jobs:
       - name: Install the repository toolchain
         run: rustup toolchain install --no-self-update
 
+      - name: Install the pinned shared compiler cache
+        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        with:
+          version: "v0.15.0"
+
       - name: Bind the hosted Windows image for validation receipts
         id: windows-receipt-context
         shell: pwsh
@@ -81,11 +86,6 @@ jobs:
         with:
           path: target/local-ci-receipts/v1/windows-native-semantic
           key: windows-semantic-receipt-v1-windows-2025-${{ runner.arch }}-${{ steps.windows-receipt-context.outputs.sha256 }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'crates/**', 'tests/fixtures/**', '.github/workflows/windows-native-harness.yml') }}
-
-      - name: Install the pinned shared compiler cache
-        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
-        with:
-          version: "v0.15.0"
 
       - name: Run the repository-owned Windows semantic tests
         run: cargo run --locked -p xtask -- windows-native-tests --suite semantic --content-receipt

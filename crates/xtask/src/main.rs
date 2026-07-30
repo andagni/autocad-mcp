@@ -98,6 +98,14 @@ struct PackageLocalGateProfile {
     features: Vec<String>,
     clippy: bool,
     test: bool,
+    #[serde(default)]
+    targets: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum LocalGateProfileTarget {
+    Lib,
+    Bin(String),
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -116,6 +124,7 @@ struct DiscoveredLocalGateProfile {
     features: Vec<String>,
     clippy: bool,
     test: bool,
+    targets: Vec<LocalGateProfileTarget>,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -561,12 +570,28 @@ fn discover_local_gate_from_metadata(
                     ));
                 }
             }
+            let mut profile_targets = BTreeSet::new();
+            for target in &profile.targets {
+                let target = parse_local_gate_profile_target(
+                    target,
+                    &package_spec,
+                    &profile.name,
+                    &package.targets,
+                )?;
+                if !profile_targets.insert(target) {
+                    return Err(format!(
+                        "package {package_spec} local-gate profile {} repeats a target",
+                        profile.name
+                    ));
+                }
+            }
             profiles.push(DiscoveredLocalGateProfile {
                 package_spec: package_spec.clone(),
                 name: profile.name,
                 features: profile.features,
                 clippy: profile.clippy,
                 test: profile.test,
+                targets: profile_targets.into_iter().collect(),
             });
         }
     }
@@ -587,6 +612,41 @@ fn require_local_gate_token(value: &str, label: &str) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+fn parse_local_gate_profile_target(
+    value: &str,
+    package_spec: &str,
+    profile_name: &str,
+    package_targets: &[LocalGateCargoTarget],
+) -> Result<LocalGateProfileTarget, String> {
+    if value == "lib" {
+        if !package_targets
+            .iter()
+            .any(|target| target.kind.iter().any(|kind| kind == "lib"))
+        {
+            return Err(format!(
+                "package {package_spec} local-gate profile {profile_name} selects an undeclared library target"
+            ));
+        }
+        return Ok(LocalGateProfileTarget::Lib);
+    }
+
+    let Some(binary) = value.strip_prefix("bin:") else {
+        return Err(format!(
+            "package {package_spec} local-gate profile {profile_name} has unsupported target {value:?}; expected lib or bin:<declared-binary>"
+        ));
+    };
+    require_local_gate_token(binary, "binary target name")?;
+    if !package_targets
+        .iter()
+        .any(|target| target.name == binary && target.kind.iter().any(|kind| kind == "bin"))
+    {
+        return Err(format!(
+            "package {package_spec} local-gate profile {profile_name} selects undeclared binary target {binary}"
+        ));
+    }
+    Ok(LocalGateProfileTarget::Bin(binary.to_owned()))
 }
 
 fn require_local_gate_argument(
@@ -665,10 +725,23 @@ fn local_gate_profile_command(
         "--locked".to_owned(),
         "-p".to_owned(),
         profile.package_spec.clone(),
-        "--all-targets".to_owned(),
-        "--features".to_owned(),
-        profile.features.join(","),
     ];
+    if profile.targets.is_empty() {
+        arguments.push("--all-targets".to_owned());
+    } else {
+        for target in &profile.targets {
+            match target {
+                LocalGateProfileTarget::Lib => arguments.push("--lib".to_owned()),
+                LocalGateProfileTarget::Bin(binary) => {
+                    arguments.extend(["--bin".to_owned(), binary.clone()]);
+                }
+            }
+        }
+        if operation == "clippy" {
+            arguments.push("--no-deps".to_owned());
+        }
+    }
+    arguments.extend(["--features".to_owned(), profile.features.join(",")]);
     match operation {
         "clippy" => arguments.extend(["--".to_owned(), "-D".to_owned(), "warnings".to_owned()]),
         "test" => {}
@@ -2219,6 +2292,10 @@ mod tests {
                     },
                     "targets": [
                         {
+                            "name": "example",
+                            "kind": ["lib"]
+                        },
+                        {
                             "name": "example-evidence",
                             "kind": ["bin"]
                         }
@@ -2238,7 +2315,8 @@ mod tests {
                                     "name": "special",
                                     "features": ["special"],
                                     "clippy": true,
-                                    "test": true
+                                    "test": true,
+                                    "targets": ["bin:example-evidence", "lib"]
                                 }
                             ]
                         }
@@ -2278,6 +2356,10 @@ mod tests {
                     features: vec!["special".to_owned()],
                     clippy: true,
                     test: true,
+                    targets: vec![
+                        LocalGateProfileTarget::Lib,
+                        LocalGateProfileTarget::Bin("example-evidence".to_owned()),
+                    ],
                 }],
             }
         );
@@ -2322,7 +2404,10 @@ mod tests {
                         "--locked",
                         "-p",
                         "example@1.2.3",
-                        "--all-targets",
+                        "--lib",
+                        "--bin",
+                        "example-evidence",
+                        "--no-deps",
                         "--features",
                         "special",
                         "--",
@@ -2341,7 +2426,9 @@ mod tests {
                         "--locked",
                         "-p",
                         "example@1.2.3",
-                        "--all-targets",
+                        "--lib",
+                        "--bin",
+                        "example-evidence",
                         "--features",
                         "special",
                     ],
@@ -2364,6 +2451,52 @@ mod tests {
         assert_eq!(
             render_local_gate_command(&commands[2]),
             "cargo [\"run\",\"--locked\",\"-p\",\"example@1.2.3\",\"--bin\",\"example-evidence\",\"--\",\"check\",\"path with space\"]"
+        );
+    }
+
+    #[test]
+    fn local_gate_profile_targets_default_to_all_targets() {
+        let profile = DiscoveredLocalGateProfile {
+            package_spec: "example@1.2.3".to_owned(),
+            name: "special".to_owned(),
+            features: vec!["special".to_owned()],
+            clippy: true,
+            test: true,
+            targets: Vec::new(),
+        };
+
+        assert_eq!(
+            local_gate_profile_command(&profile, "clippy"),
+            LocalGateCommand::new(
+                "cargo",
+                &[
+                    "clippy",
+                    "--locked",
+                    "-p",
+                    "example@1.2.3",
+                    "--all-targets",
+                    "--features",
+                    "special",
+                    "--",
+                    "-D",
+                    "warnings",
+                ],
+            )
+        );
+        assert_eq!(
+            local_gate_profile_command(&profile, "test"),
+            LocalGateCommand::new(
+                "cargo",
+                &[
+                    "test",
+                    "--locked",
+                    "-p",
+                    "example@1.2.3",
+                    "--all-targets",
+                    "--features",
+                    "special",
+                ],
+            )
         );
     }
 
@@ -2444,6 +2577,40 @@ mod tests {
         let error = discover_local_gate_from_metadata(metadata)
             .expect_err("duplicate package-owned profile must fail closed");
         assert!(error.contains("repeats local-gate profile duplicate"));
+    }
+
+    #[test]
+    fn local_gate_rejects_undeclared_profile_targets() {
+        let metadata = serde_json::from_value(serde_json::json!({
+            "workspace_members": ["path+file:///repo/crates/example#example@1.0.0"],
+            "packages": [{
+                "id": "path+file:///repo/crates/example#example@1.0.0",
+                "name": "example",
+                "version": "1.0.0",
+                "features": {"feature": []},
+                "targets": [{
+                    "name": "example",
+                    "kind": ["lib"]
+                }],
+                "metadata": {
+                    "local-gate": {
+                        "schema-version": 1,
+                        "profiles": [{
+                            "name": "scoped",
+                            "features": ["feature"],
+                            "clippy": true,
+                            "test": false,
+                            "targets": ["bin:missing"]
+                        }]
+                    }
+                }
+            }]
+        }))
+        .expect("synthetic cargo metadata");
+
+        let error = discover_local_gate_from_metadata(metadata)
+            .expect_err("an undeclared profile target must fail closed");
+        assert!(error.contains("selects undeclared binary target missing"));
     }
 
     #[test]

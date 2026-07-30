@@ -15,9 +15,9 @@ const PROJECT_LICENSE: &str = "GPL-3.0-or-later";
 const CANONICAL_GPLV3_SHA256: &str =
     "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986";
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
-    "f22f21fc5cbc782bc19681ba20d35ff82c92ee5430580b6d36118a95e66e6248";
+    "e06a9f70bcec22a26abbdf0ed7fde3a3776017681f1cfd595b7c963eb63c3231";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "87e288cf6d17e9fb2bc87d53ca04c59bdcc08eeb888d974281fc73cf03eca1a4";
+    "65d4225f0ee289c085ba3eb0530078d9b297fd010fffd17a1a08e70a298b707b";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
     "b247c7c233c58ba997d0a63664adab8d057e0f80721e042705da777ef7da8709";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
@@ -2638,6 +2638,39 @@ fn local_pre_push_hook_scopes_incremental_compilation_to_serial_gate_work() {
 }
 
 #[test]
+fn xref_failpoint_clippy_is_scoped_to_the_instrumented_product_targets() {
+    let repository = repository_root();
+    let manifest = std::fs::read_to_string(repository.join("crates/autocad-mcp/Cargo.toml"))
+        .expect("autocad-mcp manifest should be readable");
+    let profile = concat!(
+        "[[package.metadata.local-gate.profiles]]\n",
+        "name = \"xref-certification-failpoints\"\n",
+        "features = [\"xref-certification-failpoints\"]\n",
+        "clippy = true\n",
+        "test = false\n",
+        "targets = [\"lib\", \"bin:autocad-mcp\"]\n",
+    );
+    assert_eq!(
+        manifest.matches(profile).count(),
+        1,
+        "XREF failpoint Clippy must cover only the instrumented library and product binary"
+    );
+
+    let coordinator = std::fs::read_to_string(repository.join("crates/xtask/src/main.rs"))
+        .expect("xtask coordinator should be readable");
+    for boundary in [
+        "LocalGateProfileTarget::Lib => arguments.push(\"--lib\".to_owned())",
+        "arguments.extend([\"--bin\".to_owned(), binary.clone()])",
+        "arguments.push(\"--no-deps\".to_owned())",
+    ] {
+        assert!(
+            coordinator.contains(boundary),
+            "scoped feature-profile Clippy is missing boundary: {boundary}"
+        );
+    }
+}
+
+#[test]
 fn thin_pre_push_dispatch_has_no_active_normal_or_build_dependencies() {
     let repository = repository_root();
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
@@ -3266,6 +3299,16 @@ fn assert_windows_development_cache_contract(
         1,
         "{name} must install the one reviewed compiler cache"
     );
+    let sccache_install = workflow
+        .find("- name: Install the pinned shared compiler cache")
+        .expect("development workflow must install sccache");
+    let first_cargo = workflow
+        .find("run: cargo fetch --locked")
+        .expect("development workflow must fetch locked dependencies");
+    assert!(
+        sccache_install < first_cargo,
+        "{name} must install sccache before any Cargo command can inherit RUSTC_WRAPPER=sccache"
+    );
     assert_eq!(
         workflow.matches("version: \"v0.15.0\"").count(),
         1,
@@ -3392,7 +3435,7 @@ fn assert_windows_semantic_receipt_cache_contract(workflow: &str) {
         .split("- name: Restore an exact main-authored Windows semantic receipt")
         .nth(1)
         .and_then(|tail| {
-            tail.split("- name: Install the pinned shared compiler cache")
+            tail.split("- name: Run the repository-owned Windows semantic tests")
                 .next()
         })
         .expect("Windows semantic receipt restore block should be closed");
