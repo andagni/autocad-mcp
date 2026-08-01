@@ -185,6 +185,13 @@ pub(crate) fn run_windows_build_preflight(
         CERTIFIED_ARG_POLICY_REPOSITORY_PATH,
         "public development ARG policy",
     )?;
+    let rust_toolchain_bytes = read_exact_head_input(
+        root,
+        &head_before,
+        "rust-toolchain.toml",
+        "Rust toolchain manifest",
+    )?;
+    let rust_toolchain = crate::source_bundle::rust_toolchain_channel(&rust_toolchain_bytes)?;
     let arg_inspection =
         autocad_mcp::certified_arg::validate_distribution_safe_arg(&arg_bytes, &policy_bytes)
             .map_err(|error| format!("public development ARG policy failed: {error:#}"))?;
@@ -214,7 +221,13 @@ pub(crate) fn run_windows_build_preflight(
 
     let commands = build_commands(&output_dir);
     for command in &commands {
-        run_build_command(root, command, &head_inputs.source_commit, &arg_identity)?;
+        run_build_command(
+            root,
+            command,
+            &rust_toolchain,
+            &head_inputs.source_commit,
+            &arg_identity,
+        )?;
     }
 
     let release_source = built_executable(&commands[0], "autocad-mcp.exe");
@@ -544,21 +557,19 @@ fn build_command(
 fn run_build_command(
     root: &Path,
     spec: &BuildCommand,
+    rust_toolchain: &str,
     source_commit: &str,
     arg_identity: &CertifiedArgBuildIdentity,
 ) -> Result<(), String> {
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo"));
-    let mut command = Command::new(&cargo);
-    command.args(&spec.arguments).current_dir(root);
-    remove_ambient_autocad_environment(&mut command);
-    remove_ambient_build_overrides(&mut command);
-    command
-        .env("CARGO_ENCODED_RUSTFLAGS", STATIC_CRT_ENCODED_RUSTFLAGS)
-        .env("CARGO_INCREMENTAL", DISABLED_INCREMENTAL_COMPILATION)
-        .env(SOURCE_COMMIT_ENV, source_commit)
-        .env(CERTIFIED_ARG_SHA256_ENV, &arg_identity.sha256)
-        .env(CERTIFIED_ARG_POLICY_ID_ENV, &arg_identity.policy_id)
-        .env(CERTIFIED_ARG_POLICY_SHA256_ENV, &arg_identity.policy_sha256);
+    let mut command = configured_build_process(
+        root,
+        spec,
+        &cargo,
+        rust_toolchain,
+        source_commit,
+        arg_identity,
+    );
     let status = command.status().map_err(|error| {
         format!(
             "launch {} {}: {error}",
@@ -580,6 +591,33 @@ fn run_build_command(
         ));
     }
     Ok(())
+}
+
+fn configured_build_process(
+    root: &Path,
+    spec: &BuildCommand,
+    cargo: &OsStr,
+    rust_toolchain: &str,
+    source_commit: &str,
+    arg_identity: &CertifiedArgBuildIdentity,
+) -> Command {
+    let mut command = Command::new(cargo);
+    command.args(&spec.arguments).current_dir(root);
+    remove_ambient_autocad_environment(&mut command);
+    remove_ambient_build_overrides(&mut command);
+    command
+        // Cargo is launched from this xtask as a direct toolchain executable.
+        // Without an explicit binding, its rustc proxy can resolve from a
+        // dependency working directory and fall back to the mutable `stable`
+        // toolchain instead of the clean-HEAD rust-toolchain.toml channel.
+        .env("RUSTUP_TOOLCHAIN", rust_toolchain)
+        .env("CARGO_ENCODED_RUSTFLAGS", STATIC_CRT_ENCODED_RUSTFLAGS)
+        .env("CARGO_INCREMENTAL", DISABLED_INCREMENTAL_COMPILATION)
+        .env(SOURCE_COMMIT_ENV, source_commit)
+        .env(CERTIFIED_ARG_SHA256_ENV, &arg_identity.sha256)
+        .env(CERTIFIED_ARG_POLICY_ID_ENV, &arg_identity.policy_id)
+        .env(CERTIFIED_ARG_POLICY_SHA256_ENV, &arg_identity.policy_sha256);
+    command
 }
 
 fn built_executable(spec: &BuildCommand, executable_name: &str) -> PathBuf {
@@ -1382,6 +1420,29 @@ mod tests {
             ["-C", "target-feature=+crt-static"]
         );
         assert_eq!(DISABLED_INCREMENTAL_COMPILATION, "0");
+    }
+
+    #[test]
+    fn nested_build_process_is_bound_to_the_clean_head_toolchain() {
+        let spec = build_command(PathBuf::from("target/preflight"), false, false);
+        let identity = CertifiedArgBuildIdentity {
+            sha256: "a".repeat(64),
+            policy_id: "public-development".to_owned(),
+            policy_sha256: "b".repeat(64),
+        };
+        let command = configured_build_process(
+            Path::new("repository"),
+            &spec,
+            OsStr::new("cargo"),
+            "1.97.0",
+            "0123456789012345678901234567890123456789",
+            &identity,
+        );
+        let rustup_toolchain = command
+            .get_envs()
+            .find(|(name, _)| *name == OsStr::new("RUSTUP_TOOLCHAIN"))
+            .and_then(|(_, value)| value);
+        assert_eq!(rustup_toolchain, Some(OsStr::new("1.97.0")));
     }
 
     #[test]

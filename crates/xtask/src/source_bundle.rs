@@ -1797,7 +1797,7 @@ fn reviewed_dependency_input_closure(
     Ok(input_closure)
 }
 
-fn rust_toolchain_channel(bytes: &[u8]) -> Result<String, String> {
+pub(crate) fn rust_toolchain_channel(bytes: &[u8]) -> Result<String, String> {
     let text = std::str::from_utf8(bytes)
         .map_err(|error| format!("rust-toolchain.toml is not UTF-8: {error}"))?;
     let mut channel = None;
