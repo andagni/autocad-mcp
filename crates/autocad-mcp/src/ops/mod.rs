@@ -7,6 +7,8 @@ pub mod layer_io;
 pub mod layers;
 pub mod layouts;
 pub mod plot;
+#[cfg(feature = "preview")]
+pub(crate) mod preview_acadrust_title_block;
 pub mod profile_admin;
 pub mod profiles;
 pub mod survey;

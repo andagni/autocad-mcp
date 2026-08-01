@@ -3,11 +3,11 @@ name = "autocad-mcp"
 version = "0.0.1"
 edition = "2021"
 license.workspace = true
-description = "AutoCAD MCP server — DWG/DXF read via acadrust, accoreconsole for DWG write"
+description = "AutoCAD MCP server with bounded native and accoreconsole DWG/DXF operation paths"
 publish = false
 
 [package.metadata.local-gate]
-schema-version = 1
+schema-version = 3
 
 [[package.metadata.local-gate.profiles]]
 name = "xref-certification-failpoints"
@@ -15,16 +15,19 @@ features = ["xref-certification-failpoints"]
 clippy = true
 test = false
 targets = ["lib", "bin:autocad-mcp"]
+candidate-only = true
 
 [[package.metadata.local-gate.profiles]]
 name = "preview"
 features = ["preview"]
 clippy = true
 test = true
+targets = ["lib", "bin:autocad-mcp", "test:integration", "test:writer_contract"]
+candidate-only = true
 
 [features]
 default = []
-preview = []
+preview = ["autocad-writer/preview"]
 xref-certification-failpoints = []
 
 [dependencies]

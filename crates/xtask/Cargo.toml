@@ -9,7 +9,12 @@ default-run = "xtask"
 
 [features]
 default = ["full"]
+cache-governance = ["dep:serde", "dep:serde_json", "dep:sha2"]
+core-clean = ["cache-governance"]
+local-release = ["cache-governance"]
 full = [
+    "core-clean",
+    "local-release",
     "dep:anyhow",
     "dep:autocad-mcp",
     "dep:distribution-approval",
@@ -31,6 +36,20 @@ required-features = ["full"]
 [[bin]]
 name = "pre-push-dispatch"
 path = "src/pre_push_dispatch.rs"
+
+[[bin]]
+name = "quality-dispatch"
+path = "src/quality_dispatch.rs"
+
+[[bin]]
+name = "core-clean-dispatch"
+path = "src/core_clean_dispatch.rs"
+required-features = ["core-clean"]
+
+[[bin]]
+name = "local-release-dispatch"
+path = "src/local_release_dispatch.rs"
+required-features = ["local-release"]
 
 [dependencies]
 anyhow = { version = "1", optional = true }

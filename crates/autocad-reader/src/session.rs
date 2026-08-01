@@ -8,9 +8,9 @@ use super::contract::{
     BlockInsertSelector, DimensionStyleRecord, DrawingFormatFacts, DrawingSummary,
     EntityListOptions, EntityListResult, EntityRecord, EntitySelector, LayerRecord, LayerSelector,
     LayoutInfo, LayoutRecord, LayoutSelector, LayoutViewportRecord, LayoutViewportSelector,
-    LinetypeRecord, NamedUcsRecord, NamedViewRecord, PlotSettingRecord, PlotSettingSelector,
-    SymbolSelector, TextItem, TextListOptions, TextRecord, TextSelector, TextStyleRecord,
-    TitleBlockInfo,
+    LinetypeRecord, NamedUcsRecord, NamedViewRecord, PlotFlagsRecord, PlotSettingRecord,
+    PlotSettingSelector, SymbolSelector, TextItem, TextListOptions, TextRecord, TextSelector,
+    TextStyleRecord, TitleBlockInfo,
 };
 use super::{
     blocks, drawing, entities, format_facts, layers, layouts, symbols, text, title_blocks, xrefs,
@@ -297,6 +297,17 @@ impl DrawingReadSession {
     ) -> Result<LayoutRecord, layouts::LayoutReadError> {
         self.ensure_layout_diagnostic_fidelity()?;
         layouts::get_layout(self.document(), selector)
+    }
+
+    /// Recover the selected layout's embedded plot flags from the immutable
+    /// source record. This narrow evidence adapter exists because Acadrust
+    /// 0.4.1 decodes the bitset but drops it from its public `Layout`.
+    pub fn get_embedded_layout_plot_flags(
+        &self,
+        selector: &LayoutSelector,
+    ) -> Result<PlotFlagsRecord, layouts::LayoutReadError> {
+        self.ensure_layout_diagnostic_fidelity()?;
+        layouts::get_embedded_layout_plot_flags(self.document(), &self.snapshot, selector)
     }
 
     pub fn list_layout_viewports(

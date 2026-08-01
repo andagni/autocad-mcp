@@ -6,16 +6,54 @@ license.workspace = true
 description = "Internal candidate-generation boundary for AutoCAD-MCP drawing mutations"
 publish = false
 
+[package.metadata.local-gate]
+schema-version = 4
+
+[[package.metadata.local-gate.profiles]]
+name = "portable-plotting"
+features = ["portable-plotting"]
+clippy = true
+test = true
+
+[[package.metadata.local-gate.profiles]]
+name = "portable-plot-qualification"
+features = ["portable-plot-qualification"]
+clippy = true
+test = true
+targets = ["lib"]
+candidate-only = true
+cache = "disposable"
+
+[features]
+default = []
+preview = []
+portable-plotting = ["dep:krilla", "dep:rustybuzz", "dep:write-fonts"]
+portable-plot-qualification = ["portable-plotting", "dep:hayro", "dep:lopdf"]
+
 [dependencies]
 acadrust = "=0.4.1"
 autocad-reader = { path = "../autocad-reader" }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+hayro = { version = "=0.7.1", default-features = false, optional = true }
+krilla = { version = "=0.8.2", default-features = false, optional = true }
+libc = "0.2"
+lopdf = { version = "=0.44.0", default-features = false, optional = true }
+rustybuzz = { version = "=0.20.1", optional = true }
 schemars = "1"
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-
-[dev-dependencies]
-tempfile.workspace = true
+write-fonts = { version = "=0.48.1", default-features = false, optional = true }
 
 [lib]
 path = "src/mod.rs"
+
+[[bin]]
+name = "portable-plot-worker"
+path = "src/bin/portable-plot-worker.rs"
+required-features = ["portable-plotting"]
+
+[[test]]
+name = "portable_worker"
+path = "tests/portable_worker.rs"
+required-features = ["portable-plotting"]

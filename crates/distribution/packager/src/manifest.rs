@@ -644,7 +644,7 @@ pub const OWNER_DISTRIBUTION_APPROVAL_SCHEMA: &[u8] =
     include_bytes!("../../approval/schemas/owner-distribution-approval.schema.json");
 
 const THIRD_PARTY_LICENSE_POLICY_FILE: &str = ".third-party/third-party-license-policy.json";
-const DISTRIBUTION_EVIDENCE_GENERATOR_SCHEMA_VERSION: u64 = 7;
+const DISTRIBUTION_EVIDENCE_GENERATOR_SCHEMA_VERSION: u64 = 8;
 const SOURCE_LOCK_SBOM_FILE: &str = ".third-party/source-lock.spdx.json";
 const WINDOWS_SOURCE_CLOSURE_SBOM_FILE: &str = ".third-party/source-closure-windows.spdx.json";
 const THIRD_PARTY_LICENSE_PROVENANCE_FILE: &str =

@@ -255,12 +255,20 @@ where
     C: FnMut() -> Result<ValidationSubject, String>,
     R: FnMut() -> Result<(), String>,
 {
-    validate_or_run_with_cache(repository, None, plan, capture_subject, run)
+    validate_or_run_with_cache(
+        repository,
+        None,
+        receipts_enabled(),
+        plan,
+        capture_subject,
+        run,
+    )
 }
 
 fn validate_or_run_with_cache<C, R>(
     repository: &Path,
     cache_override: Option<&Path>,
+    receipt_cache_enabled: bool,
     plan: &ValidationPlan,
     mut capture_subject: C,
     mut run: R,
@@ -295,7 +303,7 @@ where
         }
     });
 
-    if receipts_enabled() {
+    if receipt_cache_enabled {
         if let Some(before) = before.as_ref() {
             if receipt_hit_with_cache(repository, cache_override, before) {
                 let after_subject = capture_subject().map_err(|error| {
@@ -387,7 +395,7 @@ where
     }
 
     let receipt_key_sha256 = request_digest(&after)?;
-    if receipts_enabled() {
+    if receipt_cache_enabled {
         match record_receipt_with_cache(repository, cache_override, &after) {
             Ok(path) => eprintln!("recorded advisory validation receipt {}", path.display()),
             Err(error) => eprintln!("validation receipt was not recorded: {error}"),
@@ -759,9 +767,14 @@ fn relevant_environment_name(name: &OsStr) -> bool {
             | "CXXFLAGS"
             | "CARGO"
             | "CARGO_BUILD_JOBS"
+            | "CARGO_BUILD_BUILD_DIR"
+            | "CARGO_BUILD_INCREMENTAL"
             | "CARGO_BUILD_RUSTC"
+            | "CARGO_BUILD_RUSTC_WRAPPER"
             | "CARGO_BUILD_RUSTFLAGS"
             | "CARGO_BUILD_TARGET"
+            | "CARGO_BUILD_TARGET_DIR"
+            | "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER"
             | "CARGO_ENCODED_RUSTFLAGS"
             | "CARGO_HOME"
             | "CARGO_NET_OFFLINE"
@@ -786,10 +799,13 @@ fn relevant_environment_name(name: &OsStr) -> bool {
             | "RUNNER_OS"
             | "RUSTC"
             | "RUSTC_WRAPPER"
+            | "RUSTC_WORKSPACE_WRAPPER"
             | "RUSTDOC"
             | "RUSTDOCFLAGS"
             | "RUSTFLAGS"
             | "RUST_TEST_THREADS"
+            | "SCCACHE_BASEDIRS"
+            | "SCCACHE_CACHE_SIZE"
             | "TARGET"
             | "TZ"
             | "USERPROFILE"
@@ -1792,6 +1808,7 @@ mod tests {
         let first = validate_or_run_with_cache(
             fixture.repository.path(),
             Some(fixture.cache.path()),
+            true,
             &plan,
             || Ok(fixture.subject('1')),
             || {
@@ -1809,6 +1826,7 @@ mod tests {
         let second = validate_or_run_with_cache(
             fixture.repository.path(),
             Some(fixture.cache.path()),
+            true,
             &plan,
             || Ok(fixture.subject('1')),
             || {
@@ -1823,12 +1841,43 @@ mod tests {
     }
 
     #[test]
+    fn explicit_cache_disable_neither_reuses_nor_records() {
+        let fixture = Fixture::new();
+        let calls = Cell::new(0);
+        let subject = fixture.subject('1');
+        let plan = fixture.plan(&[("check/a", "cargo test --locked")]);
+        for _ in 0..2 {
+            let outcome = validate_or_run_with_cache(
+                fixture.repository.path(),
+                Some(fixture.cache.path()),
+                false,
+                &plan,
+                || Ok(subject.clone()),
+                || {
+                    calls.set(calls.get() + 1);
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert!(!outcome.reused);
+        }
+        assert_eq!(calls.get(), 2);
+        let request = fixture.captured(subject, plan);
+        assert!(!receipt_hit_with_cache(
+            fixture.repository.path(),
+            Some(fixture.cache.path()),
+            &request
+        ));
+    }
+
+    #[test]
     fn failed_validation_never_records_a_reusable_result() {
         let fixture = Fixture::new();
         let plan = fixture.plan(&[("check/a", "cargo test --locked")]);
         validate_or_run_with_cache(
             fixture.repository.path(),
             Some(fixture.cache.path()),
+            true,
             &plan,
             || Ok(fixture.subject('1')),
             || Err("fixture validation failed".to_owned()),

@@ -37,7 +37,8 @@ a binary distribution are separate events.
 | Core DWG and DXF read routes | Yes | Yes |
 | Rich drawing, entity, block, layout, text, and symbol inspection | DWG only | DWG only |
 | Supported native-DXF writes | Implemented | Implemented |
-| DWG layer and title-block writes | No | Implemented with admitted full AutoCAD; distribution qualification pending |
+| DWG layer writes | No | Implemented with admitted full AutoCAD; distribution qualification pending |
+| DWG title-block writes | No | Release uses admitted full AutoCAD; Preview has a bounded native AC1032 acadrust path; distribution acceptance pending |
 | XREF mutations | No | Preview opt-in candidate; Release is qualification-gated |
 | PDF plotting (DWG only) | No | Implemented with admitted full AutoCAD; distribution qualification pending |
 
@@ -126,6 +127,34 @@ whole-drawing read failure; `attribute_value_mode: "arrays"` returns every tag
 as an array. `write_title_block` checks every requested tag's multiplicity
 before mutation. A duplicate unrequested tag does not by itself block another
 mapped field from being written.
+
+The acadrust native-DWG title-block writer is a **Preview** capability, not an
+experimental one. It is selected only by the Preview product's opted-in
+mutation surface and only for AC1032 `.dwg` files on Windows. Release DWG
+title-block writes retain the AutoCAD/accoreconsole route, and native ASCII DXF
+writes retain the existing raw patch route.
+
+The Preview path does not launch AutoCAD. It resolves the same reviewed
+title-block profile against bytes captured through an exclusive source handle,
+generates one acadrust candidate, independently reopens it, verifies the exact
+title-block postcondition, compares every invariant DWG section byte-for-byte,
+and compares the complete native `CadDocument` field-for-field against the
+one-operation mutation plan after the admitted HANDSEED/allocator transition is
+normalized. That equality includes private and raw fields and treats non-finite
+values as a preservation failure. Known lossy sources—including XREF-bearing
+drawings, unqualified object/entity families, unsupported sections, and
+non-benign parser diagnostics—fail closed. The verified candidate is staged as
+a sibling and copied into the original file identity through the guarded
+Windows TxF install, followed by directory durability and installed-digest
+checks. The success response identifies `backend: "acadrust_preview"` and
+contains both writer and install receipts. If an error reports
+`installation_may_have_occurred: true`, reconcile the drawing manually and do
+not retry.
+
+This bounded runtime proof is not native AutoCAD certification. Publication of
+the Preview promotion still requires the repository's native Windows,
+licensed-host, signing/package, and clean-host acceptance gates for the exact
+candidate.
 
 Generic entity bounds and unsupported detail carry closed availability
 reasons; parser-defaulted ATTDEF/ATTRIB strings are not presented as persisted
@@ -237,50 +266,58 @@ maintained-support, or AutoCAD-certification claims.
   engine-backed Preview evaluation
 - A local drawing path readable by the user running Claude Desktop
 
-AutoCAD is not required for the committed portable-DXF smoke test or for
-read-only development.
+AutoCAD is not required for the committed portable-DXF smoke test, read-only
+development, or the bounded Preview AC1032 title-block route. The complete
+licensed-host Preview evaluator still requires AutoCAD for its layer, plot, and
+XREF cases.
 
 ## Build the local server
 
 From the repository root:
 
 ```text
-cargo build --locked --release -p autocad-mcp
+cargo run --locked -p xtask --no-default-features --features local-release --bin local-release-dispatch -- release
 ```
 
-That command creates a local binary with the Release CLI shape: plain `serve`
-exposes all 51 tools and `serve --experimental` is not defined. It does not
-create an approved Release; Windows Release packaging rejects the missing
-qualification and package-safe binding. Building a local Preview-capable
-binary is explicit:
+That command creates local `autocad-mcp` and `autolisp-lsp` binaries with the
+Release CLI shape: plain `serve` exposes all 51 tools and
+`serve --experimental` is not defined. It does not create an approved Release;
+Windows Release packaging rejects the missing qualification and package-safe
+binding. Building local Preview-capable binaries is explicit:
 
 ```text
-cargo build --locked --release -p autocad-mcp --features preview
+cargo run --locked -p xtask --no-default-features --features local-release --bin local-release-dispatch -- preview
 ```
 
 For that flavor, plain `serve` exposes only the 36 read-only tools. Add
 `--experimental` only when intentionally opting into all 51. Preview
 `list-tools` and `call` follow the same boundary and accept that option for
 full-surface discovery or direct dispatch. Rebuilding either flavor at the
-default target path replaces the preceding executable; package validation
-independently rejects a binary whose flavor does not match its requested
-`PackageMode`.
+governed paths replaces only that mode's prior executables and does not replace
+the other flavor. The dispatcher requires a
+clean checkout, serializes use of retained Cargo storage, applies the governed
+cache cleanup before and after the build, and writes a hash manifest which
+explicitly carries no release, distribution, signing, or native-host
+authority. Package validation independently rejects a binary whose flavor does
+not match its requested `PackageMode`.
 
-The resulting executable is:
+The resulting server executable is:
 
-- macOS: `target/release/autocad-mcp`
-- Windows: `target\release\autocad-mcp.exe`
+- Release, macOS: `.cargo-target/release/release/autocad-mcp`
+- Release, Windows: `.cargo-target\release\release\autocad-mcp.exe`
+- Preview, macOS: `.cargo-target/release/preview/release/autocad-mcp`
+- Preview, Windows: `.cargo-target\release\preview\release\autocad-mcp.exe`
 
 Test the exact executable through a Claude Desktop-equivalent stdio lifecycle:
 
 ```text
-cargo run --locked -p release-packager -- desktop-smoke --binary target/release/autocad-mcp --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf
+cargo run --locked -p release-packager -- desktop-smoke --binary .cargo-target/release/release/autocad-mcp --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf
 ```
 
 On Windows PowerShell, use:
 
 ```text
-cargo run --locked -p release-packager -- desktop-smoke --binary target\release\autocad-mcp.exe --fixture tests\fixtures\xrefs\portable-evidence-ascii.dxf
+cargo run --locked -p release-packager -- desktop-smoke --binary .cargo-target\release\release\autocad-mcp.exe --fixture tests\fixtures\xrefs\portable-evidence-ascii.dxf
 ```
 
 For the default, non-Preview local binary, this gate checks:
@@ -311,7 +348,7 @@ Open Claude Desktop's developer configuration and add:
 {
   "mcpServers": {
     "autocad-mcp": {
-      "command": "C:\\absolute\\path\\to\\AutoCAD-MCP\\target\\release\\autocad-mcp.exe",
+      "command": "C:\\absolute\\path\\to\\AutoCAD-MCP\\.cargo-target\\release\\release\\autocad-mcp.exe",
       "args": ["serve"]
     }
   }
@@ -400,7 +437,7 @@ Add the corresponding absolute path:
 {
   "mcpServers": {
     "autocad-mcp": {
-      "command": "/absolute/path/to/AutoCAD-MCP/target/release/autocad-mcp",
+      "command": "/absolute/path/to/AutoCAD-MCP/.cargo-target/release/release/autocad-mcp",
       "args": ["serve"]
     }
   }
@@ -429,8 +466,8 @@ Build both local binaries, create the MCPB, and execute static, MCP, CLI, and
 LSP smoke against the extracted package:
 
 ```text
-cargo build --locked --release -p autocad-mcp -p autolisp-lsp
-cargo run --locked -p release-packager -- package --target macos-arm64 --binary target/release/autocad-mcp --lsp-binary target/release/autolisp-lsp --out-dir dist
+cargo run --locked -p xtask --no-default-features --features local-release --bin local-release-dispatch -- release
+cargo run --locked -p release-packager -- package --target macos-arm64 --binary .cargo-target/release/release/autocad-mcp --lsp-binary .cargo-target/release/release/autolisp-lsp --out-dir dist
 cargo run --locked -p release-packager -- smoke --package dist/autocad-mcp-macos-arm64.mcpb --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf --require-executable --require-lsp-executable
 ```
 
@@ -469,30 +506,45 @@ Install the tracked hooks once for each checkout:
 git config --local core.hooksPath .githooks
 ```
 
-Run the complete platform-independent source gate with:
+Run the routine platform-independent source gate with:
 
 ```text
-cargo run --locked -p xtask -- local-gate
+cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- source-quality
 ```
 
-The gate runs repository-wide formatting, source-closure and third-party
-licence evidence, warnings-denied Clippy, default and feature-specific tests,
-and plugin/repository policy. The tracked pre-push hook is a rapid dispatch
-gate: it binds every pushed ref to the exact clean checked-out HEAD, rejects
-whitespace errors, and checks repository formatting. It deliberately does not
-run the complete CI inventory or generate candidates on every push.
+For an exact clean commit, this gate runs repository-wide formatting,
+package-owned source checks, default and source-profile tests, and then
+warnings-denied Clippy over the same `source-validation` profile. It does not run
+distribution evidence, candidate-only feature profiles, or candidate
+generation. Repeating the command for an unchanged commit and execution
+context may reuse its successful exact source-quality plan.
+
+`local-gate` remains the exhaustive non-sealing compatibility entry point. It
+runs the source-quality command inventory plus distribution evidence and the
+candidate-only Preview, XREF failpoint, signing, and portable-PDF qualification
+profiles, but does not generate a source candidate:
+
+```text
+cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- local-gate
+```
+
+The tracked pre-push hook is a rapid dispatch gate: it binds every pushed ref
+to the exact clean checked-out HEAD, rejects whitespace errors, and checks
+repository formatting. It deliberately does not run the complete CI inventory
+or generate candidates on every push.
 
 The exhaustive platform-independent CI path remains local. Before integrating
 a development slice or requesting remote Windows or artifact work, run:
 
 ```text
-cargo run --locked -p xtask -- source-quality
+cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- candidate-quality
 ```
 
-For a new source identity, this runs the complete local gate and regenerates
-and verifies both exact Release and Preview source candidates. Repeating it for
-the unchanged commit and execution context may reuse a prior successful
-source-quality plan.
+For a new source identity, this satisfies or runs the exact source-quality
+plan, runs the candidate-only inventory, and regenerates and verifies both
+exact Release and Preview source candidates. Repeating it for the unchanged
+commit and execution context may reuse a prior successful candidate-quality
+plan.
 Package-owned stable checks, currently third-party licence/source-closure
 validation, expose a stable `input-id` subcommand through package metadata and
 may reuse a successful result across commits when that closed input identity
@@ -504,17 +556,123 @@ Cargo build output, so `cargo clean` does not erase them. Every receipt binds a
 commit/tree or declared content closure, a normalized validation plan, the
 receipt engine, toolchain, platform, relevant environment, Cargo
 configuration, and repository storage identity. A completed plan can satisfy
-only an exact subset of its steps: in particular, source-quality can satisfy
-the equivalent local-gate portion of `pre-push-full`, while pre-push still
-regenerates and verifies distribution evidence and both source candidates.
+only an exact subset of its steps: candidate-quality can satisfy the complete
+local-gate portion of `pre-push-full`, while source-quality can satisfy only
+the common source subset. Pre-push still regenerates and verifies both source
+candidates.
 Malformed, unsafe, missing, or mismatched receipts are cache misses; no receipt
 grants release, signing, distribution, or native-host authority. Set
 `AUTOCAD_MCP_DISABLE_VALIDATION_RECEIPTS=1` to force every validation to run.
 
+The quality dispatcher exists so its tiny dependency-free bootstrap can route
+the full coordinator and every governed child Cargo process into one shared,
+flat storage layout derived from the Git common directory:
+
+- `.cargo-target/scratch/` contains disposable final development and
+  source-validation output;
+- `.cargo-target/release/` contains isolated local optimized Release and
+  Preview output; and
+- `.cargo-target/core/` is the separately configured Cargo `build-dir` for
+  governed retained intermediate artifacts.
+
+The local default Cargo configuration should name only
+`.cargo-target/scratch` as its `target-dir`. `CARGO_BUILD_BUILD_DIR` is injected
+only into governed child commands, so ordinary bare `cargo clean` cannot see or
+remove `core`. Neither retained output nor a warm build establishes validation,
+release, signing, distribution, or native-host authority.
+
+The shared checkout-local `.cargo/config.toml` is intentionally ignored and
+should contain:
+
+```toml
+[build]
+target-dir = ".cargo-target/scratch"
+incremental = false
+```
+
+`core` retains third-party artifacts plus the narrowly admitted
+`autocad-reader` workspace package. The reader is upstream of source tests,
+portable-plotting checks, and both local optimized modes, while its recent
+source churn and retained footprint were measured low enough to justify the
+shared cache. The authoritative
+`workspace.metadata.cargo-core.retained-workspace-packages` list remains the
+only workspace-source admission surface; another package may be added only
+after its stability and measured value are reviewed. Admission changes the
+cache epoch but never raises the fixed
+3,221,225,472-byte logical post-clean ceiling. A newly admitted stable crate
+therefore consumes existing headroom. If the retained dependency and admitted
+workspace closure does not fit after warming and cleanup, the dispatcher clears
+both governed profiles, records that the epoch was rejected, and fails. The
+same epoch cannot trigger another expensive rebuild; changing its dependency or
+admission closure, or changing the ceiling through a separate explicit policy
+review, is required before retrying.
+
+Package-owned candidate-only profiles may declare `cache = "disposable"` under
+local-gate schema version 4. Those commands retain their final and intermediate
+artifacts together in `scratch`, so a large, low-reuse qualification graph does
+not consume the governed `core` allowance. The dispatcher rejects this setting
+on source-quality profiles, and validation receipts bind the selected layout.
+The portable-PDF Hayro/Lopdf qualification profile is the sole current use;
+ordinary candidate profiles continue to share retained dependencies with source
+and local optimized builds.
+
+The epoch binds the toolchain and host, the governed profiles, dependency lock,
+workspace manifests and profiles, cache-policy implementation, relevant Cargo
+and rustc settings, and every admitted workspace crate's complete source
+directory. A dependency change, admission change, or admitted-source change
+clears the prior `source-validation` and `release` epochs before they can be
+reused. A new workspace crate is non-admitted by default and is removed during
+cleanup. The ceiling is enforced at governed pre- and post-operation boundaries;
+it is a retained-cache bound, not a filesystem quota, so compilation may use
+more transient space before post-operation cleanup.
+
+Every governed quality or local optimized build performs cleanup before and
+after its main Cargo operation, including after a failed main operation. Inspect
+the package-aware cleanup without changing output, then apply it, with:
+
+```text
+cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- clean-core-workspace --dry-run
+cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- clean-core-workspace
+```
+
+The cleanup runs a narrow metadata-only coordinator outside the retained
+profiles, then asks Cargo to remove every non-admitted workspace package from
+both `source-validation` and `release` in `core`. It does not compile the full
+product graph, does not manually delete Cargo artifacts, and preserves
+third-party and admitted workspace material only while the epoch matches and
+the complete retained cache fits the ceiling. Deleting all of `core` remains
+correctness-safe, but forfeits only this performance cache.
+
+The local optimized dispatcher is deliberately not a release dispatcher in the
+publication sense. It accepts only `release` or `preview`, builds the exact two
+local executables under `.cargo-target/release/`, and records their hashes and
+clean source identity in `local-optimized-build.json`. It cannot select an
+experimental feature or arbitrary Cargo features, and its manifest grants no
+release, distribution, signing, package, or native-host authority. The existing
+fresh-target Windows certification and source-candidate paths remain the only
+governed publication inputs.
+
+Add `--timings` to any dispatcher quality command to request Cargo timing
+reports for its compilation stages. A configured `sccache` is an optional
+secondary recovery layer, not the primary retained cache. The coordinator keeps
+incremental compilation enabled through Cargo's config-scoped
+`CARGO_BUILD_INCREMENTAL` setting (not sccache-incompatible
+`CARGO_INCREMENTAL`) and defaults an otherwise-unbounded sccache to 512 MiB.
+Incremental rustc calls are not sccache-eligible; other exact non-incremental
+invocations may still be. The repository does not silently install or globally
+enable sccache. A local
+invocation is:
+
+```text
+export RUSTC_WRAPPER=sccache
+cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- source-quality
+sccache --show-stats
+```
+
 GitHub Actions are reserved for evidence that requires native Windows or for
-the explicitly dispatched Preview review candidate. These local source-quality
-checks are not Windows-native AutoCAD, signing, package-installation, or
-clean-host evidence.
+the explicitly dispatched Preview review candidate. These local source- and
+candidate-quality checks are not Windows-native AutoCAD, signing,
+package-installation, or clean-host evidence.
 
 ## Run Windows-specific tests without AutoCAD
 
@@ -530,7 +688,8 @@ required or launched, even if it is installed. GitHub Actions is the primary
 clean-host CI entrypoint and selects the suites independently with
 `--suite semantic` and `--suite guarded-rename`. The semantic inventory uses
 three prefix-closed harness invocations—MCP library, Windows integration, and
-packager—so Cargo does not relaunch separately for each selected test family.
+packager—plus one exact Preview-feature invocation that installs and rereads a
+profiled AC1032 title block through the guarded transaction.
 
 The native workflow is routed only for paths that can affect its native tests,
 build inputs, or packaged payload. It restores the shared locked dependency
@@ -677,12 +836,34 @@ following closed Windows acceptance sequence for the exact signed MCPB.
    Approve the read tool and require a result without a protocol-level error.
 9. Repeat the read check with
    `tests/corpus/open/acadsharp/dynamic-blocks/BLOCKVISIBILITYPARAMETER.dwg`.
-10. Completely quit Claude Desktop and confirm no `autocad-mcp` process
+10. On a disposable AC1032 copy, use exactly one embedded-profile
+    `AUTOCAD_MCP_GENERIC` insert with `REVISION=P00`,
+    `DRAWING_NUMBER=ACMCP-PREVIEW-0000`, `REFERENCE=CLEAN-HOST`,
+    `TITLE_LINE_1=PREVIEW CLEAN HOST`,
+    `TITLE_LINE_2=TITLE BLOCK ACCEPTANCE`, `SHEET_NUMBER=1`, and
+    `SHEET_COUNT=1`. Record the source SHA-256, then ask Claude to call
+    `write_title_block` with only `revision=P01` and
+    `drawing_number=ACMCP-PREVIEW-0001`. Require `backend=acadrust_preview`,
+    `claim_boundary=preview_qualified`, the preservation checks, and every
+    guarded-install check to pass. Do not retry if the response says the
+    installation may have occurred.
+11. Reread the installed DWG with `read_title_blocks`. Require the exact
+    seven-field canonical JSON below, with no newline, and record both its
+    fixed SHA-256 and the installed DWG SHA-256:
+
+    ```json
+    {"alternative_reference":"CLEAN-HOST","drawing_number":"ACMCP-PREVIEW-0001","drawing_title_big":"PREVIEW CLEAN HOST","drawing_title_med":"TITLE BLOCK ACCEPTANCE","revision":"P01","sheet":"1","sheet_total":"1"}
+    ```
+
+    The canonical JSON SHA-256 is
+    `e47219de2c6218badf4dbf6d53a38e4bbb96a71a6ee1d8d1676485be7802ffc2`.
+    The source and installed DWG digests must differ.
+12. Completely quit Claude Desktop and confirm no `autocad-mcp` process
     remains.
-11. Reopen Claude Desktop and repeat tool discovery to verify restart and
+13. Reopen Claude Desktop and repeat tool discovery to verify restart and
     reconnection behavior.
-12. Uninstall the extension through Claude Desktop and completely quit it.
-13. Reopen Claude Desktop and confirm the extension and server are absent.
+14. Uninstall the extension through Claude Desktop and completely quit it.
+15. Reopen Claude Desktop and confirm the extension and server are absent.
 
 After quitting Claude Desktop, also check Task Manager or PowerShell:
 
@@ -708,12 +889,16 @@ cargo run --locked -p release-packager -- create-preview-clean-host-receipt \
   --mcpb <exact-signed-preview.mcpb> \
   --client-version <numeric-Claude-Desktop-version> \
   --host-os-version <numeric-Windows-version> \
+  --title-block-source-sha256 <pre-write-DWG-sha256> \
+  --title-block-installed-sha256 <installed-DWG-sha256> \
+  --title-block-sentinel-sha256 e47219de2c6218badf4dbf6d53a38e4bbb96a71a6ee1d8d1676485be7802ffc2 \
   --completed-utc <YYYY-MM-DDTHH:MM:SSZ> \
   --output <fresh/windows-x64-preview-clean-host.json>
 ```
 
-The command rehashes the MCPB and both contained executables before emitting
-the receipt. A failed or incomplete acceptance attempt produces no
+The command rehashes the MCPB and both contained executables, validates the
+two drawing digests and the fixed post-write sentinel, and emits only their
+path-free identities. A failed or incomplete acceptance attempt produces no
 publication-eligible receipt; retain any diagnostics privately.
 
 ### Deferred macOS acceptance notes

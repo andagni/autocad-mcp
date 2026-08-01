@@ -1764,8 +1764,10 @@ impl AutocadServer {
         A duplicate drawing tag blocks the write only when a requested field maps \
         to that tag; duplicate unrequested tags do not. \
         Fails loudly if the drawing contains no recognised title-block profile — \
-        never guesses. DWG files require accoreconsole (Windows only); native ASCII \
-        DXF files use a pure-Rust patcher on any platform.",
+        never guesses. Release DWG writes require accoreconsole. The Preview product \
+        admits a bounded pure-Rust path only for AC1032 DWG sources whose invariant \
+        sections and complete represented model pass the allowed-delta oracle. Native \
+        ASCII DXF files retain the existing pure-Rust patcher on any platform.",
         annotations(
             read_only_hint = false,
             destructive_hint = true,
@@ -1791,6 +1793,48 @@ impl AutocadServer {
         };
 
         let path = Path::new(&p.drawing_path);
+        #[cfg(feature = "preview")]
+        if is_dwg_path(path) && self.activation_mode == ActivationMode::Preview {
+            return match ops::preview_acadrust_title_block::write(
+                path,
+                &self.title_block_profiles,
+                &fields,
+            ) {
+                Ok(report) => {
+                    let mut response = serde_json::to_value(report).map_err(|error| {
+                        McpError::internal_error(
+                            "serialize Preview title-block receipt",
+                            Some(serde_json::json!({ "detail": error.to_string() })),
+                        )
+                    })?;
+                    let object = response
+                        .as_object_mut()
+                        .expect("Preview title-block receipt must serialize as an object");
+                    object.insert("status".to_string(), serde_json::json!("ok"));
+                    object.insert(
+                        "capability_status".to_string(),
+                        serde_json::json!("preview"),
+                    );
+                    object.insert(
+                        "drawing".to_string(),
+                        serde_json::Value::String(p.drawing_path),
+                    );
+                    Ok(CallToolResult::success(vec![Content::text(
+                        response.to_string(),
+                    )]))
+                }
+                Err(error) => Ok(CallToolResult::error(vec![Content::text(
+                    serde_json::json!({
+                        "status": "error",
+                        "backend": "acadrust_preview",
+                        "code": error.code(),
+                        "message": error.message(),
+                        "installation_may_have_occurred": error.installation_may_have_occurred(),
+                    })
+                    .to_string(),
+                )])),
+            };
+        }
         if is_dwg_path(path) {
             self.prepare_foreground_engine_work();
         }
@@ -2806,6 +2850,34 @@ mod tests {
             crate::probe::ProbeState::Disabled
         );
         std::fs::remove_file(path).ok();
+    }
+
+    #[cfg(all(feature = "preview", not(target_os = "windows")))]
+    #[test]
+    fn preview_dwg_title_block_selects_acadrust_before_path_or_autocad_access() {
+        let server = full_server();
+        let result = server
+            .write_title_block(rmcp::handler::server::wrapper::Parameters(
+                WriteTitleBlockParams {
+                    drawing_path: "/nonexistent/preview-title-block.dwg".to_string(),
+                    fields: std::collections::HashMap::from([(
+                        "revision".to_string(),
+                        "P02".to_string(),
+                    )]),
+                },
+            ))
+            .unwrap();
+
+        assert_eq!(result.is_error, Some(true));
+        let response: serde_json::Value = serde_json::from_str(&tool_text(result)).unwrap();
+        assert_eq!(response["backend"], "acadrust_preview");
+        assert_eq!(response["code"], "preview_writer_unsupported_platform");
+        assert_eq!(response["installation_may_have_occurred"], false);
+        assert!(server.mutation_runtime().selected().is_none());
+        assert_eq!(
+            server.probe.snapshot().state,
+            crate::probe::ProbeState::Disabled
+        );
     }
 
     #[test]

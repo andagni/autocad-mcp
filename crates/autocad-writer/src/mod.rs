@@ -8,6 +8,8 @@ mod backend;
 pub mod contract;
 mod error;
 mod layers;
+#[cfg(feature = "portable-plotting")]
+pub mod portable_plot;
 #[cfg(test)]
 mod qualification;
 mod session;

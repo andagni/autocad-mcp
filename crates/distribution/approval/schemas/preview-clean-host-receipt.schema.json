@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://andagni.invalid/schemas/release/preview-clean-host-receipt-v1.schema.json",
+  "$id": "https://andagni.invalid/schemas/release/preview-clean-host-receipt-v2.schema.json",
   "title": "Preview Claude Desktop clean-host acceptance receipt",
-  "description": "Closed, privacy-safe acceptance receipt for one exact Preview MCPB on Claude Desktop for Windows x86_64. The receipt contains no paths, user or host identifiers, free text, or logs.",
+  "description": "Closed, privacy-safe acceptance receipt for one exact Preview MCPB on Claude Desktop for Windows x86_64, including a digest-bound native AC1032 title-block write and reread. The receipt contains no paths, user or host identifiers, free text, or logs.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,6 +13,7 @@
     "client",
     "host",
     "fixtures",
+    "title_block_mutation",
     "observed_tool_count",
     "passed_checks",
     "completed_utc",
@@ -20,7 +21,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "kind": {
       "const": "claude_desktop_clean_host_acceptance"
@@ -40,13 +41,16 @@
     "fixtures": {
       "$ref": "#/$defs/fixtures"
     },
+    "title_block_mutation": {
+      "$ref": "#/$defs/title_block_mutation"
+    },
     "observed_tool_count": {
       "const": 51
     },
     "passed_checks": {
       "type": "array",
-      "minItems": 11,
-      "maxItems": 11,
+      "minItems": 13,
+      "maxItems": 13,
       "prefixItems": [
         {
           "const": "clean_profile"
@@ -68,6 +72,12 @@
         },
         {
           "const": "dwg_read"
+        },
+        {
+          "const": "title_block_preview_write"
+        },
+        {
+          "const": "title_block_preview_reread"
         },
         {
           "const": "shutdown_no_process"
@@ -242,6 +252,38 @@
               }
             }
           ]
+        }
+      }
+    },
+    "title_block_mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "profile_id",
+        "backend",
+        "source_sha256",
+        "installed_sha256",
+        "sentinel_sha256"
+      ],
+      "properties": {
+        "fixture_id": {
+          "const": "disposable_profiled_ac1032_title_block_v1"
+        },
+        "profile_id": {
+          "const": "AUTOCAD_MCP_GENERIC"
+        },
+        "backend": {
+          "const": "acadrust_preview"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "installed_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sentinel_sha256": {
+          "const": "e47219de2c6218badf4dbf6d53a38e4bbb96a71a6ee1d8d1676485be7802ffc2"
         }
       }
     }

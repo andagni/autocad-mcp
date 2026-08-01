@@ -1802,6 +1802,446 @@ impl XrefMutationFileSystem for ProductionXrefFileSystem {
     }
 }
 
+/// Product-owned evidence for installing an already verified drawing
+/// candidate through the same Windows transaction primitive used by guarded
+/// XREF mutation. Candidate construction runs while the exact source handle is
+/// exclusively locked; this adapter has no AutoCAD or XREF semantics.
+#[cfg(feature = "preview")]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct GuardedCandidateInstallReceipt {
+    pub source_sha256: String,
+    pub installed_sha256: String,
+    pub exclusive_source_lock_verified: bool,
+    pub source_identity_revalidated: bool,
+    pub sibling_staging_verified: bool,
+    pub transactional_atomic_install_verified: bool,
+    pub original_file_identity_preserved: bool,
+    pub directory_durability_verified: bool,
+    pub installed_digest_verified: bool,
+}
+
+#[cfg(feature = "preview")]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) enum GuardedCandidateInstallDisposition {
+    DefinitelyNotInstalled,
+    InstallationMayHaveOccurred,
+}
+
+#[cfg(feature = "preview")]
+#[derive(Debug)]
+pub(crate) struct GuardedCandidateInstallError {
+    code: &'static str,
+    detail: String,
+    disposition: GuardedCandidateInstallDisposition,
+}
+
+#[cfg(feature = "preview")]
+impl GuardedCandidateInstallError {
+    fn new(
+        code: &'static str,
+        detail: impl Into<String>,
+        disposition: GuardedCandidateInstallDisposition,
+    ) -> Self {
+        Self {
+            code,
+            detail: detail.into(),
+            disposition,
+        }
+    }
+
+    pub(crate) fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub(crate) fn disposition(&self) -> GuardedCandidateInstallDisposition {
+        self.disposition
+    }
+
+    pub(crate) fn detail(&self) -> &str {
+        &self.detail
+    }
+}
+
+#[cfg(feature = "preview")]
+impl fmt::Display for GuardedCandidateInstallError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "code={} {}", self.code, self.detail)
+    }
+}
+
+#[cfg(feature = "preview")]
+impl Error for GuardedCandidateInstallError {}
+
+/// Build and install one candidate from the bytes read through an exclusively
+/// locked original-host handle.
+///
+/// The production implementation is deliberately Windows-only. It keeps the
+/// original file identity, stages a distinct same-directory sibling, copies
+/// the candidate into the original file through TxF, flushes the containing
+/// directory, and verifies the installed digest while a deny-write/delete
+/// guard remains held.
+#[cfg(feature = "preview")]
+pub(crate) fn guarded_install_candidate<Response>(
+    path: &Path,
+    build: impl FnOnce(&[u8]) -> Result<(Vec<u8>, Response), String>,
+) -> Result<(Response, GuardedCandidateInstallReceipt), GuardedCandidateInstallError> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (path, build);
+        Err(GuardedCandidateInstallError::new(
+            "preview_writer_unsupported_platform",
+            "guarded Preview DWG installation requires native Windows/NTFS transaction support",
+            GuardedCandidateInstallDisposition::DefinitelyNotInstalled,
+        ))
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let canonical = validate_guarded_candidate_path(path)?;
+        let parent = canonical.parent().ok_or_else(|| {
+            GuardedCandidateInstallError::new(
+                "preview_writer_invalid_path",
+                "drawing path has no containing directory",
+                GuardedCandidateInstallDisposition::DefinitelyNotInstalled,
+            )
+        })?;
+        let mut file_system = ProductionXrefFileSystem::default();
+        let initial = file_system.observe_path(&canonical).map_err(|error| {
+            guarded_candidate_error(
+                "preview_writer_source_observation_failed",
+                format!("observe source before lock: {error}"),
+            )
+        })?;
+        if !initial.is_stable() {
+            return Err(guarded_candidate_error(
+                "preview_writer_source_identity_unstable",
+                "source path and opened handle do not identify the same file",
+            ));
+        }
+
+        let original = file_system
+            .acquire_original_host_guard(&canonical)
+            .map_err(|error| {
+                guarded_candidate_error(
+                    "preview_writer_drawing_locked",
+                    format!("acquire exclusive source lock: {error}"),
+                )
+            })?;
+        file_system
+            .validate_host_replacement_guard(&original)
+            .map_err(|error| {
+                guarded_candidate_error(
+                    "preview_writer_lock_not_exclusive",
+                    format!("validate exclusive replacement guard: {error}"),
+                )
+            })?;
+        let locked = file_system
+            .observe_original_host(&original)
+            .map_err(|error| {
+                guarded_candidate_error(
+                    "preview_writer_locked_source_unreadable",
+                    format!("observe locked source: {error}"),
+                )
+            })?;
+        if !locked.is_stable() || !same_observation(&initial, &locked) {
+            return Err(guarded_candidate_error(
+                "preview_writer_concurrent_source_change",
+                "source identity or digest changed while the exclusive lock was acquired",
+            ));
+        }
+        let source_bytes = read_locked_original_bytes(&original).map_err(|error| {
+            guarded_candidate_error(
+                "preview_writer_locked_source_unreadable",
+                format!("read locked source bytes: {error}"),
+            )
+        })?;
+        let source_sha256 = format!("{:x}", Sha256::digest(&source_bytes));
+        if source_sha256 != locked.digest.hex() {
+            return Err(guarded_candidate_error(
+                "preview_writer_locked_source_digest_mismatch",
+                "locked source bytes differ from the stable locked observation",
+            ));
+        }
+
+        let (candidate_bytes, response) = build(&source_bytes).map_err(|error| {
+            guarded_candidate_error(
+                "preview_writer_candidate_rejected",
+                format!("candidate generation failed: {error}"),
+            )
+        })?;
+        if candidate_bytes.is_empty() {
+            return Err(guarded_candidate_error(
+                "preview_writer_candidate_empty",
+                "candidate generation returned no drawing bytes",
+            ));
+        }
+        let candidate_sha256 = format!("{:x}", Sha256::digest(&candidate_bytes));
+
+        let source_before_stage =
+            file_system
+                .observe_original_host(&original)
+                .map_err(|error| {
+                    guarded_candidate_error(
+                        "preview_writer_source_recheck_failed",
+                        format!("recheck locked source before staging: {error}"),
+                    )
+                })?;
+        if !same_observation(&locked, &source_before_stage) {
+            return Err(guarded_candidate_error(
+                "preview_writer_concurrent_source_change",
+                "locked source identity or digest changed during candidate generation",
+            ));
+        }
+
+        let mut sibling = tempfile::Builder::new()
+            .prefix(".autocad-mcp-preview-title-")
+            .suffix(".dwg")
+            .tempfile_in(parent)
+            .map_err(|error| {
+                guarded_candidate_error(
+                    "preview_writer_staging_failed",
+                    format!("create sibling candidate: {error}"),
+                )
+            })?;
+        sibling
+            .as_file_mut()
+            .write_all(&candidate_bytes)
+            .map_err(|error| {
+                guarded_candidate_error(
+                    "preview_writer_staging_failed",
+                    format!("write sibling candidate: {error}"),
+                )
+            })?;
+        sibling.as_file_mut().sync_all().map_err(|error| {
+            guarded_candidate_error(
+                "preview_writer_staging_failed",
+                format!("flush sibling candidate: {error}"),
+            )
+        })?;
+        let (_, sibling_path) = sibling.keep().map_err(|error| {
+            guarded_candidate_error(
+                "preview_writer_staging_failed",
+                format!("retain sibling candidate: {error}"),
+            )
+        })?;
+
+        let prepared = match file_system.prepare_output_guard(&sibling_path, &canonical, &original)
+        {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                let _ = fs::remove_file(&sibling_path);
+                return Err(guarded_candidate_error(
+                    "preview_writer_staging_guard_failed",
+                    format!("guard sibling candidate: {error}"),
+                ));
+            }
+        };
+        let prepared_observation = match file_system.observe_prepared_output(&prepared) {
+            Ok(observation) => observation,
+            Err(error) => {
+                drop(prepared);
+                let _ = fs::remove_file(&sibling_path);
+                return Err(guarded_candidate_error(
+                    "preview_writer_staging_verification_failed",
+                    format!("observe guarded sibling candidate: {error}"),
+                ));
+            }
+        };
+        if !prepared_observation.is_stable()
+            || prepared_observation.digest.hex() != candidate_sha256
+        {
+            drop(prepared);
+            let _ = fs::remove_file(&sibling_path);
+            return Err(guarded_candidate_error(
+                "preview_writer_staging_verification_failed",
+                "guarded sibling identity or digest differs from the verified candidate",
+            ));
+        }
+
+        let source_before_install = match file_system.observe_original_host(&original) {
+            Ok(observation) => observation,
+            Err(error) => {
+                drop(prepared);
+                let _ = fs::remove_file(&sibling_path);
+                return Err(guarded_candidate_error(
+                    "preview_writer_source_recheck_failed",
+                    format!("recheck locked source before install: {error}"),
+                ));
+            }
+        };
+        if !same_observation(&locked, &source_before_install) {
+            drop(prepared);
+            let _ = fs::remove_file(&sibling_path);
+            return Err(guarded_candidate_error(
+                "preview_writer_concurrent_source_change",
+                "locked source identity or digest changed before candidate installation",
+            ));
+        }
+
+        let installed_guard = match file_system.install_prepared_output(prepared, &original) {
+            Ok(installed) => installed,
+            Err(error) => {
+                let disposition = match error.disposition {
+                    XrefPreparedInstallDisposition::DefinitelyNotInstalled => {
+                        let _ = fs::remove_file(&sibling_path);
+                        GuardedCandidateInstallDisposition::DefinitelyNotInstalled
+                    }
+                    XrefPreparedInstallDisposition::InstallationMayHaveOccurred => {
+                        GuardedCandidateInstallDisposition::InstallationMayHaveOccurred
+                    }
+                };
+                drop(error.prepared_output_guard);
+                return Err(GuardedCandidateInstallError::new(
+                    "preview_writer_install_outcome_unknown",
+                    format!(
+                        "transactional candidate installation failed: {}",
+                        error.error
+                    ),
+                    disposition,
+                ));
+            }
+        };
+
+        file_system.flush_directory(parent).map_err(|error| {
+            GuardedCandidateInstallError::new(
+                "preview_writer_install_outcome_unknown",
+                format!("candidate committed but directory durability failed: {error}"),
+                GuardedCandidateInstallDisposition::InstallationMayHaveOccurred,
+            )
+        })?;
+        let installed = file_system
+            .observe_installed_host(&installed_guard)
+            .map_err(|error| {
+                GuardedCandidateInstallError::new(
+                    "preview_writer_install_outcome_unknown",
+                    format!("candidate committed but installed observation failed: {error}"),
+                    GuardedCandidateInstallDisposition::InstallationMayHaveOccurred,
+                )
+            })?;
+        if !installed.is_stable()
+            || !file_system.installed_identity_matches_contract(
+                &locked,
+                &prepared_observation,
+                &installed,
+            )
+            || installed.digest.hex() != candidate_sha256
+        {
+            return Err(GuardedCandidateInstallError::new(
+                "preview_writer_install_outcome_unknown",
+                "installed identity transition or digest does not match the guarded transaction",
+                GuardedCandidateInstallDisposition::InstallationMayHaveOccurred,
+            ));
+        }
+
+        Ok((
+            response,
+            GuardedCandidateInstallReceipt {
+                source_sha256,
+                installed_sha256: candidate_sha256,
+                exclusive_source_lock_verified: true,
+                source_identity_revalidated: true,
+                sibling_staging_verified: true,
+                transactional_atomic_install_verified: true,
+                original_file_identity_preserved: true,
+                directory_durability_verified: true,
+                installed_digest_verified: true,
+            },
+        ))
+    }
+}
+
+#[cfg(all(feature = "preview", target_os = "windows"))]
+fn validate_guarded_candidate_path(path: &Path) -> Result<PathBuf, GuardedCandidateInstallError> {
+    use std::os::windows::fs::MetadataExt;
+
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|error| {
+                guarded_candidate_error(
+                    "preview_writer_invalid_path",
+                    format!("resolve current directory: {error}"),
+                )
+            })?
+            .join(path)
+    };
+    for component in absolute.ancestors() {
+        if component.parent().is_none() {
+            break;
+        }
+        let metadata = fs::symlink_metadata(component).map_err(|error| {
+            guarded_candidate_error(
+                "preview_writer_invalid_path",
+                format!("inspect drawing namespace component: {error}"),
+            )
+        })?;
+        if metadata.file_type().is_symlink() || metadata.file_attributes() & 0x0000_0400 != 0 {
+            return Err(guarded_candidate_error(
+                "preview_writer_invalid_path",
+                "drawing path must not traverse a reparse-point namespace",
+            ));
+        }
+    }
+    let metadata = fs::symlink_metadata(&absolute).map_err(|error| {
+        guarded_candidate_error(
+            "preview_writer_invalid_path",
+            format!("inspect drawing path: {error}"),
+        )
+    })?;
+    if !metadata.file_type().is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.file_attributes() & 0x0000_0400 != 0
+    {
+        return Err(guarded_candidate_error(
+            "preview_writer_invalid_path",
+            "drawing must be a regular non-reparse file",
+        ));
+    }
+    if !absolute
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("dwg"))
+    {
+        return Err(guarded_candidate_error(
+            "preview_writer_invalid_path",
+            "guarded Preview candidate installation accepts only .dwg paths",
+        ));
+    }
+    fs::canonicalize(&absolute).map_err(|error| {
+        guarded_candidate_error(
+            "preview_writer_invalid_path",
+            format!("canonicalize drawing path: {error}"),
+        )
+    })
+}
+
+#[cfg(all(feature = "preview", target_os = "windows"))]
+fn read_locked_original_bytes(lock: &ProductionOriginalHostGuard) -> io::Result<Vec<u8>> {
+    let file = lock
+        .file()
+        .map_err(|error| io::Error::other(error.to_string()))?;
+    let mut reader = &*file;
+    reader.seek(SeekFrom::Start(0))?;
+    let mut bytes = Vec::new();
+    reader.read_to_end(&mut bytes)?;
+    reader.seek(SeekFrom::Start(0))?;
+    Ok(bytes)
+}
+
+#[cfg(all(feature = "preview", target_os = "windows"))]
+fn guarded_candidate_error(
+    code: &'static str,
+    detail: impl Into<String>,
+) -> GuardedCandidateInstallError {
+    GuardedCandidateInstallError::new(
+        code,
+        detail,
+        GuardedCandidateInstallDisposition::DefinitelyNotInstalled,
+    )
+}
+
 fn boundary_io(context: &'static str) -> impl FnOnce(io::Error) -> XrefBoundaryError {
     move |error| XrefBoundaryError::new(format!("{context}: {error}"))
 }
@@ -6245,5 +6685,24 @@ mod tests {
         for (artifact, expected_sha256) in expected {
             assert_eq!(xref_embedded_artifact_sha256_hex(artifact), expected_sha256);
         }
+    }
+
+    #[cfg(all(feature = "preview", not(target_os = "windows")))]
+    #[test]
+    fn guarded_preview_installer_rejects_before_candidate_build_off_windows() {
+        let build_called = std::cell::Cell::new(false);
+
+        let error = guarded_install_candidate(Path::new("missing.dwg"), |_| {
+            build_called.set(true);
+            Ok::<_, String>((vec![0_u8], ()))
+        })
+        .unwrap_err();
+
+        assert!(!build_called.get());
+        assert_eq!(error.code(), "preview_writer_unsupported_platform");
+        assert_eq!(
+            error.disposition(),
+            GuardedCandidateInstallDisposition::DefinitelyNotInstalled
+        );
     }
 }

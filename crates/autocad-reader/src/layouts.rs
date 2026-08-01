@@ -1,13 +1,19 @@
 //! Reader-owned layout, paper-space viewport, and plot-setting projections.
 
+use std::io::Cursor;
+
 use acadrust::entities::{EntityType, Viewport, ViewportRenderMode};
+use acadrust::io::dwg::dwg_stream_readers::{
+    handle_reader::read_handles,
+    object_reader::{common::OBJ_LAYOUT, objects::read_layout as read_raw_layout, DwgObjectReader},
+};
 use acadrust::objects::{
     Layout, ObjectType, PlotPaperUnits as AcadPlotPaperUnits, PlotRotation as AcadPlotRotation,
     PlotSettings, PlotType as AcadPlotType, ScaledType as AcadScaledType,
     ShadePlotMode as AcadShadePlotMode, ShadePlotResolutionLevel as AcadShadePlotResolutionLevel,
 };
-use acadrust::types::Handle;
-use acadrust::CadDocument;
+use acadrust::types::{DxfVersion, Handle};
+use acadrust::{CadDocument, DwgReader};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -20,6 +26,7 @@ use super::{
     },
     entity_identity::{is_semantic_entity, validate_semantic_entity_handles},
     owners::{resolve_direct_owner, DirectOwnerContext, DirectOwnerType},
+    DrawingFormat, DrawingSnapshot,
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
@@ -377,6 +384,176 @@ fn embedded_rotation_degrees(rotation_code: i16) -> Option<i16> {
         2 => Some(180),
         3 => Some(270),
         _ => None,
+    }
+}
+
+const KNOWN_PLOT_FLAG_BITS: i32 = 0x7EFF;
+
+fn plot_flags_from_bits(bits: i32) -> Result<PlotFlagsRecord, LayoutReadError> {
+    if bits & !KNOWN_PLOT_FLAG_BITS != 0 {
+        return Err(LayoutReadError::new(
+            "embedded_plot_flags_unsupported",
+            "the embedded plot flags contain unknown or reserved bits",
+        ));
+    }
+    let flags = acadrust::objects::PlotFlags::from_bits(bits);
+    Ok(PlotFlagsRecord {
+        plot_viewport_borders: flags.plot_viewport_borders,
+        show_plot_styles: flags.show_plot_styles,
+        plot_centered: flags.plot_centered,
+        plot_hidden: flags.plot_hidden,
+        use_standard_scale: flags.use_standard_scale,
+        plot_plot_styles: flags.plot_plot_styles,
+        scale_lineweights: flags.scale_lineweights,
+        print_lineweights: flags.print_lineweights,
+        draw_viewports_first: flags.draw_viewports_first,
+        model_type: flags.model_type,
+        update_paper: flags.update_paper,
+        zoom_to_paper_on_update: flags.zoom_to_paper_on_update,
+        initializing: flags.initializing,
+        previous_plot_initialized: flags.prev_plot_init,
+    })
+}
+
+fn raw_dwg_layout_plot_flags(
+    snapshot: &DrawingSnapshot,
+    layout: &Layout,
+) -> Result<PlotFlagsRecord, LayoutReadError> {
+    let bytes = snapshot.bytes();
+    let mut reader = DwgReader::from_stream(Cursor::new(bytes));
+    let info = reader.read_file_header().map_err(|error| {
+        LayoutReadError::new(
+            "embedded_plot_flags_unavailable",
+            format!("failed to read the DWG section map: {error}"),
+        )
+    })?;
+    let dxf_version = DxfVersion::parse(&info.version_string).ok_or_else(|| {
+        LayoutReadError::new(
+            "embedded_plot_flags_unavailable",
+            "the DWG version cannot be mapped to an object-stream version",
+        )
+    })?;
+    let handles = reader
+        .get_section_buffer("AcDb:Handles", &info)
+        .and_then(|bytes| read_handles(&bytes))
+        .map_err(|error| {
+            LayoutReadError::new(
+                "embedded_plot_flags_unavailable",
+                format!("failed to read the DWG handle map: {error}"),
+            )
+        })?;
+    let mut handles = handles;
+    if info.objects_base_offset != 0 {
+        for offset in handles.values_mut() {
+            *offset = offset
+                .checked_sub(info.objects_base_offset)
+                .ok_or_else(|| {
+                    LayoutReadError::new(
+                        "embedded_plot_flags_unavailable",
+                        "a DWG handle-map offset precedes the object-section base",
+                    )
+                })?;
+        }
+    }
+    let objects = reader
+        .get_section_buffer("AcDb:AcDbObjects", &info)
+        .map_err(|error| {
+            LayoutReadError::new(
+                "embedded_plot_flags_unavailable",
+                format!("failed to read the DWG object section: {error}"),
+            )
+        })?;
+    let object_reader = DwgObjectReader::new(objects, dxf_version, handles).map_err(|error| {
+        LayoutReadError::new(
+            "embedded_plot_flags_unavailable",
+            format!("failed to initialise the DWG object reader: {error}"),
+        )
+    })?;
+    let offset = object_reader
+        .offset_for(layout.handle.value())
+        .filter(|offset| *offset >= 0)
+        .ok_or_else(|| {
+            LayoutReadError::new(
+                "embedded_plot_flags_unavailable",
+                "the selected layout handle is absent from the DWG handle map",
+            )
+        })?;
+    let parsed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let (type_code, mut merged) = object_reader.read_record_at(offset as usize)?;
+        if type_code != OBJ_LAYOUT {
+            return Err(acadrust::DxfError::Parse(format!(
+                "selected layout handle has DWG object type {type_code}, expected {OBJ_LAYOUT}"
+            )));
+        }
+        let common = object_reader.read_common_non_entity_data(&mut merged, type_code);
+        let raw = read_raw_layout(&mut merged, object_reader.version());
+        Ok::<_, acadrust::DxfError>((common.common.handle, raw))
+    }))
+    .map_err(|_| {
+        LayoutReadError::new(
+            "embedded_plot_flags_unavailable",
+            "the low-level reader panicked while decoding the selected layout",
+        )
+    })?
+    .map_err(|error| {
+        LayoutReadError::new(
+            "embedded_plot_flags_unavailable",
+            format!("failed to decode the selected layout object: {error}"),
+        )
+    })?;
+    let (raw_handle, raw) = parsed;
+    if raw_handle != layout.handle.value() || raw.name != layout.name {
+        return Err(LayoutReadError::new(
+            "embedded_plot_flags_contradictory",
+            "the low-level layout identity contradicts the selected semantic layout",
+        ));
+    }
+    if raw.plot_settings.paper_width != layout.paper_width
+        || raw.plot_settings.paper_height != layout.paper_height
+        || raw.plot_settings.rotation != layout.plot_rotation
+    {
+        return Err(LayoutReadError::new(
+            "embedded_plot_settings_contradictory",
+            "the low-level layout paper geometry contradicts the semantic layout",
+        ));
+    }
+    plot_flags_from_bits(i32::from(raw.plot_settings.plot_flags))
+}
+
+pub(super) fn get_embedded_layout_plot_flags(
+    doc: &CadDocument,
+    snapshot: &DrawingSnapshot,
+    selector: &LayoutSelector,
+) -> Result<PlotFlagsRecord, LayoutReadError> {
+    let layout = resolve_layout(doc, selector)?;
+    match snapshot.format() {
+        DrawingFormat::Dwg => raw_dwg_layout_plot_flags(snapshot, layout),
+        DrawingFormat::Dxf => {
+            let codes = layout.raw_plot_settings_codes.as_ref().ok_or_else(|| {
+                LayoutReadError::new(
+                    "embedded_plot_flags_unavailable",
+                    "the DXF layout does not retain embedded plot-setting codes",
+                )
+            })?;
+            let values = codes
+                .iter()
+                .filter(|(code, _)| *code == 70)
+                .map(|(_, value)| value.parse::<i32>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| {
+                    LayoutReadError::new(
+                        "embedded_plot_flags_unavailable",
+                        "the DXF embedded plot flags are not a valid integer",
+                    )
+                })?;
+            let [bits] = values.as_slice() else {
+                return Err(LayoutReadError::new(
+                    "embedded_plot_flags_unavailable",
+                    "the DXF layout does not contain exactly one embedded plot-flags value",
+                ));
+            };
+            plot_flags_from_bits(*bits)
+        }
     }
 }
 
@@ -1089,7 +1266,7 @@ mod tests {
     use acadrust::entities::{EntityType, Line, Viewport};
     use acadrust::objects::{ObjectType, PaperMargin, PlotSettings};
     use acadrust::types::{Handle, Vector3};
-    use acadrust::{CadDocument, DxfVersion};
+    use acadrust::{CadDocument, DwgWriter, DxfVersion};
     use std::path::{Path, PathBuf};
 
     fn fixture_path(relative: &str) -> PathBuf {
@@ -1116,6 +1293,46 @@ mod tests {
             "expected 'Layout1' layout, got: {:?}",
             layouts.iter().map(|l| &l.name).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn immutable_dwg_adapter_recovers_embedded_layout_plot_flags() {
+        let document = CadDocument::new();
+        let file = tempfile::Builder::new().suffix(".dwg").tempfile().unwrap();
+        DwgWriter::write_to_file(file.path(), &document).unwrap();
+        let bytes = std::fs::read(file.path()).unwrap();
+        let session =
+            Reader::open_snapshot(DrawingSnapshot::new(DrawingFormat::Dwg, bytes)).unwrap();
+
+        let paper = session
+            .get_embedded_layout_plot_flags(&LayoutSelector {
+                name: Some("Layout1".to_string()),
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(paper, plot_flags_from_bits(0).unwrap());
+
+        let model = session
+            .get_embedded_layout_plot_flags(&LayoutSelector {
+                name: Some("Model".to_string()),
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(model.model_type);
+        assert_eq!(model, plot_flags_from_bits(0x400).unwrap());
+    }
+
+    #[test]
+    fn embedded_layout_plot_flags_reject_unknown_or_reserved_bits() {
+        for bits in [0x100, 0x8000, 0x1_0000, -1] {
+            assert_eq!(
+                plot_flags_from_bits(bits).unwrap_err().code(),
+                "embedded_plot_flags_unsupported"
+            );
+        }
+        let all_known = plot_flags_from_bits(KNOWN_PLOT_FLAG_BITS).unwrap();
+        assert!(all_known.plot_viewport_borders);
+        assert!(all_known.previous_plot_initialized);
     }
 
     #[test]

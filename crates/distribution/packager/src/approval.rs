@@ -4053,13 +4053,22 @@ mod tests {
     fn write_clean_host_receipt(fixture: &DynamicFixture) -> PreviewCleanHostVerificationOptions {
         let mcpb_bytes = fs::read(&fixture.options.mcpb_path).unwrap();
         let receipt = distribution_approval::PreviewCleanHostReceipt::new(
-            sha256(&mcpb_bytes),
-            mcpb_bytes.len() as u64,
-            sha256(&fixture.mcpb_entries[PREVIEW_MCP_SERVER_PATH].0),
-            sha256(&fixture.mcpb_entries[PREVIEW_AUTOLISP_LSP_PATH].0),
-            "0.13.78",
-            "10.0.26100.4652",
-            "2026-07-28T12:34:56Z",
+            distribution_approval::PreviewCleanHostReceiptInput {
+                mcpb_sha256: sha256(&mcpb_bytes),
+                mcpb_size_bytes: mcpb_bytes.len() as u64,
+                mcp_server_sha256: sha256(&fixture.mcpb_entries[PREVIEW_MCP_SERVER_PATH].0),
+                autolisp_lsp_sha256: sha256(&fixture.mcpb_entries[PREVIEW_AUTOLISP_LSP_PATH].0),
+                client_version: "0.13.78".to_string(),
+                host_os_version: "10.0.26100.4652".to_string(),
+                title_block_source_sha256:
+                    "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_string(),
+                title_block_installed_sha256:
+                    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string(),
+                title_block_sentinel_sha256:
+                    distribution_approval::PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_SHA256
+                        .to_string(),
+                completed_utc: "2026-07-28T12:34:56Z".to_string(),
+            },
         )
         .unwrap();
         let receipt_path = fixture

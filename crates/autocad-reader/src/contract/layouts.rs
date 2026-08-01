@@ -230,7 +230,7 @@ pub struct PlotWindowRecord {
     pub upper_right: Point2,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlotFlagsRecord {
     pub plot_viewport_borders: bool,

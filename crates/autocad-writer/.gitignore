@@ -11,3 +11,4 @@
 
 /tests/**
 !/tests/source_policy.rs
+!/tests/portable_worker.rs

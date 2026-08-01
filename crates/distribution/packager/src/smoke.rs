@@ -39,7 +39,10 @@ use zip::ZipArchive;
 #[cfg(not(test))]
 const SUBPROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 #[cfg(test)]
-const SUBPROCESS_TIMEOUT: Duration = Duration::from_secs(2);
+// A full parallel workspace test can leave less than two seconds of scheduler
+// time for an otherwise immediate packaged-script probe. Keep the test bound
+// finite but align it with the existing test LSP process allowance.
+const SUBPROCESS_TIMEOUT: Duration = Duration::from_secs(5);
 #[cfg(not(test))]
 const LSP_SUBPROCESS_TIMEOUT: Duration = SUBPROCESS_TIMEOUT;
 #[cfg(test)]
@@ -371,7 +374,7 @@ const EXPECTED_CALLABLE_TOOLS: [ExpectedToolContract; 51] = [
     ),
     tool_contract(
         "write_title_block",
-        "Write title-block attributes in place in a DWG or native ASCII DXF drawing. Accepts canonical field names (e.g. 'revision', 'drawing_number') and maps them to the correct DXF attribute tags for the detected profile. Duplicate canonical request keys are rejected after trimming and case normalization. A duplicate drawing tag blocks the write only when a requested field maps to that tag; duplicate unrequested tags do not. Fails loudly if the drawing contains no recognised title-block profile — never guesses. DWG files require accoreconsole (Windows only); native ASCII DXF files use a pure-Rust patcher on any platform.",
+        "Write title-block attributes in place in a DWG or native ASCII DXF drawing. Accepts canonical field names (e.g. 'revision', 'drawing_number') and maps them to the correct DXF attribute tags for the detected profile. Duplicate canonical request keys are rejected after trimming and case normalization. A duplicate drawing tag blocks the write only when a requested field maps to that tag; duplicate unrequested tags do not. Fails loudly if the drawing contains no recognised title-block profile — never guesses. Release DWG writes require accoreconsole. The Preview product admits a bounded pure-Rust path only for AC1032 DWG sources whose invariant sections and complete represented model pass the allowed-delta oracle. Native ASCII DXF files retain the existing pure-Rust patcher on any platform.",
         "ec2e598377abb643f555fb7bc7a23e25f1c6da72243b6ee2449ee801b51759d5",
         false,
         true,

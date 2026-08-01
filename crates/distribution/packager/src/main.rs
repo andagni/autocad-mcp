@@ -124,6 +124,12 @@ enum Command {
         #[arg(long)]
         host_os_version: String,
         #[arg(long)]
+        title_block_source_sha256: String,
+        #[arg(long)]
+        title_block_installed_sha256: String,
+        #[arg(long)]
+        title_block_sentinel_sha256: String,
+        #[arg(long)]
         completed_utc: String,
         #[arg(long)]
         output: PathBuf,
@@ -287,6 +293,9 @@ fn run() -> Result<()> {
             mcpb,
             client_version,
             host_os_version,
+            title_block_source_sha256,
+            title_block_installed_sha256,
+            title_block_sentinel_sha256,
             completed_utc,
             output,
         } => {
@@ -294,6 +303,9 @@ fn run() -> Result<()> {
                 mcpb_path: mcpb,
                 client_version,
                 host_os_version,
+                title_block_source_sha256,
+                title_block_installed_sha256,
+                title_block_sentinel_sha256,
                 completed_utc,
                 output_path: output,
             })?;
@@ -510,6 +522,12 @@ mod tests {
             "0.13.78",
             "--host-os-version",
             "10.0.26100.4652",
+            "--title-block-source-sha256",
+            &"d".repeat(64),
+            "--title-block-installed-sha256",
+            &"e".repeat(64),
+            "--title-block-sentinel-sha256",
+            &"f".repeat(64),
             "--completed-utc",
             "2026-07-28T12:34:56Z",
             "--output",

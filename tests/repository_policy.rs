@@ -172,7 +172,11 @@ fn whitelist_admits_reviewed_shapes_and_denies_unreviewed_paths() {
         "crates/distribution/packager/src/lib.rs",
         "crates/distribution/plugin-validation/src/lib.rs",
         "crates/distribution/qualification/src/lib.rs",
+        "crates/xtask/src/cargo_layout.rs",
+        "crates/xtask/src/core_clean_dispatch.rs",
+        "crates/xtask/src/local_release_dispatch.rs",
         "crates/xtask/src/main.rs",
+        "crates/xtask/src/quality_dispatch.rs",
         "plugin/.lsp.json",
         "plugin/.third-party/.gitignore",
         "plugin/.third-party/third-party-license-policy.json",
@@ -342,25 +346,33 @@ fn local_pre_push_hook_has_valid_shell_syntax() {
 }
 
 #[test]
-fn local_pre_push_hook_scopes_incremental_compilation_to_serial_gate_work() {
+fn local_pre_push_hook_scopes_sccache_compatible_incremental_compilation() {
     let hook = std::fs::read_to_string(repository_root().join(".githooks/pre-push"))
         .expect("tracked pre-push hook should be readable UTF-8");
-    let incremental = hook
-        .find("export CARGO_INCREMENTAL=1")
-        .expect("pre-push hook must opt its serial Cargo work into incremental compilation");
+    let incremental = hook.find("export CARGO_BUILD_INCREMENTAL=true").expect(
+        "pre-push hook must opt its serial Cargo work into config-scoped incremental compilation",
+    );
+    let scrub = hook
+        .find("unset CARGO_INCREMENTAL")
+        .expect("pre-push hook must scrub the sccache-incompatible global override");
     let thin_command =
         "exec cargo run --locked -p xtask --no-default-features --bin pre-push-dispatch -- \"$@\"";
     let coordinator = hook
         .find(thin_command)
         .expect("pre-push hook must launch the tracked thin dispatcher");
     assert!(
-        incremental < coordinator,
+        scrub < incremental && incremental < coordinator,
         "incremental compilation must be enabled before the coordinator and its child gates launch"
     );
     assert_eq!(
         hook.matches("CARGO_INCREMENTAL").count(),
         1,
-        "the hook must have one closed incremental-compilation override"
+        "the hook must scrub the legacy global incremental-compilation override exactly once"
+    );
+    assert_eq!(
+        hook.matches("CARGO_BUILD_INCREMENTAL").count(),
+        1,
+        "the hook must have one config-scoped incremental-compilation override"
     );
     assert_eq!(
         hook.matches("cargo run").count(),
@@ -393,6 +405,7 @@ fn xref_failpoint_clippy_is_scoped_to_the_instrumented_product_targets() {
         "clippy = true\n",
         "test = false\n",
         "targets = [\"lib\", \"bin:autocad-mcp\"]\n",
+        "candidate-only = true\n",
     );
     assert_eq!(
         manifest.matches(profile).count(),
@@ -412,6 +425,232 @@ fn xref_failpoint_clippy_is_scoped_to_the_instrumented_product_targets() {
             "scoped feature-profile Clippy is missing boundary: {boundary}"
         );
     }
+}
+
+#[test]
+fn source_validation_profile_partitions_source_candidate_and_preview_compilation() {
+    let repository = repository_root();
+    let workspace_manifest = std::fs::read_to_string(repository.join("Cargo.toml"))
+        .expect("workspace manifest should be readable");
+    assert_eq!(
+        workspace_manifest
+            .matches(concat!(
+                "[profile.source-validation]\n",
+                "inherits = \"test\"\n",
+                "debug = 0\n",
+                "incremental = true\n\n",
+                "[profile.source-validation.package.\"*\"]\n",
+                "opt-level = 3\n",
+                "codegen-units = 16\n",
+            ))
+            .count(),
+        1,
+        "the source-validation profile must align test and Clippy while optimizing only dependency compilation"
+    );
+    assert_eq!(
+        workspace_manifest
+            .matches(concat!(
+                "[workspace.metadata.cargo-core]\n",
+                "schema-version = 2\n",
+                "retained-workspace-packages = [\"autocad-reader\"]\n",
+                "max-retained-bytes = 3221225472\n",
+            ))
+            .count(),
+        1,
+        "core must retain only the measured stable workspace admission under one Cargo-native list"
+    );
+
+    let product_manifest =
+        std::fs::read_to_string(repository.join("crates/autocad-mcp/Cargo.toml"))
+            .expect("autocad-mcp manifest should be readable");
+    let preview_profile = concat!(
+        "[[package.metadata.local-gate.profiles]]\n",
+        "name = \"preview\"\n",
+        "features = [\"preview\"]\n",
+        "clippy = true\n",
+        "test = true\n",
+        "targets = [\"lib\", \"bin:autocad-mcp\", \"test:integration\", \"test:writer_contract\"]\n",
+        "candidate-only = true\n",
+    );
+    assert_eq!(
+        product_manifest.matches(preview_profile).count(),
+        1,
+        "Preview qualification must compile only the product surfaces that contain Preview code"
+    );
+    assert!(product_manifest.contains("autocad-writer = { path = \"../autocad-writer\" }"));
+    assert!(!product_manifest.contains("autocad-writer/portable-plotting"));
+
+    let writer_manifest =
+        std::fs::read_to_string(repository.join("crates/autocad-writer/Cargo.toml"))
+            .expect("autocad-writer manifest should be readable");
+    for contract in [
+        "portable-plotting = [\"dep:krilla\", \"dep:rustybuzz\", \"dep:write-fonts\"]",
+        "portable-plot-qualification = [\"portable-plotting\", \"dep:hayro\", \"dep:lopdf\"]",
+        "krilla = { version = \"=0.8.2\", default-features = false, optional = true }",
+        "rustybuzz = { version = \"=0.20.1\", optional = true }",
+        "write-fonts = { version = \"=0.48.1\", default-features = false, optional = true }",
+        "candidate-only = true",
+        "schema-version = 4",
+        "cache = \"disposable\"",
+    ] {
+        assert!(
+            writer_manifest.contains(contract),
+            "portable plotting build isolation is missing contract: {contract}"
+        );
+    }
+    assert_eq!(
+        writer_manifest
+            .matches("required-features = [\"portable-plotting\"]")
+            .count(),
+        2,
+        "the portable worker binary and its process test must stay outside the default graph"
+    );
+
+    let integration_source =
+        std::fs::read_to_string(repository.join("crates/autocad-mcp/tests/integration.rs"))
+            .expect("Preview integration source should be readable");
+    assert_eq!(
+        integration_source.matches("feature = \"preview\"").count(),
+        4
+    );
+    let writer_contract_source =
+        std::fs::read_to_string(repository.join("crates/autocad-mcp/tests/writer_contract.rs"))
+            .expect("Preview writer-contract source should be readable");
+    assert_eq!(
+        writer_contract_source
+            .matches("feature = \"preview\"")
+            .count(),
+        2
+    );
+    for entry in WalkDir::new(repository.join("crates/autocad-mcp/tests"))
+        .min_depth(1)
+        .max_depth(1)
+    {
+        let entry = entry.expect("walk autocad-mcp external tests");
+        if !entry.file_type().is_file()
+            || entry.path().extension().and_then(|value| value.to_str()) != Some("rs")
+            || entry.file_name() == "integration.rs"
+            || entry.file_name() == "writer_contract.rs"
+            || entry.file_name() == "reader_source_policy.rs"
+        {
+            continue;
+        }
+        let source = std::fs::read_to_string(entry.path())
+            .unwrap_or_else(|error| panic!("read {}: {error}", entry.path().display()));
+        assert!(
+            !source.contains("feature = \"preview\""),
+            "unregistered external test target contains Preview code: {}",
+            entry.path().display()
+        );
+    }
+    let reader_policy = std::fs::read_to_string(
+        repository.join("crates/autocad-mcp/tests/reader_source_policy.rs"),
+    )
+    .expect("reader source-policy test should be readable");
+    assert_eq!(
+        reader_policy.matches("feature = \"preview\"").count(),
+        1,
+        "the reader source-policy parser fixture is the only admitted non-integration Preview text"
+    );
+}
+
+#[test]
+fn source_validation_storage_is_governed_and_core_is_not_a_default_clean_target() {
+    let repository = repository_root();
+    let layout = std::fs::read_to_string(repository.join("crates/xtask/src/cargo_layout.rs"))
+        .expect("Cargo layout coordinator should be readable");
+    for contract in [
+        r#"cargo_root.join("scratch")"#,
+        r#"cargo_root.join("release")"#,
+        r#"cargo_root.join("core")"#,
+        r#".env("CARGO_TARGET_DIR", &self.scratch)"#,
+        r#".env("CARGO_BUILD_BUILD_DIR", &self.core)"#,
+        r#".env_remove("CARGO_INCREMENTAL")"#,
+        r#".env("CARGO_BUILD_INCREMENTAL", "true")"#,
+        r#".env("CARGO_BUILD_INCREMENTAL", "false")"#,
+        "acquire_governed_lock",
+        "core_cleanup_command",
+        r#"const DEFAULT_SCCACHE_CACHE_SIZE: &str = "512M";"#,
+        "cargo-layout-v1:target=scratch;build=core;profile=source-validation",
+        "cargo-layout-v1:target=scratch;build=scratch;profile=source-validation",
+    ] {
+        assert!(
+            layout.contains(contract),
+            "governed Cargo layout is missing contract: {contract}"
+        );
+    }
+    for forbidden in ["10G", r#".env("CARGO_INCREMENTAL", "0")"#] {
+        assert!(
+            !layout.contains(forbidden),
+            "retained-core design must not retain the rejected compiler-cache policy: {forbidden}"
+        );
+    }
+
+    let dispatcher =
+        std::fs::read_to_string(repository.join("crates/xtask/src/quality_dispatch.rs"))
+            .expect("quality dispatcher should be readable");
+    for contract in [
+        "SOURCE_VALIDATION_PROFILE",
+        "layout.configure_source_validation(&mut command)",
+        "layout.acquire_governed_lock()",
+        "pre-gate Cargo core cleanup",
+        "post-gate Cargo core cleanup",
+        "clean-core-workspace",
+        "--dry-run",
+    ] {
+        assert!(
+            dispatcher.contains(contract),
+            "quality bootstrap is missing contract: {contract}"
+        );
+    }
+
+    let coordinator =
+        std::fs::read_to_string(repository.join("crates/xtask/src/core_clean_dispatch.rs"))
+            .expect("core-clean dispatcher should be readable");
+    for contract in [
+        "fn core_cleanup_plan(",
+        "workspace.metadata.cargo-core",
+        "max-retained-bytes",
+        "cache_epoch_sha256(",
+        "retention_rejected",
+        "EpochState::Rejected",
+        "retained package manifest has no parent",
+        "reset_governed_profiles(",
+        "post-clean Cargo core retained",
+        "arguments.push(\"--package\".to_owned())",
+        "cargo_layout::SOURCE_VALIDATION_PROFILE",
+        "[cargo_layout::SOURCE_VALIDATION_PROFILE, \"release\"]",
+    ] {
+        assert!(
+            coordinator.contains(contract),
+            "package-aware core cleanup is missing contract: {contract}"
+        );
+    }
+    assert!(!coordinator.contains("remove_dir_all(&layout.core"));
+
+    let release_dispatcher =
+        std::fs::read_to_string(repository.join("crates/xtask/src/local_release_dispatch.rs"))
+            .expect("local-release dispatcher should be readable");
+    for contract in [
+        "BuildMode::Release",
+        "BuildMode::Preview",
+        "autocad-mcp/preview",
+        "layout.configure_release(&mut command",
+        "local_development_only",
+        "release_authority: false",
+        "distribution_authority: false",
+        "signing_authority: false",
+        "native_host_authority: false",
+        "remove_prior_artifacts(&target_directory)",
+        "run_core_cleanup(&layout, &repository, \"pre-build\")",
+        "run_core_cleanup(&layout, &repository, \"post-build\")",
+    ] {
+        assert!(
+            release_dispatcher.contains(contract),
+            "local-release dispatcher is missing contract: {contract}"
+        );
+    }
+    assert!(!release_dispatcher.contains("BuildMode::Experimental"));
 }
 
 #[test]
@@ -480,6 +719,32 @@ fn thin_pre_push_dispatch_has_no_active_normal_or_build_dependencies() {
         dispatcher["required-features"].is_null(),
         "the thin dispatcher must remain available without the full feature"
     );
+    let quality_dispatcher = targets
+        .iter()
+        .find(|target| target["name"] == "quality-dispatch")
+        .expect("xtask must expose the thin quality dispatcher");
+    assert!(
+        quality_dispatcher["required-features"].is_null(),
+        "the quality dispatcher must bootstrap without the full dependency graph"
+    );
+    let core_clean_dispatcher = targets
+        .iter()
+        .find(|target| target["name"] == "core-clean-dispatch")
+        .expect("xtask must expose the bounded core-clean dispatcher");
+    assert_eq!(
+        core_clean_dispatcher["required-features"],
+        serde_json::json!(["core-clean"]),
+        "core cleanup must activate only its narrow metadata-parsing feature"
+    );
+    let local_release_dispatcher = targets
+        .iter()
+        .find(|target| target["name"] == "local-release-dispatch")
+        .expect("xtask must expose the bounded local-release dispatcher");
+    assert_eq!(
+        local_release_dispatcher["required-features"],
+        serde_json::json!(["local-release"]),
+        "local optimized builds must activate only their narrow dispatch feature"
+    );
     let full_xtask = targets
         .iter()
         .find(|target| target["name"] == "xtask")
@@ -509,6 +774,11 @@ fn validation_receipts_are_durable_advisory_and_package_owned() {
         "fn plan_satisfies(",
         "fn git_common_directory(",
         "#[serde(deny_unknown_fields)]",
+        r#"| "CARGO_BUILD_BUILD_DIR""#,
+        r#"| "CARGO_BUILD_INCREMENTAL""#,
+        r#"| "CARGO_BUILD_RUSTC_WRAPPER""#,
+        r#"| "RUSTC_WORKSPACE_WRAPPER""#,
+        r#"| "SCCACHE_CACHE_SIZE""#,
     ] {
         assert!(
             receipt_engine.contains(boundary),
@@ -565,7 +835,8 @@ fn validation_receipts_are_durable_advisory_and_package_owned() {
         1,
         "distribution evidence must own exactly one stable input-id subcommand"
     );
-    assert!(evidence_manifest.contains("schema-version = 2"));
+    assert!(evidence_manifest.contains("schema-version = 3"));
+    assert!(evidence_manifest.contains("candidate-only = true"));
     let evidence_cli =
         std::fs::read_to_string(repository.join("crates/distribution/evidence/src/main.rs"))
             .expect("distribution-evidence CLI should be readable");

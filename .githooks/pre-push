@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
 
-# Pre-push Cargo work is deliberately serial. Scope incremental compilation to
-# this hook so ordinary concurrent development retains the repository default.
-export CARGO_INCREMENTAL=1
+# Pre-push Cargo work is deliberately serial. Use Cargo's config-scoped
+# override so incremental compilation can coexist with an optional sccache
+# wrapper while ordinary concurrent development retains the repository default.
+unset CARGO_INCREMENTAL
+export CARGO_BUILD_INCREMENTAL=true
 
 repository_root=$(git rev-parse --show-toplevel)
 cd "$repository_root"

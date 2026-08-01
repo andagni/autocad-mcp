@@ -28,7 +28,7 @@ const MAX_WINDOWS_RELATIVE_PATH_BYTES: usize = 240;
 const MAX_WINDOWS_COMPONENT_BYTES: usize = 200;
 const ALLOWED_REPOSITORY_CARGO_CONFIG: &[u8] = b"[build]\nincremental = false\n";
 const ALLOWED_COMMON_CHECKOUT_CARGO_CONFIG: &[u8] =
-    b"[build]\ntarget-dir = \".cargo-target\"\nincremental = false\n";
+    b"[build]\ntarget-dir = \".cargo-target/scratch\"\nincremental = false\n";
 const ZIP_UTF8_FLAG: u16 = 0x0800;
 const ZIP_DOS_TIME: u16 = 0;
 const ZIP_DOS_DATE: u16 = 0x0021;

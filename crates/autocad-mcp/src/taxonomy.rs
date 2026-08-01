@@ -628,8 +628,8 @@ pub fn tool_taxonomy() -> BTreeMap<&'static str, ToolTaxonomy> {
                 ToolOperation::Update,
                 "drawing_path + resolved title-block fingerprint + requested canonical field keys",
                 "Matching title-block attribute values on all target inserts matching the resolved fingerprint",
-                "Native-DXF write on all build targets; DWG write on Windows with AutoCAD",
-                "Fail on empty fields, unrecognised title-block profile, ambiguous title-block profile, unknown canonical field, unsupported platform, unsupported DXF form, no matching target insert, missing requested tag, partial write, or write failure",
+                "Native-DXF write on all build targets; Release DWG write on Windows with AutoCAD; Preview AC1032 DWG write on Windows through the bounded acadrust preservation oracle",
+                "Fail on empty fields, unrecognised or ambiguous title-block profile, unknown canonical field, unsupported platform/version/form/section/entity, preservation-oracle mismatch, source lock or identity race, no matching target insert, missing or duplicate requested tag, guarded install uncertainty, partial write, or write failure",
             ),
         ),
         (

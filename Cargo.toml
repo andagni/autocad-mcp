@@ -24,3 +24,17 @@ serde_json = "1"
 sha2 = "0.10"
 tempfile = "3"
 walkdir = "2"
+
+[workspace.metadata.cargo-core]
+schema-version = 2
+retained-workspace-packages = ["autocad-reader"]
+max-retained-bytes = 3221225472
+
+[profile.source-validation]
+inherits = "test"
+debug = 0
+incremental = true
+
+[profile.source-validation.package."*"]
+opt-level = 3
+codegen-units = 16

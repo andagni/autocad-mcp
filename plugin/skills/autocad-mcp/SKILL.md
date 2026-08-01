@@ -122,7 +122,7 @@ Read before mutating or plotting.
 | `list_blocks` | `drawing_path` | none | JSON array of user-defined block definitions | DWG and DXF read on all supported hosts |
 | `read_title_blocks` | `drawing_path` | `attribute_value_mode` | JSON array of attributed title-block candidates and values; duplicate tags are returned as arrays and reported as partial structured warnings | DWG and DXF read on all supported hosts; value mode is `split` by default or `arrays` |
 | `dump_text` | `drawing_path` | none | JSON array of TEXT and MTEXT content | DWG and DXF read on all supported hosts |
-| `write_title_block` | `drawing_path`, `fields` | none | Title-block write evidence with target and attribute counts | Windows-only DWG write through accoreconsole; native-DXF write on all supported hosts |
+| `write_title_block` | `drawing_path`, `fields` | none | Title-block write evidence with target and attribute counts | Release Windows-only DWG write through accoreconsole; Preview Windows-only AC1032 DWG write through the bounded acadrust preservation oracle; native-DXF write on all supported hosts |
 | `list_layouts` | `drawing_path` | none | JSON array of layouts and paper sizes | DWG and DXF read on all supported hosts; run before plotting |
 | `plot_to_pdf` | `drawing_path`, `layout`, `output` | none | Plot evidence with the output PDF path | Windows only; DWG only; existing file-plotter page setup required |
 
@@ -416,11 +416,24 @@ Xref-dependent `update_layer` allows host overrides for `color_index`, `frozen`,
 `line_type` updates are unsupported. Xref-dependent `rename_layer` and
 `delete_layer` remain rejected.
 
-DWG layer and title-block writes require Windows with AutoCAD. Supported native
-ASCII DXF layer and title-block writes use the pure-Rust patch path on all
-supported hosts. Title-block `fields` are canonical field names, not raw DXF
-attribute tags. If profile resolution fails, stop rather than guessing and ask
-the administrator to configure a reviewed profile.
+Release DWG layer and title-block writes require Windows with AutoCAD. Preview
+DWG layer writes retain that requirement, but Preview `write_title_block` uses
+the pure-Rust acadrust backend without launching AutoCAD when the locked source
+is AC1032 and passes its closed preservation oracle. The oracle rejects XREFs,
+unqualified entities, objects, sections, or diagnostics; verifies every
+invariant DWG section byte-for-byte; requires native field-complete
+`CadDocument` equality after normalizing the admitted HANDSEED/allocator
+transition; and installs only the verified digest through the guarded Windows
+transaction. A successful response reports
+`backend = acadrust_preview`, the writer receipt, and the guarded-install
+receipt. An error with `installation_may_have_occurred = true` requires
+operator reconciliation and must not be retried automatically.
+
+Supported native ASCII DXF layer and title-block writes use the existing
+pure-Rust patch path on all supported hosts. Title-block `fields` are canonical
+field names, not raw DXF attribute tags. If profile resolution fails, stop
+rather than guessing and ask the administrator to configure a reviewed
+profile.
 `read_title_blocks` may succeed with `structuredContent.status = partial` when
 an INSERT has duplicate normalized tags; consume every ordered value from
 `attribute_arrays` rather than choosing one. A write is blocked before its

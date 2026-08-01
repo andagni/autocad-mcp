@@ -31,12 +31,15 @@ pub use preview_clean_host::{
     PreviewCleanHostClient, PreviewCleanHostClientProduct, PreviewCleanHostFixture,
     PreviewCleanHostFixtures, PreviewCleanHostHost, PreviewCleanHostLimitation,
     PreviewCleanHostOperatingSystem, PreviewCleanHostPackage, PreviewCleanHostReceipt,
-    PreviewCleanHostReceiptKind, PreviewCleanHostResult, PREVIEW_CLEAN_HOST_DWG_FIXTURE_ID,
+    PreviewCleanHostReceiptInput, PreviewCleanHostReceiptKind, PreviewCleanHostResult,
+    PreviewCleanHostTitleBlockMutation, PREVIEW_CLEAN_HOST_DWG_FIXTURE_ID,
     PREVIEW_CLEAN_HOST_DWG_FIXTURE_SHA256, PREVIEW_CLEAN_HOST_DXF_FIXTURE_ID,
     PREVIEW_CLEAN_HOST_DXF_FIXTURE_SHA256, PREVIEW_CLEAN_HOST_KIND,
     PREVIEW_CLEAN_HOST_OBSERVED_TOOL_COUNT, PREVIEW_CLEAN_HOST_RECEIPT_PATH,
     PREVIEW_CLEAN_HOST_RESULT, PREVIEW_CLEAN_HOST_SCHEMA_PATH, PREVIEW_CLEAN_HOST_SCHEMA_VERSION,
-    PREVIEW_CLEAN_HOST_TARGET,
+    PREVIEW_CLEAN_HOST_TARGET, PREVIEW_CLEAN_HOST_TITLE_BLOCK_BACKEND,
+    PREVIEW_CLEAN_HOST_TITLE_BLOCK_FIXTURE_ID, PREVIEW_CLEAN_HOST_TITLE_BLOCK_PROFILE_ID,
+    PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_JSON, PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_SHA256,
 };
 pub use preview_publication_handoff::{
     PreviewPublicationArtifactRole, PreviewPublicationFileBinding, PreviewPublicationHandoff,

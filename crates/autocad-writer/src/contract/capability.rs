@@ -52,6 +52,7 @@ pub enum MutationSupport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CandidateFormat {
+    Dwg,
     AsciiDxf,
 }
 
@@ -68,12 +69,20 @@ pub struct MutationCapability {
 
 impl MutationCapability {
     fn candidate(route: MutationRoute) -> Self {
+        #[cfg(feature = "preview")]
+        let candidate_formats = if route == MutationRoute::WriteTitleBlock {
+            vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
+        } else {
+            vec![CandidateFormat::AsciiDxf]
+        };
+        #[cfg(not(feature = "preview"))]
+        let candidate_formats = vec![CandidateFormat::AsciiDxf];
         Self {
             route,
             mutates_drawing: true,
             support: MutationSupport::CandidateGeneration,
             blocker_code: None,
-            candidate_formats: vec![CandidateFormat::AsciiDxf],
+            candidate_formats,
             source_admission_required: true,
         }
     }

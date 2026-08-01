@@ -139,7 +139,15 @@ fn route_capability_inventory_is_exact() {
         assert_eq!(capability.support, support);
         assert_eq!(capability.blocker_code.as_deref(), blocker_code);
         if support == MutationSupport::CandidateGeneration {
-            assert_eq!(capability.candidate_formats, [CandidateFormat::AsciiDxf]);
+            #[cfg(feature = "preview")]
+            let expected_formats = if route == MutationRoute::WriteTitleBlock {
+                vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
+            } else {
+                vec![CandidateFormat::AsciiDxf]
+            };
+            #[cfg(not(feature = "preview"))]
+            let expected_formats = vec![CandidateFormat::AsciiDxf];
+            assert_eq!(capability.candidate_formats, expected_formats);
             assert!(capability.source_admission_required);
         } else {
             assert!(capability.candidate_formats.is_empty());

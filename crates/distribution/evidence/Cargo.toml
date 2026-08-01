@@ -7,13 +7,14 @@ description = "Deterministic source-closure and third-party licence evidence gen
 publish = false
 
 [package.metadata.local-gate]
-schema-version = 2
+schema-version = 3
 
 [[package.metadata.local-gate.checks]]
 name = "distribution-evidence"
 bin = "distribution-evidence"
 arguments = ["check"]
 input-id-arguments = ["input-id"]
+candidate-only = true
 
 [lib]
 name = "distribution_evidence"

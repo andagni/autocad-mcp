@@ -119,6 +119,9 @@ pub struct CreatePreviewCleanHostReceiptOptions {
     pub mcpb_path: PathBuf,
     pub client_version: String,
     pub host_os_version: String,
+    pub title_block_source_sha256: String,
+    pub title_block_installed_sha256: String,
+    pub title_block_sentinel_sha256: String,
     pub completed_utc: String,
     pub output_path: PathBuf,
 }
@@ -246,16 +249,20 @@ pub fn create_preview_clean_host_receipt(
 ) -> Result<PreviewCleanHostReceipt> {
     let identity = inspect_preview_mcpb_identity(&options.mcpb_path)
         .context("inspect the exact closed Windows Preview MCPB")?;
-    let receipt = PreviewCleanHostReceipt::new(
-        identity.mcpb_sha256,
-        identity.mcpb_size_bytes,
-        identity.mcp_server_sha256,
-        identity.autolisp_lsp_sha256,
-        &options.client_version,
-        &options.host_os_version,
-        &options.completed_utc,
-    )
-    .map_err(|error| anyhow!("construct Preview clean-host receipt: {error}"))?;
+    let receipt =
+        PreviewCleanHostReceipt::new(distribution_approval::PreviewCleanHostReceiptInput {
+            mcpb_sha256: identity.mcpb_sha256,
+            mcpb_size_bytes: identity.mcpb_size_bytes,
+            mcp_server_sha256: identity.mcp_server_sha256,
+            autolisp_lsp_sha256: identity.autolisp_lsp_sha256,
+            client_version: options.client_version.clone(),
+            host_os_version: options.host_os_version.clone(),
+            title_block_source_sha256: options.title_block_source_sha256.clone(),
+            title_block_installed_sha256: options.title_block_installed_sha256.clone(),
+            title_block_sentinel_sha256: options.title_block_sentinel_sha256.clone(),
+            completed_utc: options.completed_utc.clone(),
+        })
+        .map_err(|error| anyhow!("construct Preview clean-host receipt: {error}"))?;
     let bytes = receipt
         .to_pretty_json()
         .map_err(|error| anyhow!("serialize Preview clean-host receipt: {error}"))?;

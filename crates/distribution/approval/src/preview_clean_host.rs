@@ -4,7 +4,7 @@ use super::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const PREVIEW_CLEAN_HOST_SCHEMA_VERSION: u32 = 1;
+pub const PREVIEW_CLEAN_HOST_SCHEMA_VERSION: u32 = 2;
 pub const PREVIEW_CLEAN_HOST_KIND: &str = "claude_desktop_clean_host_acceptance";
 pub const PREVIEW_CLEAN_HOST_RESULT: &str = "accepted";
 pub const PREVIEW_CLEAN_HOST_TARGET: &str = "x86_64-pc-windows-msvc";
@@ -21,6 +21,13 @@ pub const PREVIEW_CLEAN_HOST_DXF_FIXTURE_SHA256: &str =
 pub const PREVIEW_CLEAN_HOST_DWG_FIXTURE_ID: &str = "tier1_acadsharp_blockvisibilityparameter_dwg";
 pub const PREVIEW_CLEAN_HOST_DWG_FIXTURE_SHA256: &str =
     "be1e24ea0cd5194d0c57935b5018123b7cc981331172a1a2ca7cecc2d9a18e4f";
+pub const PREVIEW_CLEAN_HOST_TITLE_BLOCK_FIXTURE_ID: &str =
+    "disposable_profiled_ac1032_title_block_v1";
+pub const PREVIEW_CLEAN_HOST_TITLE_BLOCK_PROFILE_ID: &str = "AUTOCAD_MCP_GENERIC";
+pub const PREVIEW_CLEAN_HOST_TITLE_BLOCK_BACKEND: &str = "acadrust_preview";
+pub const PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_JSON: &str = r#"{"alternative_reference":"CLEAN-HOST","drawing_number":"ACMCP-PREVIEW-0001","drawing_title_big":"PREVIEW CLEAN HOST","drawing_title_med":"TITLE BLOCK ACCEPTANCE","revision":"P01","sheet":"1","sheet_total":"1"}"#;
+pub const PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_SHA256: &str =
+    "e47219de2c6218badf4dbf6d53a38e4bbb96a71a6ee1d8d1676485be7802ffc2";
 
 pub const PREVIEW_CLEAN_HOST_OBSERVED_TOOL_COUNT: u32 = 51;
 
@@ -32,6 +39,8 @@ const REQUIRED_CHECKS: &[PreviewCleanHostCheck] = &[
     PreviewCleanHostCheck::ToolDiscovery,
     PreviewCleanHostCheck::DxfRead,
     PreviewCleanHostCheck::DwgRead,
+    PreviewCleanHostCheck::TitleBlockPreviewWrite,
+    PreviewCleanHostCheck::TitleBlockPreviewReread,
     PreviewCleanHostCheck::ShutdownNoProcess,
     PreviewCleanHostCheck::RestartReconnect,
     PreviewCleanHostCheck::Uninstall,
@@ -84,6 +93,8 @@ pub enum PreviewCleanHostCheck {
     ToolDiscovery,
     DxfRead,
     DwgRead,
+    TitleBlockPreviewWrite,
+    TitleBlockPreviewReread,
     ShutdownNoProcess,
     RestartReconnect,
     Uninstall,
@@ -264,6 +275,77 @@ pub struct PreviewCleanHostFixtures {
     dwg: PreviewCleanHostFixture,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewCleanHostTitleBlockMutation {
+    fixture_id: String,
+    profile_id: String,
+    backend: String,
+    source_sha256: String,
+    installed_sha256: String,
+    sentinel_sha256: String,
+}
+
+impl PreviewCleanHostTitleBlockMutation {
+    pub fn fixture_id(&self) -> &str {
+        &self.fixture_id
+    }
+
+    pub fn profile_id(&self) -> &str {
+        &self.profile_id
+    }
+
+    pub fn backend(&self) -> &str {
+        &self.backend
+    }
+
+    pub fn source_sha256(&self) -> &str {
+        &self.source_sha256
+    }
+
+    pub fn installed_sha256(&self) -> &str {
+        &self.installed_sha256
+    }
+
+    pub fn sentinel_sha256(&self) -> &str {
+        &self.sentinel_sha256
+    }
+
+    fn validate(&self) -> Result<(), ValidationError> {
+        if self.fixture_id != PREVIEW_CLEAN_HOST_TITLE_BLOCK_FIXTURE_ID
+            || self.profile_id != PREVIEW_CLEAN_HOST_TITLE_BLOCK_PROFILE_ID
+            || self.backend != PREVIEW_CLEAN_HOST_TITLE_BLOCK_BACKEND
+        {
+            return Err(error(
+                "preview_clean_host_title_block_identity_invalid",
+                "title_block_mutation must bind the closed fixture, profile, and Preview backend",
+            ));
+        }
+        require_sha256(&self.source_sha256, "title_block_mutation.source_sha256")?;
+        require_sha256(
+            &self.installed_sha256,
+            "title_block_mutation.installed_sha256",
+        )?;
+        require_sha256(
+            &self.sentinel_sha256,
+            "title_block_mutation.sentinel_sha256",
+        )?;
+        if self.sentinel_sha256 != PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_SHA256 {
+            return Err(error(
+                "preview_clean_host_title_block_sentinel_invalid",
+                "title_block_mutation.sentinel_sha256 must bind the closed post-write field set",
+            ));
+        }
+        if self.source_sha256 == self.installed_sha256 {
+            return Err(error(
+                "preview_clean_host_title_block_digest_unchanged",
+                "title-block mutation must change the disposable fixture digest",
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl PreviewCleanHostFixtures {
     pub fn dxf(&self) -> &PreviewCleanHostFixture {
         &self.dxf
@@ -297,22 +379,29 @@ pub struct PreviewCleanHostReceipt {
     client: PreviewCleanHostClient,
     host: PreviewCleanHostHost,
     fixtures: PreviewCleanHostFixtures,
+    title_block_mutation: PreviewCleanHostTitleBlockMutation,
     observed_tool_count: u32,
     passed_checks: Vec<PreviewCleanHostCheck>,
     completed_utc: String,
     limitations: Vec<PreviewCleanHostLimitation>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PreviewCleanHostReceiptInput {
+    pub mcpb_sha256: String,
+    pub mcpb_size_bytes: u64,
+    pub mcp_server_sha256: String,
+    pub autolisp_lsp_sha256: String,
+    pub client_version: String,
+    pub host_os_version: String,
+    pub title_block_source_sha256: String,
+    pub title_block_installed_sha256: String,
+    pub title_block_sentinel_sha256: String,
+    pub completed_utc: String,
+}
+
 impl PreviewCleanHostReceipt {
-    pub fn new(
-        mcpb_sha256: impl Into<String>,
-        mcpb_size_bytes: u64,
-        mcp_server_sha256: impl Into<String>,
-        autolisp_lsp_sha256: impl Into<String>,
-        client_version: impl Into<String>,
-        host_os_version: impl Into<String>,
-        completed_utc: impl Into<String>,
-    ) -> Result<Self, ValidationError> {
+    pub fn new(input: PreviewCleanHostReceiptInput) -> Result<Self, ValidationError> {
         let receipt = Self {
             schema_version: PREVIEW_CLEAN_HOST_SCHEMA_VERSION,
             kind: PreviewCleanHostReceiptKind::ClaudeDesktopCleanHostAcceptance,
@@ -320,19 +409,19 @@ impl PreviewCleanHostReceipt {
             package: PreviewCleanHostPackage {
                 mode: DistributionMode::Preview,
                 target_triple: PREVIEW_CLEAN_HOST_TARGET.to_owned(),
-                mcpb_sha256: mcpb_sha256.into(),
-                mcpb_size_bytes,
-                mcp_server_sha256: mcp_server_sha256.into(),
-                autolisp_lsp_sha256: autolisp_lsp_sha256.into(),
+                mcpb_sha256: input.mcpb_sha256,
+                mcpb_size_bytes: input.mcpb_size_bytes,
+                mcp_server_sha256: input.mcp_server_sha256,
+                autolisp_lsp_sha256: input.autolisp_lsp_sha256,
             },
             client: PreviewCleanHostClient {
                 product: PreviewCleanHostClientProduct::ClaudeDesktop,
-                version: client_version.into(),
+                version: input.client_version,
             },
             host: PreviewCleanHostHost {
                 operating_system: PreviewCleanHostOperatingSystem::Windows,
                 architecture: PreviewCleanHostArchitecture::X86_64,
-                os_version: host_os_version.into(),
+                os_version: input.host_os_version,
             },
             fixtures: PreviewCleanHostFixtures {
                 dxf: PreviewCleanHostFixture {
@@ -344,9 +433,17 @@ impl PreviewCleanHostReceipt {
                     sha256: PREVIEW_CLEAN_HOST_DWG_FIXTURE_SHA256.to_owned(),
                 },
             },
+            title_block_mutation: PreviewCleanHostTitleBlockMutation {
+                fixture_id: PREVIEW_CLEAN_HOST_TITLE_BLOCK_FIXTURE_ID.to_owned(),
+                profile_id: PREVIEW_CLEAN_HOST_TITLE_BLOCK_PROFILE_ID.to_owned(),
+                backend: PREVIEW_CLEAN_HOST_TITLE_BLOCK_BACKEND.to_owned(),
+                source_sha256: input.title_block_source_sha256,
+                installed_sha256: input.title_block_installed_sha256,
+                sentinel_sha256: input.title_block_sentinel_sha256,
+            },
             observed_tool_count: PREVIEW_CLEAN_HOST_OBSERVED_TOOL_COUNT,
             passed_checks: REQUIRED_CHECKS.to_vec(),
-            completed_utc: completed_utc.into(),
+            completed_utc: input.completed_utc,
             limitations: REQUIRED_LIMITATIONS.to_vec(),
         };
         receipt.validate()?;
@@ -379,6 +476,10 @@ impl PreviewCleanHostReceipt {
 
     pub fn fixtures(&self) -> &PreviewCleanHostFixtures {
         &self.fixtures
+    }
+
+    pub fn title_block_mutation(&self) -> &PreviewCleanHostTitleBlockMutation {
+        &self.title_block_mutation
     }
 
     pub fn observed_tool_count(&self) -> u32 {
@@ -432,6 +533,7 @@ impl PreviewCleanHostReceipt {
         self.client.validate()?;
         self.host.validate()?;
         self.fixtures.validate()?;
+        self.title_block_mutation.validate()?;
         if self.observed_tool_count != PREVIEW_CLEAN_HOST_OBSERVED_TOOL_COUNT {
             return Err(error(
                 "preview_clean_host_tool_count_invalid",
@@ -505,6 +607,7 @@ fn require_concrete_version(value: &str, label: &str) -> Result<(), ValidationEr
 mod tests {
     use super::*;
     use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
 
     fn hash(character: char) -> String {
         std::iter::repeat_n(character, 64).collect()
@@ -542,6 +645,14 @@ mod tests {
                     "sha256": PREVIEW_CLEAN_HOST_DWG_FIXTURE_SHA256
                 }
             },
+            "title_block_mutation": {
+                "fixture_id": PREVIEW_CLEAN_HOST_TITLE_BLOCK_FIXTURE_ID,
+                "profile_id": PREVIEW_CLEAN_HOST_TITLE_BLOCK_PROFILE_ID,
+                "backend": PREVIEW_CLEAN_HOST_TITLE_BLOCK_BACKEND,
+                "source_sha256": hash('d'),
+                "installed_sha256": hash('e'),
+                "sentinel_sha256": PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_SHA256
+            },
             "observed_tool_count": PREVIEW_CLEAN_HOST_OBSERVED_TOOL_COUNT,
             "passed_checks": [
                 "clean_profile",
@@ -551,6 +662,8 @@ mod tests {
                 "tool_discovery",
                 "dxf_read",
                 "dwg_read",
+                "title_block_preview_write",
+                "title_block_preview_reread",
                 "shutdown_no_process",
                 "restart_reconnect",
                 "uninstall",
@@ -565,14 +678,40 @@ mod tests {
         })
     }
 
+    #[test]
+    fn title_block_sentinel_digest_binds_the_exact_canonical_field_set() {
+        assert_eq!(
+            format!(
+                "{:x}",
+                Sha256::digest(PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_JSON.as_bytes())
+            ),
+            PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_SHA256
+        );
+    }
+
     fn parse_value(value: &Value) -> Result<PreviewCleanHostReceipt, ValidationError> {
         parse_preview_clean_host_receipt(&serde_json::to_vec(value).unwrap())
+    }
+
+    fn receipt_input(mcpb_size_bytes: u64) -> PreviewCleanHostReceiptInput {
+        PreviewCleanHostReceiptInput {
+            mcpb_sha256: hash('a'),
+            mcpb_size_bytes,
+            mcp_server_sha256: hash('b'),
+            autolisp_lsp_sha256: hash('c'),
+            client_version: "0.13.78".to_string(),
+            host_os_version: "10.0.26100.4652".to_string(),
+            title_block_source_sha256: hash('d'),
+            title_block_installed_sha256: hash('e'),
+            title_block_sentinel_sha256: PREVIEW_CLEAN_HOST_TITLE_BLOCK_SENTINEL_SHA256.to_string(),
+            completed_utc: "2026-07-28T12:34:56Z".to_string(),
+        }
     }
 
     #[test]
     fn valid_receipt_preserves_exact_candidate_and_host_bindings() {
         let receipt = parse_value(&valid_value()).unwrap();
-        assert_eq!(receipt.schema_version(), 1);
+        assert_eq!(receipt.schema_version(), PREVIEW_CLEAN_HOST_SCHEMA_VERSION);
         assert_eq!(receipt.package().mode(), DistributionMode::Preview);
         assert_eq!(receipt.package().target_triple(), PREVIEW_CLEAN_HOST_TARGET);
         assert_eq!(receipt.package().mcpb_size_bytes(), 42);
@@ -584,6 +723,7 @@ mod tests {
             receipt.fixtures().dwg().sha256(),
             PREVIEW_CLEAN_HOST_DWG_FIXTURE_SHA256
         );
+        assert_eq!(receipt.title_block_mutation().installed_sha256(), hash('e'));
         assert_eq!(
             receipt.observed_tool_count(),
             PREVIEW_CLEAN_HOST_OBSERVED_TOOL_COUNT
@@ -593,16 +733,7 @@ mod tests {
 
     #[test]
     fn constructor_and_pretty_serializer_are_closed_and_deterministic() {
-        let receipt = PreviewCleanHostReceipt::new(
-            hash('a'),
-            42,
-            hash('b'),
-            hash('c'),
-            "0.13.78",
-            "10.0.26100.4652",
-            "2026-07-28T12:34:56Z",
-        )
-        .unwrap();
+        let receipt = PreviewCleanHostReceipt::new(receipt_input(42)).unwrap();
         let first = receipt.to_pretty_json().unwrap();
         let second = receipt.to_pretty_json().unwrap();
         assert_eq!(first, second);
@@ -614,17 +745,9 @@ mod tests {
         );
 
         assert_eq!(
-            PreviewCleanHostReceipt::new(
-                hash('a'),
-                0,
-                hash('b'),
-                hash('c'),
-                "0.13.78",
-                "10.0.26100.4652",
-                "2026-07-28T12:34:56Z",
-            )
-            .unwrap_err()
-            .code(),
+            PreviewCleanHostReceipt::new(receipt_input(0))
+                .unwrap_err()
+                .code(),
             "preview_clean_host_mcpb_size_invalid"
         );
     }
@@ -674,6 +797,20 @@ mod tests {
         assert_eq!(
             parse_value(&value).unwrap_err().code(),
             "preview_clean_host_fixture_invalid"
+        );
+
+        let mut value = valid_value();
+        value["title_block_mutation"]["installed_sha256"] = json!(hash('d'));
+        assert_eq!(
+            parse_value(&value).unwrap_err().code(),
+            "preview_clean_host_title_block_digest_unchanged"
+        );
+
+        let mut value = valid_value();
+        value["title_block_mutation"]["sentinel_sha256"] = json!(hash('f'));
+        assert_eq!(
+            parse_value(&value).unwrap_err().code(),
+            "preview_clean_host_title_block_sentinel_invalid"
         );
 
         let mut value = valid_value();

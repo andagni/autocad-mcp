@@ -15,7 +15,7 @@ pub const WINDOWS_SOURCE_CLOSURE_SBOM_PATH: &str =
 pub const LICENSE_PROVENANCE_PATH: &str = "plugin/.third-party/third-party-license-provenance.json";
 
 const POLICY_SCHEMA_VERSION: u32 = 2;
-const EVIDENCE_GENERATOR_SCHEMA_VERSION: u32 = 7;
+const EVIDENCE_GENERATOR_SCHEMA_VERSION: u32 = 8;
 const GENERATOR_SOURCE_PATH: &str = "crates/distribution/evidence/src/lib.rs";
 const RUST_TOOLCHAIN_PATH: &str = "rust-toolchain.toml";
 const OWNER_APPROVAL_SCHEMA_PATH: &str =
@@ -945,35 +945,17 @@ fn git_blob_sha1(bytes: &[u8]) -> Result<String, String> {
 fn cargo_metadata(repository: &Path, mode: MetadataMode) -> Result<CargoMetadata, String> {
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut command = Command::new(cargo);
-    command.current_dir(repository).args([
-        "metadata",
-        "--locked",
-        "--offline",
-        "--format-version",
-        "1",
-    ]);
-    match mode {
-        MetadataMode::Complete => {}
-        MetadataMode::WindowsRelease => {
-            command.args(["--filter-platform", WINDOWS_TARGET, "--no-default-features"]);
-        }
-        MetadataMode::WindowsPreview => {
-            command.args([
-                "--filter-platform",
-                WINDOWS_TARGET,
-                "--no-default-features",
-                "--features",
-                "autocad-mcp/preview",
-            ]);
-        }
-    }
+    command
+        .current_dir(repository)
+        .arg("metadata")
+        .args(metadata_mode_arguments(mode));
     let output = command
         .output()
         .map_err(|error| format!("launch cargo metadata: {error}"))?;
     if !output.status.success() {
         return Err(format!(
             "cargo metadata {} failed with {}: {}\nfetch the exact lock first with `cargo fetch --locked`",
-            metadata_mode_arguments(mode),
+            metadata_mode_arguments(mode).join(" "),
             output.status,
             String::from_utf8_lossy(&output.stderr).trim()
         ));
@@ -982,15 +964,35 @@ fn cargo_metadata(repository: &Path, mode: MetadataMode) -> Result<CargoMetadata
         .map_err(|error| format!("parse cargo metadata format version 1: {error}"))
 }
 
-fn metadata_mode_arguments(mode: MetadataMode) -> &'static str {
+fn metadata_mode_arguments(mode: MetadataMode) -> &'static [&'static str] {
     match mode {
-        MetadataMode::Complete => "--locked --offline --format-version 1",
-        MetadataMode::WindowsRelease => {
-            "--locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features"
-        }
-        MetadataMode::WindowsPreview => {
-            "--locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features --features autocad-mcp/preview"
-        }
+        MetadataMode::Complete => &[
+            "--locked",
+            "--offline",
+            "--format-version",
+            "1",
+            "--all-features",
+        ],
+        MetadataMode::WindowsRelease => &[
+            "--locked",
+            "--offline",
+            "--format-version",
+            "1",
+            "--filter-platform",
+            WINDOWS_TARGET,
+            "--no-default-features",
+        ],
+        MetadataMode::WindowsPreview => &[
+            "--locked",
+            "--offline",
+            "--format-version",
+            "1",
+            "--filter-platform",
+            WINDOWS_TARGET,
+            "--no-default-features",
+            "--features",
+            "autocad-mcp/preview",
+        ],
     }
 }
 
@@ -1663,7 +1665,7 @@ fn render_spdx(
             creators: vec![format!(
                 "Tool: AutoCAD-MCP distribution-evidence-{EVIDENCE_GENERATOR_SCHEMA_VERSION}"
             )],
-            comment: format!("Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1`, including workspace, development, build, and all-target dependencies. Cargo.lock SHA-256: {lock_sha256}. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."),
+            comment: format!("Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1 --all-features`, including workspace, every declared feature, development, build, and all-target dependencies. Cargo.lock SHA-256: {lock_sha256}. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."),
         },
         document_describes,
         packages,
@@ -2841,6 +2843,22 @@ mod tests {
                 ],
             },
         }
+    }
+
+    #[test]
+    fn complete_metadata_activates_every_locked_optional_dependency() {
+        assert_eq!(
+            metadata_mode_arguments(MetadataMode::Complete),
+            [
+                "--locked",
+                "--offline",
+                "--format-version",
+                "1",
+                "--all-features",
+            ]
+        );
+        assert!(!metadata_mode_arguments(MetadataMode::WindowsRelease).contains(&"--all-features"));
+        assert!(!metadata_mode_arguments(MetadataMode::WindowsPreview).contains(&"--all-features"));
     }
 
     #[test]

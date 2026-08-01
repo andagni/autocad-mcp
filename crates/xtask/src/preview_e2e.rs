@@ -1797,6 +1797,8 @@ fn evaluate_title_block_case(
         vec![
             format!("profile_id={}", expected.profile_id),
             format!("profile_authority={}", expected.profile_authority),
+            "backend=acadrust_preview".to_string(),
+            "bounded writer and guarded-install receipts verified".to_string(),
             "mutation response counts are internally consistent".to_string(),
         ],
     ))
@@ -1808,12 +1810,90 @@ fn validate_title_mutation_response(preflight: &Preflight, response: &Value) -> 
         .ok_or_else(|| anyhow!("write_title_block response must be an object"))?;
     let expected = &preflight.plan.cases.title_block_write.expected_profile;
     if object.get("status").and_then(Value::as_str) != Some("ok")
+        || object.get("capability_status").and_then(Value::as_str) != Some("preview")
+        || object.get("backend").and_then(Value::as_str) != Some("acadrust_preview")
+        || object.get("source_format").and_then(Value::as_str) != Some("dwg")
+        || object.get("drawing_version").and_then(Value::as_str) != Some("AC1032")
         || object.get("profile_id").and_then(Value::as_str) != Some(&expected.profile_id)
         || object.get("profile_authority").and_then(Value::as_str)
             != Some(&expected.profile_authority)
     {
         return Err(anyhow!(
             "write_title_block response profile or status does not match the plan"
+        ));
+    }
+    let writer_receipt = object
+        .get("writer_receipt")
+        .and_then(Value::as_object)
+        .ok_or_else(|| anyhow!("write_title_block writer_receipt is missing"))?;
+    if writer_receipt.get("claim_boundary").and_then(Value::as_str) != Some("preview_qualified")
+        || writer_receipt.get("format").and_then(Value::as_str) != Some("DWG")
+        || writer_receipt.get("operations") != Some(&serde_json::json!(["write_title_block"]))
+        || writer_receipt
+            .get("reader_reopen_verified")
+            .and_then(Value::as_bool)
+            != Some(true)
+        || writer_receipt
+            .get("operation_postconditions_verified")
+            .and_then(Value::as_bool)
+            != Some(true)
+        || writer_receipt
+            .get("whole_document_preservation_verified")
+            .and_then(Value::as_bool)
+            != Some(true)
+        || writer_receipt
+            .get("native_host_verified")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Err(anyhow!(
+            "write_title_block writer receipt does not satisfy the Preview qualification contract"
+        ));
+    }
+    let writer_source_sha256 = writer_receipt
+        .get("source_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("write_title_block writer source digest is missing"))?;
+    let writer_candidate_sha256 = writer_receipt
+        .get("candidate_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("write_title_block writer candidate digest is missing"))?;
+    require_lowercase_sha256(
+        writer_source_sha256,
+        "write_title_block writer source digest",
+    )?;
+    require_lowercase_sha256(
+        writer_candidate_sha256,
+        "write_title_block writer candidate digest",
+    )?;
+
+    let install_receipt = object
+        .get("install_receipt")
+        .and_then(Value::as_object)
+        .ok_or_else(|| anyhow!("write_title_block install_receipt is missing"))?;
+    for field in [
+        "exclusive_source_lock_verified",
+        "source_identity_revalidated",
+        "sibling_staging_verified",
+        "transactional_atomic_install_verified",
+        "original_file_identity_preserved",
+        "directory_durability_verified",
+        "installed_digest_verified",
+    ] {
+        if install_receipt.get(field).and_then(Value::as_bool) != Some(true) {
+            return Err(anyhow!(
+                "write_title_block guarded-install receipt did not verify {field}"
+            ));
+        }
+    }
+    if install_receipt.get("source_sha256").and_then(Value::as_str) != Some(writer_source_sha256)
+        || install_receipt
+            .get("installed_sha256")
+            .and_then(Value::as_str)
+            != Some(writer_candidate_sha256)
+    {
+        return Err(anyhow!(
+            "write_title_block writer and guarded-install digests are not bound"
         ));
     }
     let fields = object

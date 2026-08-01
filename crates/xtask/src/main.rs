@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 mod candidate_seal;
+mod cargo_layout;
 mod pe_imports;
 mod preview_e2e;
 mod source_bundle;
@@ -32,6 +33,7 @@ struct LocalGateCommand {
     program: String,
     arguments: Vec<String>,
     receipt_input: Option<LocalGateReceiptInput>,
+    cargo_cache: LocalGateCargoCache,
 }
 
 impl LocalGateCommand {
@@ -43,7 +45,13 @@ impl LocalGateCommand {
                 .map(|argument| (*argument).to_owned())
                 .collect(),
             receipt_input: None,
+            cargo_cache: LocalGateCargoCache::Retained,
         }
+    }
+
+    fn with_cargo_cache(mut self, cargo_cache: LocalGateCargoCache) -> Self {
+        self.cargo_cache = cargo_cache;
+        self
     }
 }
 
@@ -95,6 +103,8 @@ struct PackageLocalGateCheck {
     arguments: Vec<String>,
     #[serde(default, rename = "input-id-arguments")]
     input_id_arguments: Option<Vec<String>>,
+    #[serde(default, rename = "candidate-only")]
+    candidate_only: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -106,12 +116,34 @@ struct PackageLocalGateProfile {
     test: bool,
     #[serde(default)]
     targets: Vec<String>,
+    #[serde(default, rename = "candidate-only")]
+    candidate_only: bool,
+    #[serde(default)]
+    cache: Option<LocalGateCargoCache>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[serde(rename_all = "kebab-case")]
+enum LocalGateCargoCache {
+    #[default]
+    Retained,
+    Disposable,
+}
+
+impl LocalGateCargoCache {
+    fn layout_binding(self) -> &'static str {
+        match self {
+            Self::Retained => cargo_layout::SOURCE_VALIDATION_LAYOUT_BINDING,
+            Self::Disposable => cargo_layout::DISPOSABLE_SOURCE_VALIDATION_LAYOUT_BINDING,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum LocalGateProfileTarget {
     Lib,
     Bin(String),
+    Test(String),
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -121,6 +153,7 @@ struct DiscoveredLocalGateCheck {
     bin: String,
     arguments: Vec<String>,
     input_id_arguments: Option<Vec<String>>,
+    candidate_only: bool,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -131,6 +164,8 @@ struct DiscoveredLocalGateProfile {
     clippy: bool,
     test: bool,
     targets: Vec<LocalGateProfileTarget>,
+    candidate_only: bool,
+    cargo_cache: LocalGateCargoCache,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -145,8 +180,8 @@ struct LocalGateValidation {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct SourceQualityOutcome {
-    candidate: candidate_seal::CandidateIdentity,
+struct QualityOutcome {
+    identity: candidate_seal::CandidateIdentity,
     reused: bool,
 }
 
@@ -215,6 +250,22 @@ const WINDOWS_NATIVE_SEMANTIC_TESTS: &[CommandSpec] = &[
             "--lib",
             "windows_native_semantic_",
             "--",
+            "--test-threads=1",
+        ],
+    },
+    CommandSpec {
+        program: "cargo",
+        arguments: &[
+            "test",
+            "--locked",
+            "-p",
+            "autocad-mcp",
+            "--features",
+            "preview",
+            "--lib",
+            "ops::preview_acadrust_title_block::tests::windows_native_semantic_preview_title_block_guarded_install",
+            "--",
+            "--exact",
             "--test-threads=1",
         ],
     },
@@ -315,6 +366,10 @@ fn repository_root() -> PathBuf {
 }
 
 fn discover_local_gate(root: &Path) -> Result<DiscoveredLocalGate, String> {
+    discover_local_gate_from_metadata(load_local_gate_cargo_metadata(root)?)
+}
+
+fn load_local_gate_cargo_metadata(root: &Path) -> Result<LocalGateCargoMetadata, String> {
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let output = Command::new(cargo)
         .args([
@@ -337,7 +392,7 @@ fn discover_local_gate(root: &Path) -> Result<DiscoveredLocalGate, String> {
     }
     let metadata = serde_json::from_slice(&output.stdout)
         .map_err(|error| format!("parse cargo metadata for local-gate: {error}"))?;
-    discover_local_gate_from_metadata(metadata)
+    Ok(metadata)
 }
 
 fn discover_local_gate_from_metadata(
@@ -366,9 +421,9 @@ fn discover_local_gate_from_metadata(
                     package.name, package.version
                 )
             })?;
-        if !matches!(local_gate.schema_version, 1 | 2) {
+        if !matches!(local_gate.schema_version, 1..=4) {
             return Err(format!(
-                "package.metadata.local-gate for {} {} has schema-version {}, expected 1 or 2",
+                "package.metadata.local-gate for {} {} has schema-version {}, expected 1, 2, 3, or 4",
                 package.name, package.version, local_gate.schema_version
             ));
         }
@@ -415,9 +470,9 @@ fn discover_local_gate_from_metadata(
                 require_local_gate_argument(argument, &package_spec, &check.name)?;
             }
             if let Some(input_id_arguments) = check.input_id_arguments.as_ref() {
-                if local_gate_schema_version != 2 {
+                if local_gate_schema_version < 2 {
                     return Err(format!(
-                        "package {package_spec} local-gate check {} requires schema-version 2 for input-id-arguments",
+                        "package {package_spec} local-gate check {} requires schema-version 2 or later for input-id-arguments",
                         check.name
                     ));
                 }
@@ -431,12 +486,19 @@ fn discover_local_gate_from_metadata(
                     require_local_gate_argument(argument, &package_spec, &check.name)?;
                 }
             }
+            if check.candidate_only && local_gate_schema_version < 3 {
+                return Err(format!(
+                    "package {package_spec} local-gate check {} requires schema-version 3 for candidate-only",
+                    check.name
+                ));
+            }
             checks.push(DiscoveredLocalGateCheck {
                 package_spec: package_spec.clone(),
                 name: check.name,
                 bin: check.bin,
                 arguments: check.arguments,
                 input_id_arguments: check.input_id_arguments,
+                candidate_only: check.candidate_only,
             });
         }
 
@@ -446,6 +508,25 @@ fn discover_local_gate_from_metadata(
             if !profile_names.insert(profile.name.clone()) {
                 return Err(format!(
                     "package {package_spec} repeats local-gate profile {}",
+                    profile.name
+                ));
+            }
+            if profile.candidate_only && local_gate_schema_version < 3 {
+                return Err(format!(
+                    "package {package_spec} local-gate profile {} requires schema-version 3 for candidate-only",
+                    profile.name
+                ));
+            }
+            if profile.cache.is_some() && local_gate_schema_version < 4 {
+                return Err(format!(
+                    "package {package_spec} local-gate profile {} requires schema-version 4 for cache",
+                    profile.name
+                ));
+            }
+            let cargo_cache = profile.cache.unwrap_or_default();
+            if cargo_cache == LocalGateCargoCache::Disposable && !profile.candidate_only {
+                return Err(format!(
+                    "package {package_spec} local-gate profile {} may use disposable cache only when candidate-only is true",
                     profile.name
                 ));
             }
@@ -499,6 +580,8 @@ fn discover_local_gate_from_metadata(
                 clippy: profile.clippy,
                 test: profile.test,
                 targets: profile_targets.into_iter().collect(),
+                candidate_only: profile.candidate_only,
+                cargo_cache,
             });
         }
     }
@@ -539,21 +622,33 @@ fn parse_local_gate_profile_target(
         return Ok(LocalGateProfileTarget::Lib);
     }
 
-    let Some(binary) = value.strip_prefix("bin:") else {
-        return Err(format!(
-            "package {package_spec} local-gate profile {profile_name} has unsupported target {value:?}; expected lib or bin:<declared-binary>"
-        ));
-    };
-    require_local_gate_token(binary, "binary target name")?;
-    if !package_targets
-        .iter()
-        .any(|target| target.name == binary && target.kind.iter().any(|kind| kind == "bin"))
-    {
-        return Err(format!(
-            "package {package_spec} local-gate profile {profile_name} selects undeclared binary target {binary}"
-        ));
+    if let Some(binary) = value.strip_prefix("bin:") {
+        require_local_gate_token(binary, "binary target name")?;
+        if !package_targets
+            .iter()
+            .any(|target| target.name == binary && target.kind.iter().any(|kind| kind == "bin"))
+        {
+            return Err(format!(
+                "package {package_spec} local-gate profile {profile_name} selects undeclared binary target {binary}"
+            ));
+        }
+        return Ok(LocalGateProfileTarget::Bin(binary.to_owned()));
     }
-    Ok(LocalGateProfileTarget::Bin(binary.to_owned()))
+    if let Some(test) = value.strip_prefix("test:") {
+        require_local_gate_token(test, "test target name")?;
+        if !package_targets
+            .iter()
+            .any(|target| target.name == test && target.kind.iter().any(|kind| kind == "test"))
+        {
+            return Err(format!(
+                "package {package_spec} local-gate profile {profile_name} selects undeclared test target {test}"
+            ));
+        }
+        return Ok(LocalGateProfileTarget::Test(test.to_owned()));
+    }
+    Err(format!(
+        "package {package_spec} local-gate profile {profile_name} has unsupported target {value:?}; expected lib, bin:<declared-binary>, or test:<declared-test>"
+    ))
 }
 
 fn require_local_gate_argument(
@@ -569,16 +664,21 @@ fn require_local_gate_argument(
     Ok(())
 }
 
-fn local_gate_commands(discovered: &DiscoveredLocalGate) -> Vec<LocalGateCommand> {
-    let mut commands = vec![
-        LocalGateCommand::new("git", &["diff", "--check"]),
-        LocalGateCommand::new("git", &["diff", "--cached", "--check"]),
-    ];
-
-    for check in &discovered.checks {
+fn quality_check_commands(
+    discovered: &DiscoveredLocalGate,
+    candidate_only: bool,
+) -> Vec<LocalGateCommand> {
+    let mut commands = Vec::new();
+    for check in discovered
+        .checks
+        .iter()
+        .filter(|check| check.candidate_only == candidate_only)
+    {
         let mut arguments = vec![
             "run".to_owned(),
             "--locked".to_owned(),
+            "--profile".to_owned(),
+            cargo_layout::SOURCE_VALIDATION_PROFILE.to_owned(),
             "-p".to_owned(),
             check.package_spec.clone(),
             "--bin".to_owned(),
@@ -591,6 +691,8 @@ fn local_gate_commands(discovered: &DiscoveredLocalGate) -> Vec<LocalGateCommand
                 "run".to_owned(),
                 "--quiet".to_owned(),
                 "--locked".to_owned(),
+                "--profile".to_owned(),
+                cargo_layout::SOURCE_VALIDATION_PROFILE.to_owned(),
                 "-p".to_owned(),
                 check.package_spec.clone(),
                 "--bin".to_owned(),
@@ -608,49 +710,136 @@ fn local_gate_commands(discovered: &DiscoveredLocalGate) -> Vec<LocalGateCommand
             program: "cargo".to_owned(),
             arguments,
             receipt_input,
+            cargo_cache: LocalGateCargoCache::Retained,
         });
     }
+    commands
+}
 
-    commands.push(LocalGateCommand::new(
-        "cargo",
-        &["fmt", "--all", "--", "--check"],
+fn quality_profile_commands(
+    discovered: &DiscoveredLocalGate,
+    operation: &str,
+    candidate_only: bool,
+    cargo_timings: bool,
+) -> Vec<LocalGateCommand> {
+    discovered
+        .profiles
+        .iter()
+        .filter(|profile| {
+            profile.candidate_only == candidate_only
+                && match operation {
+                    "clippy" => profile.clippy,
+                    "test" => profile.test,
+                    _ => false,
+                }
+        })
+        .map(|profile| local_gate_profile_command(profile, operation, cargo_timings))
+        .collect()
+}
+
+fn source_quality_commands(
+    discovered: &DiscoveredLocalGate,
+    cargo_timings: bool,
+) -> Vec<LocalGateCommand> {
+    let mut commands = vec![
+        LocalGateCommand::new("git", &["diff", "--check"]),
+        LocalGateCommand::new("git", &["diff", "--cached", "--check"]),
+        LocalGateCommand::new("cargo", &["fmt", "--all", "--", "--check"]),
+    ];
+    commands.extend(quality_check_commands(discovered, false));
+    commands.push(cargo_quality_command(
+        &[
+            "test",
+            "--locked",
+            "--profile",
+            cargo_layout::SOURCE_VALIDATION_PROFILE,
+            "--workspace",
+            "--all-targets",
+        ],
+        cargo_timings,
     ));
-    commands.push(LocalGateCommand::new(
-        "cargo",
+    commands.extend(quality_profile_commands(
+        discovered,
+        "test",
+        false,
+        cargo_timings,
+    ));
+    commands.push(cargo_quality_command(
         &[
             "clippy",
             "--locked",
+            "--profile",
+            cargo_layout::SOURCE_VALIDATION_PROFILE,
             "--workspace",
             "--all-targets",
             "--",
             "-D",
             "warnings",
         ],
+        cargo_timings,
     ));
-    for profile in discovered.profiles.iter().filter(|profile| profile.clippy) {
-        commands.push(local_gate_profile_command(profile, "clippy"));
-    }
-
-    commands.push(LocalGateCommand::new(
-        "cargo",
-        &["test", "--locked", "--workspace", "--all-targets"],
+    commands.extend(quality_profile_commands(
+        discovered,
+        "clippy",
+        false,
+        cargo_timings,
     ));
-    for profile in discovered.profiles.iter().filter(|profile| profile.test) {
-        commands.push(local_gate_profile_command(profile, "test"));
-    }
     commands
+}
+
+fn candidate_quality_commands(
+    discovered: &DiscoveredLocalGate,
+    cargo_timings: bool,
+) -> Vec<LocalGateCommand> {
+    let mut commands = quality_check_commands(discovered, true);
+    commands.extend(quality_profile_commands(
+        discovered,
+        "test",
+        true,
+        cargo_timings,
+    ));
+    commands.extend(quality_profile_commands(
+        discovered,
+        "clippy",
+        true,
+        cargo_timings,
+    ));
+    commands
+}
+
+fn local_gate_commands(
+    discovered: &DiscoveredLocalGate,
+    cargo_timings: bool,
+) -> Vec<LocalGateCommand> {
+    let mut commands = source_quality_commands(discovered, cargo_timings);
+    commands.extend(candidate_quality_commands(discovered, cargo_timings));
+    commands
+}
+
+fn cargo_quality_command(arguments: &[&str], cargo_timings: bool) -> LocalGateCommand {
+    let mut command = LocalGateCommand::new("cargo", arguments);
+    if cargo_timings {
+        command.arguments.insert(1, "--timings".to_owned());
+    }
+    command
 }
 
 fn local_gate_profile_command(
     profile: &DiscoveredLocalGateProfile,
     operation: &str,
+    cargo_timings: bool,
 ) -> LocalGateCommand {
-    let mut arguments = vec![
-        operation.to_owned(),
+    let mut arguments = vec![operation.to_owned()];
+    if cargo_timings {
+        arguments.push("--timings".to_owned());
+    }
+    arguments.extend([
         "--locked".to_owned(),
+        "--profile".to_owned(),
+        cargo_layout::SOURCE_VALIDATION_PROFILE.to_owned(),
         "-p".to_owned(),
         profile.package_spec.clone(),
-    ];
+    ]);
     if profile.targets.is_empty() {
         arguments.push("--all-targets".to_owned());
     } else {
@@ -659,6 +848,9 @@ fn local_gate_profile_command(
                 LocalGateProfileTarget::Lib => arguments.push("--lib".to_owned()),
                 LocalGateProfileTarget::Bin(binary) => {
                     arguments.extend(["--bin".to_owned(), binary.clone()]);
+                }
+                LocalGateProfileTarget::Test(test) => {
+                    arguments.extend(["--test".to_owned(), test.clone()]);
                 }
             }
         }
@@ -676,7 +868,9 @@ fn local_gate_profile_command(
         program: "cargo".to_owned(),
         arguments,
         receipt_input: None,
+        cargo_cache: LocalGateCargoCache::Retained,
     }
+    .with_cargo_cache(profile.cargo_cache)
 }
 
 fn render_local_gate_command(command: &LocalGateCommand) -> String {
@@ -691,27 +885,69 @@ fn render_receipt_input_command(input: &LocalGateReceiptInput) -> String {
     format!("{} {arguments}", input.program)
 }
 
-fn local_gate_validation_plan(
+fn render_validation_command(command: &LocalGateCommand) -> String {
+    let rendered = render_local_gate_command(command);
+    if cargo_layout::is_cargo_program(OsStr::new(&command.program)) {
+        format!("{}; {rendered}", command.cargo_cache.layout_binding())
+    } else {
+        rendered
+    }
+}
+
+fn render_validation_receipt_input(input: &LocalGateReceiptInput) -> String {
+    let rendered = render_receipt_input_command(input);
+    if cargo_layout::is_cargo_program(OsStr::new(&input.program)) {
+        format!(
+            "{}; {rendered}",
+            cargo_layout::SOURCE_VALIDATION_LAYOUT_BINDING
+        )
+    } else {
+        rendered
+    }
+}
+
+fn quality_validation_steps(
+    namespace: &str,
     commands: &[LocalGateCommand],
-) -> Result<validation_receipt::ValidationPlan, String> {
-    validation_receipt::ValidationPlan::new(
-        commands
-            .iter()
-            .enumerate()
-            .map(|(index, command)| {
-                (
-                    format!("local-gate/{:04}", index + 1),
-                    render_local_gate_command(command),
-                )
-            })
-            .collect(),
-    )
+) -> Vec<(String, String)> {
+    commands
+        .iter()
+        .enumerate()
+        .map(|(index, command)| {
+            (
+                format!("{namespace}/{:04}", index + 1),
+                render_validation_command(command),
+            )
+        })
+        .collect()
 }
 
 fn source_quality_validation_plan(
-    commands: &[LocalGateCommand],
+    source_commands: &[LocalGateCommand],
 ) -> Result<validation_receipt::ValidationPlan, String> {
-    local_gate_validation_plan(commands)?
+    validation_receipt::ValidationPlan::new(quality_validation_steps(
+        "source-quality",
+        source_commands,
+    ))
+}
+
+fn local_gate_validation_plan(
+    source_commands: &[LocalGateCommand],
+    candidate_commands: &[LocalGateCommand],
+) -> Result<validation_receipt::ValidationPlan, String> {
+    let mut steps = quality_validation_steps("source-quality", source_commands);
+    steps.extend(quality_validation_steps(
+        "candidate-quality",
+        candidate_commands,
+    ));
+    validation_receipt::ValidationPlan::new(steps)
+}
+
+fn candidate_quality_validation_plan(
+    source_commands: &[LocalGateCommand],
+    candidate_commands: &[LocalGateCommand],
+) -> Result<validation_receipt::ValidationPlan, String> {
+    local_gate_validation_plan(source_commands, candidate_commands)?
         .with_step(SOURCE_CANDIDATE_STEP_ID, SOURCE_CANDIDATE_STEP_COMMAND)
 }
 
@@ -731,14 +967,17 @@ fn capture_package_input_id(
     input: &LocalGateReceiptInput,
 ) -> Result<validation_receipt::ValidationSubject, String> {
     let rendered = render_receipt_input_command(input);
-    let output = Command::new(&input.program)
-        .args(&input.arguments)
-        .current_dir(root)
-        .env("CARGO_INCREMENTAL", "1")
-        .output()
-        .map_err(|error| {
-            format!("failed to launch package-owned input-id command {rendered}: {error}")
-        })?;
+    let mut command = Command::new(&input.program);
+    command.args(&input.arguments).current_dir(root);
+    configure_source_validation_compilation(
+        root,
+        OsStr::new(&input.program),
+        LocalGateCargoCache::Retained,
+        &mut command,
+    )?;
+    let output = command.output().map_err(|error| {
+        format!("failed to launch package-owned input-id command {rendered}: {error}")
+    })?;
     if !output.status.success() {
         return Err(format!(
             "package-owned input-id command failed with {}: {rendered}: {}",
@@ -774,15 +1013,21 @@ fn has_required_distribution_evidence_check(discovered: &DiscoveredLocalGate) ->
                 .input_id_arguments
                 .as_deref()
                 .is_some_and(|arguments| arguments == ["input-id"])
+            && check.candidate_only
     })
 }
 
 fn run_local_gate_command(root: &Path, command: &LocalGateCommand) -> Result<(), String> {
     let rendered = render_local_gate_command(command);
-    let status = Command::new(&command.program)
-        .args(&command.arguments)
-        .current_dir(root)
-        .env("CARGO_INCREMENTAL", "1")
+    let mut process = Command::new(&command.program);
+    process.args(&command.arguments).current_dir(root);
+    configure_source_validation_compilation(
+        root,
+        OsStr::new(&command.program),
+        command.cargo_cache,
+        &mut process,
+    )?;
+    let status = process
         .status()
         .map_err(|error| format!("failed to launch {rendered}: {error}"))?;
     if status.success() {
@@ -792,6 +1037,22 @@ fn run_local_gate_command(root: &Path, command: &LocalGateCommand) -> Result<(),
             "local gate command failed with {status}: {rendered}"
         ))
     }
+}
+
+fn configure_source_validation_compilation(
+    root: &Path,
+    program: &OsStr,
+    cargo_cache: LocalGateCargoCache,
+    command: &mut Command,
+) -> Result<(), String> {
+    if cargo_layout::is_cargo_program(program) {
+        let layout = cargo_layout::CargoStorageLayout::discover(root)?;
+        match cargo_cache {
+            LocalGateCargoCache::Retained => layout.configure_source_validation(command),
+            LocalGateCargoCache::Disposable => layout.configure_scratch(command),
+        }
+    }
+    Ok(())
 }
 
 fn run_local_gate_commands_with_receipts(
@@ -808,11 +1069,12 @@ fn run_local_gate_commands_with_receipts(
         let reused = if allow_validation_receipts {
             match command.receipt_input.as_ref() {
                 Some(input) => {
+                    let validation_command = render_validation_command(command);
                     let receipt_plan = validation_receipt::ValidationPlan::new(vec![(
                         format!("package-check/{}", input.namespace),
                         format!(
-                            "{rendered}; input-id {}",
-                            render_receipt_input_command(input)
+                            "{validation_command}; input-id {}",
+                            render_validation_receipt_input(input)
                         ),
                     )])?;
                     let outcome = validation_receipt::validate_or_run(
@@ -861,26 +1123,24 @@ fn run_local_gate_commands(root: &Path, commands: &[LocalGateCommand]) -> Result
     run_local_gate_commands_with_receipts(root, commands, false).map(|_| ())
 }
 
-fn run_local_gate(root: &Path) -> Result<(), String> {
+fn run_local_gate(root: &Path, cargo_timings: bool) -> Result<(), String> {
     let _lock = validation_receipt::acquire_local_ci_lock(root)?;
     let discovered = discover_local_gate(root)?;
-    run_local_gate_commands_with_receipts(root, &local_gate_commands(&discovered), true).map(|_| ())
+    run_local_gate_commands_with_receipts(
+        root,
+        &local_gate_commands(&discovered, cargo_timings),
+        true,
+    )
+    .map(|_| ())
 }
 
-fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
+fn run_source_quality(root: &Path, cargo_timings: bool) -> Result<QualityOutcome, String> {
     let _lock = validation_receipt::acquire_local_ci_lock(root)?;
     ensure_clean_checkout(root)?;
     let before = candidate_seal::capture_current_identity(root)?;
     let discovered = discover_local_gate(root)?;
-    if !has_required_distribution_evidence_check(&discovered) {
-        return Err(
-            "source-quality candidate sealing requires the exact package-owned distribution-evidence check"
-                .to_owned(),
-        );
-    }
-    let commands = local_gate_commands(&discovered);
+    let commands = source_quality_commands(&discovered, cargo_timings);
     let plan = source_quality_validation_plan(&commands)?;
-    let mut sealed = None;
     let composition = validation_receipt::validate_or_run(
         root,
         &plan,
@@ -888,8 +1148,66 @@ fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
             ensure_clean_checkout(root)?;
             source_validation_subject(&candidate_seal::capture_current_identity(root)?)
         },
+        || run_local_gate_commands_with_receipts(root, &commands, true).map(|_| ()),
+    )?;
+    if composition.reused {
+        eprintln!(
+            "reused exact-commit source-quality validation receipt for {}",
+            before.source_commit
+        );
+    }
+    ensure_clean_checkout(root)?;
+    let after = candidate_seal::capture_current_identity(root)?;
+    if after != before {
+        return Err("source identity changed after source-quality validation".to_owned());
+    }
+    Ok(QualityOutcome {
+        identity: before,
+        reused: composition.reused,
+    })
+}
+
+fn run_candidate_quality(root: &Path, cargo_timings: bool) -> Result<QualityOutcome, String> {
+    let _lock = validation_receipt::acquire_local_ci_lock(root)?;
+    ensure_clean_checkout(root)?;
+    let before = candidate_seal::capture_current_identity(root)?;
+    let discovered = discover_local_gate(root)?;
+    if !has_required_distribution_evidence_check(&discovered) {
+        return Err(
+            "candidate-quality sealing requires the exact candidate-only package-owned distribution-evidence check"
+                .to_owned(),
+        );
+    }
+    let source_commands = source_quality_commands(&discovered, cargo_timings);
+    let candidate_commands = candidate_quality_commands(&discovered, cargo_timings);
+    let source_plan = source_quality_validation_plan(&source_commands)?;
+    let candidate_plan = candidate_quality_validation_plan(&source_commands, &candidate_commands)?;
+    let mut sealed = None;
+    let composition = validation_receipt::validate_or_run(
+        root,
+        &candidate_plan,
         || {
-            let validation = run_local_gate_commands_with_receipts(root, &commands, true)?;
+            ensure_clean_checkout(root)?;
+            source_validation_subject(&candidate_seal::capture_current_identity(root)?)
+        },
+        || {
+            let source = validation_receipt::validate_or_run(
+                root,
+                &source_plan,
+                || {
+                    ensure_clean_checkout(root)?;
+                    source_validation_subject(&candidate_seal::capture_current_identity(root)?)
+                },
+                || run_local_gate_commands_with_receipts(root, &source_commands, true).map(|_| ()),
+            )?;
+            if source.reused {
+                eprintln!(
+                    "reused exact-commit source-quality validation receipt for {}",
+                    before.source_commit
+                );
+            }
+            let validation =
+                run_local_gate_commands_with_receipts(root, &candidate_commands, true)?;
             let candidate = match validation
                 .receipt_inputs
                 .get(DISTRIBUTION_EVIDENCE_RECEIPT_TARGET)
@@ -904,7 +1222,7 @@ fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
             };
             if candidate != before {
                 return Err(format!(
-                    "source identity changed during source-quality validation; expected commit {} tree {}, sealed commit {} tree {}",
+                    "source identity changed during candidate-quality validation; expected commit {} tree {}, sealed commit {} tree {}",
                     before.source_commit,
                     before.source_tree_oid,
                     candidate.source_commit,
@@ -915,21 +1233,74 @@ fn run_source_quality(root: &Path) -> Result<SourceQualityOutcome, String> {
             Ok(())
         },
     )?;
-    if composition.reused {
-        eprintln!(
-            "reused exact-commit source-quality validation receipt for {}",
-            before.source_commit
-        );
-    }
     ensure_clean_checkout(root)?;
     let after = candidate_seal::capture_current_identity(root)?;
     if after != before {
-        return Err("source identity changed after source-quality validation".to_owned());
+        return Err("source identity changed after candidate-quality validation".to_owned());
     }
-    Ok(SourceQualityOutcome {
-        candidate: sealed.unwrap_or(before),
+    Ok(QualityOutcome {
+        identity: sealed.unwrap_or(before),
         reused: composition.reused,
     })
+}
+
+fn report_local_gate(cargo_timings: bool) -> ExitCode {
+    match run_local_gate(&repository_root(), cargo_timings) {
+        Ok(()) => {
+            eprintln!("local development gate passed");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("ERROR: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn report_source_quality(cargo_timings: bool) -> ExitCode {
+    match run_source_quality(&repository_root(), cargo_timings) {
+        Ok(outcome) => {
+            if outcome.reused {
+                eprintln!(
+                    "exact-commit source-quality validation was reused for {}",
+                    outcome.identity.source_commit
+                );
+            } else {
+                eprintln!(
+                    "source-quality gate passed for {}",
+                    outcome.identity.source_commit
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("ERROR: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn report_candidate_quality(cargo_timings: bool) -> ExitCode {
+    match run_candidate_quality(&repository_root(), cargo_timings) {
+        Ok(outcome) => {
+            if outcome.reused {
+                eprintln!(
+                    "exact-commit candidate-quality validation was reused for {}",
+                    outcome.identity.source_commit
+                );
+            } else {
+                eprintln!(
+                    "candidate-quality gate and exact Release/Preview candidate regeneration passed for {}",
+                    outcome.identity.source_commit
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("ERROR: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn parse_windows_native_test_suite(value: &OsStr) -> Result<WindowsNativeTestSuite, String> {
@@ -1378,8 +1749,11 @@ fn run_full_pre_push(root: &Path, input: &str) -> Result<Option<String>, String>
                 .to_owned(),
         );
     }
-    let commands = local_gate_commands(&discovered);
-    let receipt_plan = local_gate_validation_plan(&commands)?;
+    let source_commands = source_quality_commands(&discovered, false);
+    let candidate_commands = candidate_quality_commands(&discovered, false);
+    let mut commands = source_commands.clone();
+    commands.extend(candidate_commands.iter().cloned());
+    let receipt_plan = local_gate_validation_plan(&source_commands, &candidate_commands)?;
     let receipt_subject = source_validation_subject(&prepared.identity_before)?;
     let receipt_inputs = match validation_receipt::capture_validation(
         root,
@@ -1935,36 +2309,18 @@ fn main() -> ExitCode {
                 }
             }
         }
-        [command] if command == "local-gate" => match run_local_gate(&repository_root()) {
-            Ok(()) => {
-                eprintln!("local development gate passed");
-                ExitCode::SUCCESS
-            }
-            Err(error) => {
-                eprintln!("ERROR: {error}");
-                ExitCode::FAILURE
-            }
-        },
-        [command] if command == "source-quality" => match run_source_quality(&repository_root()) {
-            Ok(outcome) => {
-                if outcome.reused {
-                    eprintln!(
-                        "exact-commit source-quality validation was reused for {}",
-                        outcome.candidate.source_commit
-                    );
-                } else {
-                    eprintln!(
-                        "source-quality gate and exact Release/Preview candidate regeneration passed for {}",
-                        outcome.candidate.source_commit
-                    );
-                }
-                ExitCode::SUCCESS
-            }
-            Err(error) => {
-                eprintln!("ERROR: {error}");
-                ExitCode::FAILURE
-            }
-        },
+        [command] if command == "local-gate" => report_local_gate(false),
+        [command, timings] if command == "local-gate" && timings == "--timings" => {
+            report_local_gate(true)
+        }
+        [command] if command == "source-quality" => report_source_quality(false),
+        [command, timings] if command == "source-quality" && timings == "--timings" => {
+            report_source_quality(true)
+        }
+        [command] if command == "candidate-quality" => report_candidate_quality(false),
+        [command, timings] if command == "candidate-quality" && timings == "--timings" => {
+            report_candidate_quality(true)
+        }
         [command] if command == "windows-native-tests" => {
             report_windows_native_tests(WindowsNativeTestSuite::All, false)
         }
@@ -2101,7 +2457,7 @@ fn main() -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask -- local-gate\n       cargo run --locked -p xtask -- source-quality\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename] [--validation-receipt]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- pre-push-full <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child>\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
+                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- local-gate [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- source-quality [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- candidate-quality [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- clean-core-workspace [--dry-run]\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename] [--validation-receipt]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- pre-push-full <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child>\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
             );
             ExitCode::from(2)
         }
@@ -2325,6 +2681,7 @@ mod tests {
                     bin: "example-evidence".to_owned(),
                     arguments: vec!["check".to_owned(), "path with space".to_owned()],
                     input_id_arguments: None,
+                    candidate_only: false,
                 }],
                 profiles: vec![DiscoveredLocalGateProfile {
                     package_spec: "example@1.2.3".to_owned(),
@@ -2336,21 +2693,26 @@ mod tests {
                         LocalGateProfileTarget::Lib,
                         LocalGateProfileTarget::Bin("example-evidence".to_owned()),
                     ],
+                    candidate_only: false,
+                    cargo_cache: LocalGateCargoCache::Retained,
                 }],
             }
         );
 
-        let commands = local_gate_commands(&discovered);
+        let commands = local_gate_commands(&discovered, false);
         assert_eq!(
             commands,
             vec![
                 LocalGateCommand::new("git", &["diff", "--check"]),
                 LocalGateCommand::new("git", &["diff", "--cached", "--check"]),
+                LocalGateCommand::new("cargo", &["fmt", "--all", "--", "--check"]),
                 LocalGateCommand::new(
                     "cargo",
                     &[
                         "run",
                         "--locked",
+                        "--profile",
+                        cargo_layout::SOURCE_VALIDATION_PROFILE,
                         "-p",
                         "example@1.2.3",
                         "--bin",
@@ -2360,12 +2722,40 @@ mod tests {
                         "path with space",
                     ],
                 ),
-                LocalGateCommand::new("cargo", &["fmt", "--all", "--", "--check"]),
+                LocalGateCommand::new(
+                    "cargo",
+                    &[
+                        "test",
+                        "--locked",
+                        "--profile",
+                        cargo_layout::SOURCE_VALIDATION_PROFILE,
+                        "--workspace",
+                        "--all-targets",
+                    ],
+                ),
+                LocalGateCommand::new(
+                    "cargo",
+                    &[
+                        "test",
+                        "--locked",
+                        "--profile",
+                        cargo_layout::SOURCE_VALIDATION_PROFILE,
+                        "-p",
+                        "example@1.2.3",
+                        "--lib",
+                        "--bin",
+                        "example-evidence",
+                        "--features",
+                        "special",
+                    ],
+                ),
                 LocalGateCommand::new(
                     "cargo",
                     &[
                         "clippy",
                         "--locked",
+                        "--profile",
+                        cargo_layout::SOURCE_VALIDATION_PROFILE,
                         "--workspace",
                         "--all-targets",
                         "--",
@@ -2378,6 +2768,8 @@ mod tests {
                     &[
                         "clippy",
                         "--locked",
+                        "--profile",
+                        cargo_layout::SOURCE_VALIDATION_PROFILE,
                         "-p",
                         "example@1.2.3",
                         "--lib",
@@ -2389,24 +2781,6 @@ mod tests {
                         "--",
                         "-D",
                         "warnings",
-                    ],
-                ),
-                LocalGateCommand::new(
-                    "cargo",
-                    &["test", "--locked", "--workspace", "--all-targets"],
-                ),
-                LocalGateCommand::new(
-                    "cargo",
-                    &[
-                        "test",
-                        "--locked",
-                        "-p",
-                        "example@1.2.3",
-                        "--lib",
-                        "--bin",
-                        "example-evidence",
-                        "--features",
-                        "special",
                     ],
                 ),
             ]
@@ -2425,8 +2799,8 @@ mod tests {
             assert_ne!(command.arguments.last().map(String::as_str), Some("--"));
         }
         assert_eq!(
-            render_local_gate_command(&commands[2]),
-            "cargo [\"run\",\"--locked\",\"-p\",\"example@1.2.3\",\"--bin\",\"example-evidence\",\"--\",\"check\",\"path with space\"]"
+            render_local_gate_command(&commands[3]),
+            "cargo [\"run\",\"--locked\",\"--profile\",\"source-validation\",\"-p\",\"example@1.2.3\",\"--bin\",\"example-evidence\",\"--\",\"check\",\"path with space\"]"
         );
     }
 
@@ -2439,15 +2813,19 @@ mod tests {
             clippy: true,
             test: true,
             targets: Vec::new(),
+            candidate_only: false,
+            cargo_cache: LocalGateCargoCache::Retained,
         };
 
         assert_eq!(
-            local_gate_profile_command(&profile, "clippy"),
+            local_gate_profile_command(&profile, "clippy", false),
             LocalGateCommand::new(
                 "cargo",
                 &[
                     "clippy",
                     "--locked",
+                    "--profile",
+                    cargo_layout::SOURCE_VALIDATION_PROFILE,
                     "-p",
                     "example@1.2.3",
                     "--all-targets",
@@ -2460,12 +2838,14 @@ mod tests {
             )
         );
         assert_eq!(
-            local_gate_profile_command(&profile, "test"),
+            local_gate_profile_command(&profile, "test", false),
             LocalGateCommand::new(
                 "cargo",
                 &[
                     "test",
                     "--locked",
+                    "--profile",
+                    cargo_layout::SOURCE_VALIDATION_PROFILE,
                     "-p",
                     "example@1.2.3",
                     "--all-targets",
@@ -2485,6 +2865,7 @@ mod tests {
                 bin: "distribution-evidence".to_owned(),
                 arguments: vec!["check".to_owned()],
                 input_id_arguments: Some(vec!["input-id".to_owned()]),
+                candidate_only: true,
             }],
             profiles: Vec::new(),
         };
@@ -2507,6 +2888,10 @@ mod tests {
                 input_id_arguments: None,
                 ..exact.checks[0].clone()
             },
+            DiscoveredLocalGateCheck {
+                candidate_only: false,
+                ..exact.checks[0].clone()
+            },
         ] {
             assert!(!has_required_distribution_evidence_check(
                 &DiscoveredLocalGate {
@@ -2518,22 +2903,43 @@ mod tests {
     }
 
     #[test]
-    fn source_quality_plan_strictly_satisfies_the_pre_push_local_gate_subset() {
-        let commands = vec![
+    fn candidate_quality_plan_strictly_satisfies_source_and_local_gate_subsets() {
+        let source_commands = vec![
             LocalGateCommand::new("git", &["diff", "--check"]),
             LocalGateCommand::new("cargo", &["test", "--locked", "--workspace"]),
         ];
-        let local_gate = local_gate_validation_plan(&commands).unwrap();
-        let source_quality = source_quality_validation_plan(&commands).unwrap();
-        assert!(source_quality.satisfies(&local_gate));
-        assert!(!local_gate.satisfies(&source_quality));
+        let candidate_commands = vec![LocalGateCommand::new(
+            "cargo",
+            &["test", "--locked", "--features", "preview"],
+        )];
+        let source_quality = source_quality_validation_plan(&source_commands).unwrap();
+        let local_gate = local_gate_validation_plan(&source_commands, &candidate_commands).unwrap();
+        let candidate_quality =
+            candidate_quality_validation_plan(&source_commands, &candidate_commands).unwrap();
+        let source_plan_json = serde_json::to_value(&source_quality).unwrap();
+        let source_steps = source_plan_json["steps"].as_array().unwrap();
+        assert!(source_steps.iter().any(|step| {
+            step["command"].as_str().is_some_and(|command| {
+                command.contains(cargo_layout::SOURCE_VALIDATION_LAYOUT_BINDING)
+            })
+        }));
+        assert!(source_steps.iter().any(|step| {
+            step["command"]
+                .as_str()
+                .is_some_and(|command| command == "git [\"diff\",\"--check\"]")
+        }));
+        assert!(local_gate.satisfies(&source_quality));
+        assert!(!source_quality.satisfies(&local_gate));
+        assert!(candidate_quality.satisfies(&local_gate));
+        assert!(candidate_quality.satisfies(&source_quality));
+        assert!(!local_gate.satisfies(&candidate_quality));
 
-        let changed = local_gate_validation_plan(&[
+        let changed_source = source_quality_validation_plan(&[
             LocalGateCommand::new("git", &["diff", "--check"]),
             LocalGateCommand::new("cargo", &["test", "--locked", "--all-targets"]),
         ])
         .unwrap();
-        assert!(!source_quality.satisfies(&changed));
+        assert!(!candidate_quality.satisfies(&changed_source));
     }
 
     #[test]
@@ -2670,7 +3076,149 @@ mod tests {
 
         let error = discover_local_gate_from_metadata(metadata)
             .expect_err("schema-version 1 must not silently acquire input-id semantics");
-        assert!(error.contains("requires schema-version 2 for input-id-arguments"));
+        assert!(error.contains("requires schema-version 2 or later for input-id-arguments"));
+    }
+
+    #[test]
+    fn candidate_only_profiles_require_schema_three_and_accept_named_tests() {
+        let package = |schema_version| {
+            serde_json::from_value(serde_json::json!({
+                "workspace_members": ["path+file:///repo/crates/example#example@1.0.0"],
+                "packages": [{
+                    "id": "path+file:///repo/crates/example#example@1.0.0",
+                    "name": "example",
+                    "version": "1.0.0",
+                    "features": {"preview": []},
+                    "targets": [{
+                        "name": "integration",
+                        "kind": ["test"]
+                    }],
+                    "metadata": {
+                        "local-gate": {
+                            "schema-version": schema_version,
+                            "profiles": [{
+                                "name": "preview",
+                                "features": ["preview"],
+                                "clippy": true,
+                                "test": true,
+                                "targets": ["test:integration"],
+                                "candidate-only": true
+                            }]
+                        }
+                    }
+                }]
+            }))
+            .expect("synthetic cargo metadata")
+        };
+
+        let error = discover_local_gate_from_metadata(package(2))
+            .expect_err("schema-version 2 must not acquire candidate partitioning");
+        assert!(error.contains("requires schema-version 3 for candidate-only"));
+
+        let discovered =
+            discover_local_gate_from_metadata(package(3)).expect("schema-version 3 profile");
+        assert!(source_quality_commands(&discovered, false)
+            .iter()
+            .all(|command| !command
+                .arguments
+                .iter()
+                .any(|argument| argument == "preview")));
+        assert_eq!(
+            candidate_quality_commands(&discovered, false),
+            vec![
+                LocalGateCommand::new(
+                    "cargo",
+                    &[
+                        "test",
+                        "--locked",
+                        "--profile",
+                        cargo_layout::SOURCE_VALIDATION_PROFILE,
+                        "-p",
+                        "example@1.0.0",
+                        "--test",
+                        "integration",
+                        "--features",
+                        "preview",
+                    ],
+                ),
+                LocalGateCommand::new(
+                    "cargo",
+                    &[
+                        "clippy",
+                        "--locked",
+                        "--profile",
+                        cargo_layout::SOURCE_VALIDATION_PROFILE,
+                        "-p",
+                        "example@1.0.0",
+                        "--test",
+                        "integration",
+                        "--no-deps",
+                        "--features",
+                        "preview",
+                        "--",
+                        "-D",
+                        "warnings",
+                    ],
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn disposable_profile_cache_is_schema_four_candidate_only_and_receipt_bound() {
+        let package = |schema_version, candidate_only| {
+            serde_json::from_value(serde_json::json!({
+                "workspace_members": ["path+file:///repo/crates/example#example@1.0.0"],
+                "packages": [{
+                    "id": "path+file:///repo/crates/example#example@1.0.0",
+                    "name": "example",
+                    "version": "1.0.0",
+                    "features": {"qualification": []},
+                    "targets": [{
+                        "name": "example",
+                        "kind": ["lib"]
+                    }],
+                    "metadata": {
+                        "local-gate": {
+                            "schema-version": schema_version,
+                            "profiles": [{
+                                "name": "qualification",
+                                "features": ["qualification"],
+                                "clippy": true,
+                                "test": true,
+                                "targets": ["lib"],
+                                "candidate-only": candidate_only,
+                                "cache": "disposable"
+                            }]
+                        }
+                    }
+                }]
+            }))
+            .expect("synthetic cargo metadata")
+        };
+
+        let error = discover_local_gate_from_metadata(package(3, true))
+            .expect_err("schema-version 3 must not acquire cache routing");
+        assert!(error.contains("requires schema-version 4 for cache"));
+
+        let error = discover_local_gate_from_metadata(package(4, false))
+            .expect_err("source-quality profiles must not bypass retained core");
+        assert!(error.contains("may use disposable cache only when candidate-only is true"));
+
+        let discovered =
+            discover_local_gate_from_metadata(package(4, true)).expect("schema-version 4 profile");
+        assert_eq!(
+            discovered.profiles[0].cargo_cache,
+            LocalGateCargoCache::Disposable
+        );
+        let commands = candidate_quality_commands(&discovered, false);
+        assert_eq!(commands.len(), 2);
+        for command in commands {
+            assert_eq!(command.cargo_cache, LocalGateCargoCache::Disposable);
+            let rendered = render_validation_command(&command);
+            assert!(rendered.contains(cargo_layout::DISPOSABLE_SOURCE_VALIDATION_LAYOUT_BINDING));
+            assert!(!rendered.contains(cargo_layout::SOURCE_VALIDATION_LAYOUT_BINDING));
+        }
     }
 
     #[test]
@@ -2685,6 +3233,7 @@ mod tests {
                 "cargo test --locked -p autocad-mcp --lib windows_native_semantic_ -- --test-threads=1",
                 "cargo test --locked -p autocad-mcp --test windows_certification windows_native_semantic_ -- --test-threads=1",
                 "cargo test --locked -p release-packager --lib windows_native_semantic_ -- --test-threads=1",
+                "cargo test --locked -p autocad-mcp --features preview --lib ops::preview_acadrust_title_block::tests::windows_native_semantic_preview_title_block_guarded_install -- --exact --test-threads=1",
             ]
         );
         assert_eq!(

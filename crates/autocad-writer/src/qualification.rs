@@ -7,6 +7,8 @@ use acadrust::entities::{
 use acadrust::tables::{BlockRecord, Layer, TableEntry};
 use acadrust::types::{Color, Handle, Vector3};
 use acadrust::xdata::{ExtendedDataRecord, XDataValue};
+#[cfg(feature = "preview")]
+use acadrust::DwgWriter;
 use acadrust::{CadDocument, DxfWriter};
 
 use super::contract::{
@@ -29,6 +31,14 @@ fn dxf_snapshot(document: &CadDocument) -> DrawingSnapshot {
     )
 }
 
+#[cfg(feature = "preview")]
+fn dwg_snapshot(document: &CadDocument) -> DrawingSnapshot {
+    DrawingSnapshot::new(
+        DrawingFormat::Dwg,
+        DwgWriter::write_to_vec(document).unwrap(),
+    )
+}
+
 fn document_with_layer(name: &str) -> CadDocument {
     let mut document = CadDocument::new();
     let mut layer = Layer::new(name);
@@ -39,14 +49,33 @@ fn document_with_layer(name: &str) -> CadDocument {
 
 fn title_block_document() -> CadDocument {
     let mut document = CadDocument::new();
+    let mut definition = BlockRecord::new("AUTOCAD_MCP_GENERIC");
+    definition.handle = document.allocate_handle();
+    definition.block_entity_handle = document.allocate_handle();
+    definition.block_end_handle = document.allocate_handle();
+    definition.flags.has_attributes = true;
+    document.block_records.add(definition).unwrap();
+
     let mut insert = Insert::new("AUTOCAD_MCP_GENERIC", Vector3::ZERO);
+    insert.common.handle = document.allocate_handle();
     insert
         .attributes
         .push(AttributeEntity::simple("DRAWING_NUMBER", "A-001"));
     insert
         .attributes
         .push(AttributeEntity::simple("REVISION", "P01"));
+    for attribute in &mut insert.attributes {
+        attribute.common.handle = document.allocate_handle();
+        attribute.common.owner_handle = insert.common.handle;
+    }
+    let insert_handle = insert.common.handle;
     document.add_entity(EntityType::Insert(insert)).unwrap();
+    let definition = document
+        .block_records
+        .get_mut("AUTOCAD_MCP_GENERIC")
+        .unwrap();
+    definition.insert_handles.push(insert_handle);
+    definition.insert_count_bytes.push(1);
     document
 }
 
@@ -71,10 +100,21 @@ fn mutation_capability_inventory_is_exact_and_exhaustive() {
     assert!(capabilities
         .iter()
         .filter(|capability| capability.support == MutationSupport::CandidateGeneration)
-        .all(|capability| {
-            capability.candidate_formats == [CandidateFormat::AsciiDxf]
-                && capability.source_admission_required
-        }));
+        .all(|capability| capability.source_admission_required));
+    for capability in capabilities
+        .iter()
+        .filter(|capability| capability.support == MutationSupport::CandidateGeneration)
+    {
+        #[cfg(feature = "preview")]
+        let expected = if capability.route == MutationRoute::WriteTitleBlock {
+            vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
+        } else {
+            vec![CandidateFormat::AsciiDxf]
+        };
+        #[cfg(not(feature = "preview"))]
+        let expected = vec![CandidateFormat::AsciiDxf];
+        assert_eq!(capability.candidate_formats, expected);
+    }
     assert_eq!(
         capabilities
             .iter()
@@ -109,7 +149,12 @@ fn layer_create_encodes_owned_dxf_candidate_and_reader_reopens_it() {
             },
         })
         .unwrap();
-    let candidate = session.encode_candidate().unwrap();
+    let candidate = session.encode_candidate().unwrap_or_else(|error| {
+        panic!(
+            "candidate failed: {error}; internal={:?}",
+            error.internal_detail()
+        )
+    });
 
     assert_ne!(candidate.bytes(), source_bytes.as_ref());
     assert_eq!(candidate.receipt().format, "DXF");
@@ -178,6 +223,40 @@ fn title_block_write_preflights_then_roundtrips_exact_attribute_state() {
     assert_eq!(blocks.len(), 1);
     assert_eq!(blocks[0].attributes["REVISION"], "P02");
     assert_eq!(blocks[0].attributes["DRAWING_NUMBER"], "A-001");
+}
+
+#[cfg(feature = "preview")]
+#[test]
+fn preview_ac1032_title_block_candidate_proves_bounded_whole_document_preservation() {
+    let mut session = Writer::open_snapshot(dwg_snapshot(&title_block_document())).unwrap();
+    session
+        .write_title_block(TitleBlockWrite {
+            fingerprint: TitleBlockFingerprint {
+                block_name: "AUTOCAD_MCP_GENERIC".to_string(),
+                attribute_tags: vec!["DRAWING_NUMBER".to_string(), "REVISION".to_string()],
+            },
+            tag_values: BTreeMap::from([
+                ("DRAWING_NUMBER".to_string(), "A-002".to_string()),
+                ("REVISION".to_string(), "P02".to_string()),
+            ]),
+        })
+        .unwrap();
+
+    let candidate = session.encode_candidate().unwrap_or_else(|error| {
+        panic!(
+            "candidate failed: {error}; internal={:?}",
+            error.internal_detail()
+        )
+    });
+    assert_eq!(
+        candidate.receipt().claim_boundary,
+        RoundtripClaimBoundary::PreviewQualified
+    );
+    assert!(candidate.receipt().reader_reopen_verified);
+    assert!(candidate.receipt().operation_postconditions_verified);
+    assert!(candidate.receipt().whole_document_preservation_verified);
+    assert!(!candidate.receipt().native_host_verified);
+    assert_eq!(&candidate.bytes()[..6], b"AC1032");
 }
 
 #[test]
@@ -495,6 +574,9 @@ fn dwg_candidates_are_unqualified_before_serialization() {
         .unwrap();
     let error = session.encode_candidate().unwrap_err();
     assert_eq!(error.kind(), WriteErrorKind::BackendCapability);
+    #[cfg(feature = "preview")]
+    assert_eq!(error.code(), "preview_dwg_route_not_qualified");
+    #[cfg(not(feature = "preview"))]
     assert_eq!(error.code(), "dwg_candidate_preservation_unqualified");
 }
 

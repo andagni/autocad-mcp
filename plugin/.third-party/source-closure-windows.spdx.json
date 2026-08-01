@@ -3,13 +3,13 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "AutoCAD-MCP Windows x64 product build-source closure",
-  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/windows-x64-source-build-closure-3b527b09db9f48b36f9580a85bc2adf78f88c3534fd25f9d590f2f3828095bb8",
+  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/windows-x64-source-build-closure-31cfa1ec5a7d0b91c25d3c1c271ae686672a469017cd69b3b6ee0b40c6a67a9b",
   "creationInfo": {
-    "created": "2026-07-30T12:28:38Z",
+    "created": "2026-07-31T14:36:20Z",
     "creators": [
-      "Tool: AutoCAD-MCP distribution-evidence-7"
+      "Tool: AutoCAD-MCP distribution-evidence-8"
     ],
-    "comment": "Generated deterministically from Cargo.lock and two exact commands: `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features` for Release, and `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features --features autocad-mcp/preview` for Preview. Generation requires the selected normal/build package and dependency-edge closures of the autocad-mcp and autolisp-lsp product roots to be identical across both modes, excluding development-only edges; any divergence fails closed pending separately reviewed mode-specific evidence. Cargo.lock SHA-256: 95f22654a01b98d34e82e2cb14c000ded5f2e89bd7474c811d18086a839ec718. This is conservative target build-source evidence, including build scripts and proc macros; it is not a linked-binary or native-object SBOM and does not assert legal approval. Exact executable hashes and native imports require a separate build attestation."
+    "comment": "Generated deterministically from Cargo.lock and two exact commands: `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features` for Release, and `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features --features autocad-mcp/preview` for Preview. Generation requires the selected normal/build package and dependency-edge closures of the autocad-mcp and autolisp-lsp product roots to be identical across both modes, excluding development-only edges; any divergence fails closed pending separately reviewed mode-specific evidence. Cargo.lock SHA-256: 8c04b2abd8b339a1c75dcd9043bcf62fbfd64abf89740ad065b2ba4f33c6e494. This is conservative target build-source evidence, including build scripts and proc macros; it is not a linked-binary or native-object SBOM and does not assert legal approval. Exact executable hashes and native imports require a separate build attestation."
   },
   "documentDescribes": [
     "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
@@ -1049,6 +1049,24 @@
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
     {
+      "SPDXID": "SPDXRef-Package-2787389012ffc62a7f20ec0d5c5599b67ad482010f984c7a6bb09d914f40eec5",
+      "name": "getrandom",
+      "versionInfo": "0.4.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:aaff376532ea30a0cd5330b9502ad4a4c8bf769c539c87ffe78819d188a18ebf, LICENSE-MIT sha256:523a42c25d245dde9c015f882cec7f4555aad883382a6cf19b4b7d9b2cd5419b.",
+      "copyrightText": "NOASSERTION",
+      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
+    },
+    {
       "SPDXID": "SPDXRef-Package-3157df6a965f562e1cf3704ced06b39e5d5d4bdecf18bcbec816ad3f495d5e47",
       "name": "hashbrown",
       "versionInfo": "0.14.5",
@@ -1369,6 +1387,24 @@
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2, LICENSE-MIT sha256:0621878e61f0d0fda054bcbe02df75192c28bde1ecc8289cbd86aeba2dd72720.",
+      "copyrightText": "NOASSERTION",
+      "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9",
+      "name": "libc",
+      "versionInfo": "0.2.186",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a, LICENSE-MIT sha256:123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
     },
@@ -3445,6 +3481,11 @@
       "relatedSpdxElement": "SPDXRef-Package-e3e4551374d62a8f36e24060c6f2313a4e0a52b9aeadaabd5f3243a1e100065e"
     },
     {
+      "spdxElementId": "SPDXRef-Package-2787389012ffc62a7f20ec0d5c5599b67ad482010f984c7a6bb09d914f40eec5",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-283f06d3aaa2304f7e08bd8667106f677c258dbfc7d148372638b69f5438d12b"
+    },
+    {
       "spdxElementId": "SPDXRef-Package-284eeb506de8308f496e41df412fa863087892330774a9ec4a85beab4b934630",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-103137c3daf0e272c4b32094353ba26e8834ea3e38d5d5725155d8617b2e5264"
@@ -3962,17 +4003,17 @@
     {
       "spdxElementId": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b",
       "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-2787389012ffc62a7f20ec0d5c5599b67ad482010f984c7a6bb09d914f40eec5"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b",
+      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-2ff43fd57e90a09cd8acfd85d59795148b88b0e302f9d7f9b7c8b95ba92a190c"
     },
     {
       "spdxElementId": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-3e20b48cc7f80ce7cc6dba229b50207497d767c02ad3fc8573f82e4e50b5a519"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-caf4327bd6554833f8beb1859ec90a3ba04f219ee01c3b020f70d0723fbdd37e"
     },
     {
       "spdxElementId": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b",
@@ -5072,7 +5113,17 @@
     {
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
       "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0ec96ed07716e8ed87fd7f29356116a567cdb72afd313fae905f31ee8a69fd24"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
+      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-40414871e5ff51873a76f62e54f9c0bba832bc0e2cc1e19caabd5b5b9c496b3d"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-47b77616757d462856585e14e63bb4de5d9f1a9f10c08537982f265663f11ea9"
     },
     {
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",

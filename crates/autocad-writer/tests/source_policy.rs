@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[cfg(feature = "preview")]
+use autocad_writer::contract::MutationRoute;
 use autocad_writer::contract::{mutation_capabilities, CandidateFormat, MutationSupport};
 
 fn repository_root() -> PathBuf {
@@ -99,10 +101,17 @@ fn writer_candidate_contract_remains_narrow_and_noncertifying() {
     );
     for capability in &capabilities {
         if capability.support == MutationSupport::CandidateGeneration {
+            #[cfg(feature = "preview")]
+            let expected_formats = if capability.route == MutationRoute::WriteTitleBlock {
+                vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
+            } else {
+                vec![CandidateFormat::AsciiDxf]
+            };
+            #[cfg(not(feature = "preview"))]
+            let expected_formats = vec![CandidateFormat::AsciiDxf];
             assert_eq!(
-                capability.candidate_formats,
-                [CandidateFormat::AsciiDxf],
-                "candidate generation must remain restricted to admitted ASCII DXF"
+                capability.candidate_formats, expected_formats,
+                "candidate generation must remain restricted to its admitted product formats"
             );
             assert!(
                 capability.source_admission_required,
@@ -125,7 +134,8 @@ fn writer_candidate_contract_remains_narrow_and_noncertifying() {
     );
     for boundary in [
         "RoundtripClaimBoundary::DevelopmentEvidenceOnly",
-        "whole_document_preservation_verified: false",
+        "RoundtripClaimBoundary::PreviewQualified",
+        "verify_dwg_title_block_preservation",
         "native_host_verified: false",
     ] {
         assert!(

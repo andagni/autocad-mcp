@@ -7,13 +7,14 @@ description = "Mode-neutral canonical signed-statement verification primitives"
 publish = false
 
 [package.metadata.local-gate]
-schema-version = 1
+schema-version = 3
 
 [[package.metadata.local-gate.profiles]]
 name = "signing"
 features = ["signing"]
 clippy = true
 test = true
+candidate-only = true
 
 [features]
 default = []

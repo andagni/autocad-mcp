@@ -21,6 +21,7 @@ use super::{layers, title_blocks, xrefs, DrawingFormat, DrawingSnapshot, WriteEr
 #[serde(rename_all = "snake_case")]
 pub enum RoundtripClaimBoundary {
     DevelopmentEvidenceOnly,
+    PreviewQualified,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,6 +58,10 @@ impl RoundtripCandidate {
     pub fn into_bytes(self) -> Vec<u8> {
         self.bytes
     }
+
+    pub fn into_parts(self) -> (Vec<u8>, RoundtripReceipt) {
+        (self.bytes, self.receipt)
+    }
 }
 
 enum Postcondition {
@@ -85,6 +90,8 @@ impl Writer {
         Ok(DrawingWriteSession {
             snapshot,
             document: parsed.document,
+            #[cfg(feature = "preview")]
+            source_dwg_preservation: parsed.dwg_preservation_seal,
             operation: None,
             postcondition: None,
         })
@@ -102,6 +109,8 @@ impl Writer {
 pub struct DrawingWriteSession {
     snapshot: DrawingSnapshot,
     document: CadDocument,
+    #[cfg(feature = "preview")]
+    source_dwg_preservation: Option<backend::DwgPreservationSeal>,
     operation: Option<MutationRoute>,
     postcondition: Option<Postcondition>,
 }
@@ -112,6 +121,8 @@ impl DrawingWriteSession {
         Self {
             snapshot: DrawingSnapshot::new(format, Vec::<u8>::new()),
             document,
+            #[cfg(feature = "preview")]
+            source_dwg_preservation: None,
             operation: None,
             postcondition: None,
         }
@@ -239,6 +250,13 @@ impl DrawingWriteSession {
                 "candidate generation requires one successful drawing mutation",
             )
         })?;
+        #[cfg(feature = "preview")]
+        if self.format() == DrawingFormat::Dwg && operation != MutationRoute::WriteTitleBlock {
+            return Err(WriteError::backend_capability(
+                "preview_dwg_route_not_qualified",
+                "Preview DWG candidate generation is qualified only for title-block writes",
+            ));
+        }
         let bytes = backend::encode(self.format(), &self.document)?;
         let candidate_snapshot = DrawingSnapshot::new(self.format(), bytes.clone());
         let candidate_reader = autocad_reader::Reader::open_snapshot(
@@ -283,9 +301,35 @@ impl DrawingWriteSession {
             }
         }
 
+        #[cfg(feature = "preview")]
+        let whole_document_preservation_verified =
+            if self.format() == DrawingFormat::Dwg && operation == MutationRoute::WriteTitleBlock {
+                let source = self.source_dwg_preservation.as_ref().ok_or_else(|| {
+                    WriteError::verification(
+                        "preview_dwg_source_seal_missing",
+                        "locked source has no DWG preservation seal",
+                    )
+                })?;
+                backend::verify_dwg_title_block_preservation(
+                    source,
+                    &self.document,
+                    &candidate_snapshot,
+                    &reparsed.document,
+                )?;
+                true
+            } else {
+                false
+            };
+        #[cfg(not(feature = "preview"))]
+        let whole_document_preservation_verified = false;
+
         let source = self.snapshot.bytes();
         let receipt = RoundtripReceipt {
-            claim_boundary: RoundtripClaimBoundary::DevelopmentEvidenceOnly,
+            claim_boundary: if whole_document_preservation_verified {
+                RoundtripClaimBoundary::PreviewQualified
+            } else {
+                RoundtripClaimBoundary::DevelopmentEvidenceOnly
+            },
             format: self.format().name().to_string(),
             source_sha256: sha256(&source),
             candidate_sha256: sha256(&bytes),
@@ -294,7 +338,7 @@ impl DrawingWriteSession {
             operations: vec![operation],
             reader_reopen_verified: true,
             operation_postconditions_verified: true,
-            whole_document_preservation_verified: false,
+            whole_document_preservation_verified,
             native_host_verified: false,
         };
         Ok(RoundtripCandidate { bytes, receipt })
