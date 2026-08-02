@@ -26,7 +26,6 @@ fn main() {
     source_files.push(manifest_dir.join("build.rs"));
     source_files.push(reader_manifest_dir.join("Cargo.toml"));
     source_files.push(writer_manifest_dir.join("Cargo.toml"));
-    source_files.sort();
 
     let mut operation_files = vec![manifest_dir.join("src/engine.rs")];
     collect_files_matching(
@@ -38,7 +37,6 @@ fn main() {
                 .is_some_and(|name| name.starts_with("xref") && name.ends_with(".rs"))
         },
     );
-    operation_files.sort();
 
     for path in source_files
         .iter()
@@ -260,12 +258,7 @@ fn hash_file(path: &Path) -> String {
 
 fn hash_file_set(root: &Path, paths: &[PathBuf]) -> String {
     let mut hasher = Sha256::new();
-    for path in paths {
-        let relative = path
-            .strip_prefix(root)
-            .unwrap_or_else(|_| panic!("{} is outside {}", path.display(), root.display()))
-            .to_string_lossy()
-            .replace('\\', "/");
+    for (relative, path) in canonical_file_set(root, paths) {
         let bytes =
             fs::read(path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
         hasher.update(relative.as_bytes());
@@ -274,6 +267,25 @@ fn hash_file_set(root: &Path, paths: &[PathBuf]) -> String {
         hasher.update(bytes);
     }
     hex(hasher.finalize())
+}
+
+fn canonical_file_set<'a>(root: &Path, paths: &'a [PathBuf]) -> Vec<(String, &'a Path)> {
+    let mut files = paths
+        .iter()
+        .map(|path| {
+            let relative = path
+                .strip_prefix(root)
+                .unwrap_or_else(|_| panic!("{} is outside {}", path.display(), root.display()))
+                .to_string_lossy()
+                .replace('\\', "/");
+            (relative, path.as_path())
+        })
+        .collect::<Vec<_>>();
+    // The verifier orders Git tree entries by canonical repository path. Native
+    // Path ordering is component-based and differs for file/directory prefix
+    // pairs such as `resources.rs` and `resources/ctb.rs`.
+    files.sort_by(|left, right| left.0.cmp(&right.0));
+    files
 }
 
 fn hash_fields(fields: &[&str]) -> String {
@@ -345,7 +357,37 @@ fn resolve_git_path(workspace: &Path, path: &str) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_source_commit;
+    use std::path::Path;
+
+    use super::{canonical_file_set, validate_source_commit};
+
+    #[test]
+    fn file_set_hashing_uses_canonical_repository_path_order() {
+        let root = Path::new("workspace");
+        let paths = [
+            "crates/autocad-writer/src/portable_plot/resources/ctb.rs",
+            "crates/autocad-writer/src/portable_plot/adapter/compiler.rs",
+            "crates/autocad-writer/src/portable_plot/resources.rs",
+            "crates/autocad-writer/src/portable_plot/adapter.rs",
+        ]
+        .into_iter()
+        .map(|path| root.join(path))
+        .collect::<Vec<_>>();
+
+        let ordered = canonical_file_set(root, &paths)
+            .into_iter()
+            .map(|(relative, _)| relative)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ordered,
+            [
+                "crates/autocad-writer/src/portable_plot/adapter.rs",
+                "crates/autocad-writer/src/portable_plot/adapter/compiler.rs",
+                "crates/autocad-writer/src/portable_plot/resources.rs",
+                "crates/autocad-writer/src/portable_plot/resources/ctb.rs",
+            ]
+        );
+    }
 
     #[test]
     fn source_commit_override_requires_a_canonical_git_object_id() {

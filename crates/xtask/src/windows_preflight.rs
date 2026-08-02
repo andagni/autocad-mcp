@@ -944,13 +944,25 @@ fn validate_info(
             "{label} introspection source commit does not match snapshotted HEAD"
         ));
     }
-    if info.build_identity.source_tree_sha256 != head_inputs.source_tree_sha256
-        || info.build_identity.cargo_lock_sha256 != head_inputs.cargo_lock_sha256
-        || info.build_identity.shared_operation_source_sha256
-            != head_inputs.shared_operation_source_sha256
+    if info.build_identity.source_tree_sha256 != head_inputs.source_tree_sha256 {
+        return Err(format!(
+            "{label} introspection source-tree SHA-256 does not match snapshotted HEAD objects (embedded {}, expected {})",
+            info.build_identity.source_tree_sha256, head_inputs.source_tree_sha256
+        ));
+    }
+    if info.build_identity.cargo_lock_sha256 != head_inputs.cargo_lock_sha256 {
+        return Err(format!(
+            "{label} introspection Cargo.lock SHA-256 does not match snapshotted HEAD object (embedded {}, expected {})",
+            info.build_identity.cargo_lock_sha256, head_inputs.cargo_lock_sha256
+        ));
+    }
+    if info.build_identity.shared_operation_source_sha256
+        != head_inputs.shared_operation_source_sha256
     {
         return Err(format!(
-            "{label} introspection build inputs do not match snapshotted HEAD objects"
+            "{label} introspection shared-operation SHA-256 does not match snapshotted HEAD objects (embedded {}, expected {})",
+            info.build_identity.shared_operation_source_sha256,
+            head_inputs.shared_operation_source_sha256
         ));
     }
     if info.build_identity.target != WINDOWS_TARGET
@@ -1969,7 +1981,7 @@ mod tests {
             &"2".repeat(64),
         )
         .unwrap_err()
-        .contains("snapshotted HEAD objects"));
+        .contains("Cargo.lock SHA-256"));
 
         let mut divergent_compiler = info(true);
         divergent_compiler.build_identity.compiler =
