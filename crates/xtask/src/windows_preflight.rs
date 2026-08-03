@@ -23,6 +23,7 @@ const REQUIRED_CRT_LINKAGE: &str = "static";
 const XREF_CERTIFICATION_INFO_SCHEMA_VERSION: u32 = 4;
 const STATIC_CRT_ENCODED_RUSTFLAGS: &str = "-C\x1ftarget-feature=+crt-static";
 const DISABLED_INCREMENTAL_COMPILATION: &str = "0";
+const SCCACHE_RUSTC_WRAPPER: &str = "sccache";
 const SOURCE_COMMIT_ENV: &str = "AUTOCAD_MCP_SOURCE_COMMIT";
 const CERTIFIED_ARG_SHA256_ENV: &str = "AUTOCAD_MCP_XREF_CERTIFIED_ARG_SHA256";
 const CERTIFIED_ARG_POLICY_ID_ENV: &str = "AUTOCAD_MCP_XREF_CERTIFIED_ARG_POLICY_ID";
@@ -106,6 +107,7 @@ struct WindowsBuildPreflightSummary {
     compiler: String,
     profile: &'static str,
     cargo_incremental: bool,
+    rustc_wrapper: Option<&'static str>,
     release_build_command: String,
     instrumented_build_command: String,
     preview_build_command: String,
@@ -151,6 +153,7 @@ pub(crate) fn run_windows_build_preflight(
     arg_path: &Path,
     arg_policy_path: &Path,
     output_dir: &Path,
+    use_sccache: bool,
 ) -> Result<String, String> {
     if !cfg!(windows) {
         return Err(
@@ -227,6 +230,7 @@ pub(crate) fn run_windows_build_preflight(
             &rust_toolchain,
             &head_inputs.source_commit,
             &arg_identity,
+            use_sccache,
         )?;
     }
 
@@ -343,6 +347,7 @@ pub(crate) fn run_windows_build_preflight(
         compiler: release_info.build_identity.compiler,
         profile: RELEASE_PROFILE,
         cargo_incremental: false,
+        rustc_wrapper: use_sccache.then_some(SCCACHE_RUSTC_WRAPPER),
         release_build_command: format!("cargo {}", display_arguments(&commands[0].arguments)),
         instrumented_build_command: format!("cargo {}", display_arguments(&commands[1].arguments)),
         preview_build_command: format!("cargo {}", display_arguments(&commands[2].arguments)),
@@ -560,6 +565,7 @@ fn run_build_command(
     rust_toolchain: &str,
     source_commit: &str,
     arg_identity: &CertifiedArgBuildIdentity,
+    use_sccache: bool,
 ) -> Result<(), String> {
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo"));
     let mut command = configured_build_process(
@@ -569,6 +575,7 @@ fn run_build_command(
         rust_toolchain,
         source_commit,
         arg_identity,
+        use_sccache,
     );
     let status = command.status().map_err(|error| {
         format!(
@@ -600,6 +607,7 @@ fn configured_build_process(
     rust_toolchain: &str,
     source_commit: &str,
     arg_identity: &CertifiedArgBuildIdentity,
+    use_sccache: bool,
 ) -> Command {
     let mut command = Command::new(cargo);
     command.args(&spec.arguments).current_dir(root);
@@ -617,6 +625,13 @@ fn configured_build_process(
         .env(CERTIFIED_ARG_SHA256_ENV, &arg_identity.sha256)
         .env(CERTIFIED_ARG_POLICY_ID_ENV, &arg_identity.policy_id)
         .env(CERTIFIED_ARG_POLICY_SHA256_ENV, &arg_identity.policy_sha256);
+    if use_sccache {
+        // The caller must opt in through the closed CLI flag. Ambient wrappers
+        // remain scrubbed above; the only wrapper this path can reintroduce is
+        // the literal sccache name, which the workflows resolve through their
+        // pinned setup action.
+        command.env("RUSTC_WRAPPER", SCCACHE_RUSTC_WRAPPER);
+    }
     command
 }
 
@@ -763,6 +778,7 @@ fn is_build_override_environment_name(name: &OsStr) -> bool {
             | "CARGO_BUILD_INCREMENTAL"
             | "CARGO_BUILD_RUSTC"
             | "CARGO_BUILD_RUSTC_WRAPPER"
+            | "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER"
             | "CARGO_BUILD_RUSTFLAGS"
             | "CARGO_BUILD_TARGET"
             | "CARGO_BUILD_TARGET_DIR"
@@ -1449,12 +1465,51 @@ mod tests {
             "1.97.0",
             "0123456789012345678901234567890123456789",
             &identity,
+            false,
         );
         let rustup_toolchain = command
             .get_envs()
             .find(|(name, _)| *name == OsStr::new("RUSTUP_TOOLCHAIN"))
             .and_then(|(_, value)| value);
         assert_eq!(rustup_toolchain, Some(OsStr::new("1.97.0")));
+    }
+
+    #[test]
+    fn nested_build_process_reintroduces_only_explicit_sccache() {
+        let spec = build_command(PathBuf::from("target/preflight"), false, false);
+        let identity = CertifiedArgBuildIdentity {
+            sha256: "a".repeat(64),
+            policy_id: "public-development".to_owned(),
+            policy_sha256: "b".repeat(64),
+        };
+        let command = configured_build_process(
+            Path::new("repository"),
+            &spec,
+            OsStr::new("cargo"),
+            "1.97.0",
+            "0123456789012345678901234567890123456789",
+            &identity,
+            true,
+        );
+        let rustc_wrapper = command
+            .get_envs()
+            .find(|(name, _)| *name == OsStr::new("RUSTC_WRAPPER"))
+            .and_then(|(_, value)| value);
+        assert_eq!(rustc_wrapper, Some(OsStr::new(SCCACHE_RUSTC_WRAPPER)));
+        for name in [
+            "RUSTC_WORKSPACE_WRAPPER",
+            "CARGO_BUILD_RUSTC_WRAPPER",
+            "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER",
+        ] {
+            assert_ne!(
+                command
+                    .get_envs()
+                    .find(|(configured, _)| *configured == OsStr::new(name))
+                    .and_then(|(_, value)| value),
+                Some(OsStr::new(SCCACHE_RUSTC_WRAPPER)),
+                "{name} must not be reintroduced"
+            );
+        }
     }
 
     #[test]
@@ -1478,6 +1533,7 @@ mod tests {
             "RUSTFLAGS",
             "RUSTUP_TOOLCHAIN",
             "rustc_wrapper",
+            "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER",
             "CARGO_ENCODED_RUSTFLAGS",
             "cargo_profile_release_lto",
             "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",

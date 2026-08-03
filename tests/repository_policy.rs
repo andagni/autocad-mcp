@@ -9,11 +9,11 @@ const PROJECT_LICENSE: &str = "GPL-3.0-or-later";
 const CANONICAL_GPLV3_SHA256: &str =
     "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986";
 const WINDOWS_XREF_WORKFLOW_SHA256: &str =
-    "54c1d868f130d93270fc07c53df6c28ee4465878070b9603c0cbba69c4161db1";
+    "b5c7656cea16875179f11796ddaa303cc18397ba502a952bf92174390f7d2712";
 const WINDOWS_NATIVE_HARNESS_WORKFLOW_SHA256: &str =
-    "0804fb1655c441a3496f2765c286466fcf6d1c17acac12bad25ef4506f01f06c";
+    "03b85fed84f9fbeb85cef3feb168a27f0a29550babb91d87dad2d767d05b164b";
 const WINDOWS_PREVIEW_REVIEW_WORKFLOW_SHA256: &str =
-    "061b991abd7b73b4f74addec2b4fb69e9a0c27a1bd3474f5e57d956d49cbab73";
+    "ed97fac0c54175f4558b73847d2c4b2d140fec61e4700dceabce68acf190565f";
 const MCPB_VALIDATOR_PACKAGE_SHA256: &str =
     "ff8efca13765d492da22711f73935d09f95871dfa30d2275844f6ec182956240";
 const MCPB_VALIDATOR_LOCK_SHA256: &str =
@@ -1425,6 +1425,11 @@ fn assert_windows_development_cache_contract(
         "{name} must use the shared GitHub Actions compiler cache"
     );
     assert_eq!(
+        workflow.matches("SCCACHE_IDLE_TIMEOUT: \"0\"").count(),
+        1,
+        "{name} must preserve compiler-cache statistics for the complete job"
+    );
+    assert_eq!(
         workflow
             .matches("SCCACHE_BASEDIRS: ${{ github.workspace }}")
             .count(),
@@ -1438,6 +1443,7 @@ fn assert_windows_development_cache_contract(
         "RUSTC_WRAPPER: sccache",
         "SCCACHE_BASEDIRS: ${{ github.workspace }}",
         "SCCACHE_GHA_ENABLED: \"true\"",
+        "SCCACHE_IDLE_TIMEOUT: \"0\"",
     ] {
         assert!(
             workflow
@@ -1848,7 +1854,7 @@ fn windows_workflows_are_narrow_read_only_and_immutable() {
         "cargo fetch --locked",
         "cargo run --locked -p xtask -- windows-native-tests --suite semantic --validation-receipt",
         "cargo run --locked -p xtask -- source-candidate-seal --output-dir target/windows-source-candidate --mode preview",
-        "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight",
+        "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-certification-preflight --sccache",
         "cargo run --locked -p release-packager -- desktop-smoke --binary target/windows-certification-preflight/artifacts/release/autocad-mcp.exe --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf",
         "cargo run --locked -p release-packager -- lsp-smoke --binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe",
         "cargo run --locked -p release-packager -- package --target windows-x64 --binary target/windows-certification-preflight/artifacts/preview/autocad-mcp.exe --lsp-binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe --out-dir target/windows-preview-package --preview",
@@ -2243,6 +2249,11 @@ fn preview_review_workflow_is_signed_protected_and_non_publishing() {
             "{name} must use the GitHub Actions compiler-cache backend"
         );
         assert_eq!(
+            job.matches("SCCACHE_IDLE_TIMEOUT: \"0\"").count(),
+            1,
+            "{name} must preserve compiler-cache statistics for the complete job"
+        );
+        assert_eq!(
             job.matches(sccache_action).count(),
             1,
             "{name} must install the reviewed sccache action"
@@ -2277,6 +2288,7 @@ fn preview_review_workflow_is_signed_protected_and_non_publishing() {
             "RUSTC_WRAPPER: sccache",
             "SCCACHE_BASEDIRS: ${{ github.workspace }}",
             "SCCACHE_GHA_ENABLED: \"true\"",
+            "SCCACHE_IDLE_TIMEOUT: \"0\"",
         ] {
             assert!(
                 job.find(variable).is_some_and(|position| position < steps),
@@ -2488,7 +2500,7 @@ fn preview_review_workflow_is_signed_protected_and_non_publishing() {
         "Preview candidate single-line command inventory changed"
     );
     assert!(workflow.contains(
-        "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-preview-build-preflight"
+        "cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-preview-build-preflight --sccache"
     ));
     for contract in [
         "SIGNING_CERTIFICATE_PFX_SHA256 -cnotmatch '^[0-9a-f]{64}$'",

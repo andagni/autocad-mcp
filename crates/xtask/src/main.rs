@@ -1501,6 +1501,30 @@ fn report_windows_native_tests(
     }
 }
 
+fn report_windows_build_preflight(
+    arg_path: &Path,
+    arg_policy: &Path,
+    output_dir: &Path,
+    use_sccache: bool,
+) -> ExitCode {
+    match windows_preflight::run_windows_build_preflight(
+        &repository_root(),
+        arg_path,
+        arg_policy,
+        output_dir,
+        use_sccache,
+    ) {
+        Ok(summary) => {
+            println!("{summary}");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("ERROR: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn git_output(root: &Path, arguments: &[&str]) -> Result<String, String> {
     let output = git_command(root)
         .args(arguments)
@@ -2439,25 +2463,30 @@ fn main() -> ExitCode {
                 && policy_flag == "--arg-policy"
                 && output_flag == "--output-dir" =>
         {
-            match windows_preflight::run_windows_build_preflight(
-                &repository_root(),
+            report_windows_build_preflight(
                 Path::new(arg_path),
                 Path::new(arg_policy),
                 Path::new(output_dir),
-            ) {
-                Ok(summary) => {
-                    println!("{summary}");
-                    ExitCode::SUCCESS
-                }
-                Err(error) => {
-                    eprintln!("ERROR: {error}");
-                    ExitCode::FAILURE
-                }
-            }
+                false,
+            )
+        }
+        [command, arg_flag, arg_path, policy_flag, arg_policy, output_flag, output_dir, sccache_flag]
+            if command == "windows-certification-build-preflight"
+                && arg_flag == "--arg"
+                && policy_flag == "--arg-policy"
+                && output_flag == "--output-dir"
+                && sccache_flag == "--sccache" =>
+        {
+            report_windows_build_preflight(
+                Path::new(arg_path),
+                Path::new(arg_policy),
+                Path::new(output_dir),
+                true,
+            )
         }
         _ => {
             eprintln!(
-                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- local-gate [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- source-quality [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- candidate-quality [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- clean-core-workspace [--dry-run]\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename] [--validation-receipt]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- pre-push-full <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child>\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
+                "usage: cargo run --locked -p xtask -- windows-source-bundle --output <fresh-target-or-dist-path.zip> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-seal --output-dir <fresh-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- source-candidate-verify --candidate-dir <sealed-directory> [--mode release|preview]\n       cargo run --locked -p xtask -- current-distribution-verify --candidate-dir <sealed-directory> --approval <owner-approval.json> --mcpb <package.mcpb> --source-closure-sbom <spdx.json> --build-attestation <attestation.json> [--clean-host-receipt <Preview-receipt.json>]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- local-gate [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- source-quality [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- candidate-quality [--timings]\n       cargo run --locked -p xtask --no-default-features --bin quality-dispatch -- clean-core-workspace [--dry-run]\n       cargo run --locked -p xtask -- windows-native-tests [--suite all|semantic|guarded-rename] [--validation-receipt]\n       cargo run --locked -p xtask -- preview-autocad-e2e --plan <strict-plan.json> --work-dir <fresh-fixed-local-directory>\n       cargo run --locked -p xtask -- pre-push <remote-name> <remote-location>\n       cargo run --locked -p xtask -- pre-push-full <remote-name> <remote-location>\n       cargo run --locked -p xtask -- certification-manifest-preflight --tier2-manifest <schema-v3.json> --xref-manifest <schema-v4.json>\n       cargo run --locked -p xtask -- windows-certification-build-preflight --arg <profile.arg> --arg-policy <closed-policy.json> --output-dir <fresh-target-child> [--sccache]\n       Preview selection requires --clean-host-receipt; mode defaults to release when omitted"
             );
             ExitCode::from(2)
         }

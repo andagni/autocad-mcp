@@ -43,6 +43,7 @@ jobs:
       RUSTC_WRAPPER: sccache
       SCCACHE_BASEDIRS: ${{ github.workspace }}
       SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_IDLE_TIMEOUT: "0"
       EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
     steps:
       - name: Require the authorized GitHub execution context
@@ -123,7 +124,7 @@ jobs:
       - name: Build and inspect the native binary set
         shell: pwsh
         run: |
-          $summary = & cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-preview-build-preflight
+          $summary = & cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests/fixtures/windows_certification/public-development-profile.arg --arg-policy tests/fixtures/windows_certification/public-development-arg-policy.json --output-dir target/windows-preview-build-preflight --sccache
           if ($LASTEXITCODE -ne 0) {
             throw "Windows build preflight failed"
           }
@@ -530,6 +531,7 @@ jobs:
       RUSTC_WRAPPER: sccache
       SCCACHE_BASEDIRS: ${{ github.workspace }}
       SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_IDLE_TIMEOUT: "0"
       EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
       EXPECTED_SIGNING_CERTIFICATE_THUMBPRINT: ${{ inputs.signing_certificate_thumbprint }}
       EXPECTED_CANDIDATE_SEAL_SHA256: ${{ needs.build-preview-inputs.outputs.candidate_seal_sha256 }}

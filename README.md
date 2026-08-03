@@ -696,6 +696,9 @@ build inputs, or packaged payload. It restores the shared locked dependency
 cache and compiler cache for every Cargo step. Its semantic suite may reuse an
 exact, main-authored validation receipt bound to the tracked test closure and
 hosted Windows image; pull requests can read but cannot publish that cache.
+The workflow keeps the sccache daemon alive for the complete job so its final
+statistics cover every Cargo stage rather than only activity after a long idle
+build.
 The guarded-rename feasibility probe, source candidate, Windows binaries, and
 package/LSP smoke still run fresh whenever their workflow is dispatched.
 The semantic suite, Preview source-candidate seal, and native binary build are
@@ -718,6 +721,11 @@ cargo run --locked -p xtask -- windows-certification-build-preflight --arg tests
 cargo run --locked -p release-packager -- package --target windows-x64 --binary target/windows-certification-preflight/artifacts/preview/autocad-mcp.exe --lsp-binary target/windows-certification-preflight/artifacts/release/autolisp-lsp.exe --out-dir target/windows-preview-package --preview
 cargo run --locked -p release-packager -- smoke --package target/windows-preview-package/autocad-mcp-windows-x64-preview.mcpb --fixture tests/fixtures/xrefs/portable-evidence-ascii.dxf --require-executable --require-lsp-executable
 ```
+
+The build preflight always scrubs ambient compiler and Cargo overrides. After a
+reviewed sccache installation, append `--sccache` to the preflight command to
+reintroduce only the literal `sccache` rustc wrapper; the Windows workflows use
+that closed opt-in after their pinned setup action.
 
 The resulting evaluation artifact is:
 

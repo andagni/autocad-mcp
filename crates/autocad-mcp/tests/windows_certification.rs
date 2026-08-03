@@ -7890,31 +7890,19 @@ Start-Sleep -Seconds 120
     fn windows_native_semantic_bounded_certification_runner_rejects_a_successful_parent_with_a_live_descendant(
     ) {
         let directory = tempfile::tempdir().unwrap();
-        let script_path = directory.path().join("leave-descendant.ps1");
         let pid_path = directory.path().join("process-ids.txt");
-        std::fs::write(
-            &script_path,
-            r#"param([string]$PidPath)
-$descendant = Start-Process -FilePath $env:ComSpec -ArgumentList @('/d', '/c', 'ping -n 120 127.0.0.1 >NUL') -PassThru
-Set-Content -LiteralPath $PidPath -Value @($PID, $descendant.Id) -Encoding ascii
-exit 0
-"#,
-        )
-        .unwrap();
-
-        let mut command = Command::new("powershell.exe");
+        let mut command = Command::new(std::env::current_exe().unwrap());
         command
             .args([
-                "-NoLogo",
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
+                "--ignored",
+                "--exact",
+                "certification_harness_tests::bounded_certification_runner_live_descendant_child",
+                "--test-threads=1",
             ])
-            .arg(&script_path)
-            .arg("-PidPath")
-            .arg(&pid_path);
+            .env(
+                "AUTOCAD_MCP_CERTIFICATION_LIVE_DESCENDANT_PID_PATH",
+                &pid_path,
+            );
         let error = run_command_bounded(command, Duration::from_secs(5)).unwrap_err();
         assert!(
             error.contains("CLI exited while"),
@@ -7939,6 +7927,30 @@ exit 0
         for process_id in process_ids {
             wait_for_windows_process_exit(process_id, Duration::from_secs(5)).unwrap();
         }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn bounded_certification_runner_live_descendant_child() {
+        let pid_path = std::env::var_os("AUTOCAD_MCP_CERTIFICATION_LIVE_DESCENDANT_PID_PATH")
+            .map(PathBuf::from)
+            .expect("live-descendant helper requires its PID output path");
+        let command_processor =
+            std::env::var_os("ComSpec").unwrap_or_else(|| std::ffi::OsString::from("cmd.exe"));
+        let descendant = Command::new(command_processor)
+            .args(["/d", "/c", "ping -n 120 127.0.0.1 >NUL"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn live descendant");
+        std::fs::write(
+            pid_path,
+            format!("{}\n{}\n", std::process::id(), descendant.id()),
+        )
+        .expect("record live-descendant process IDs");
+        drop(descendant);
     }
 
     #[test]
