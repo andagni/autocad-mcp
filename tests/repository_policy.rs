@@ -484,10 +484,30 @@ fn source_validation_profile_partitions_source_candidate_and_preview_compilation
         std::fs::read_to_string(repository.join("crates/autocad-writer/Cargo.toml"))
             .expect("autocad-writer manifest should be readable");
     for contract in [
-        "portable-plotting = [\"dep:krilla\", \"dep:rustybuzz\", \"dep:write-fonts\"]",
+        concat!(
+            "portable-plotting = [\n",
+            "    \"dep:krilla\",\n",
+            "    \"dep:rustybuzz\",\n",
+            "    \"dep:tempfile\",\n",
+            "    \"dep:windows-sys\",\n",
+            "    \"dep:write-fonts\",\n",
+            "]",
+        ),
         "portable-plot-qualification = [\"portable-plotting\", \"dep:hayro\", \"dep:lopdf\"]",
         "krilla = { version = \"=0.8.2\", default-features = false, optional = true }",
         "rustybuzz = { version = \"=0.20.1\", optional = true }",
+        "tempfile = { workspace = true, optional = true }",
+        concat!(
+            "[target.'cfg(windows)'.dependencies]\n",
+            "windows-sys = { version = \"0.61.2\", optional = true, features = [\n",
+            "    \"Win32_Foundation\",\n",
+            "    \"Win32_Security\",\n",
+            "    \"Win32_Storage_FileSystem\",\n",
+            "    \"Win32_System_Diagnostics_ToolHelp\",\n",
+            "    \"Win32_System_JobObjects\",\n",
+            "    \"Win32_System_Threading\",\n",
+            "] }",
+        ),
         "write-fonts = { version = \"=0.48.1\", default-features = false, optional = true }",
         "candidate-only = true",
         "schema-version = 4",
@@ -504,6 +524,20 @@ fn source_validation_profile_partitions_source_candidate_and_preview_compilation
             .count(),
         2,
         "the portable worker binary and its process test must stay outside the default graph"
+    );
+    assert_eq!(
+        writer_manifest
+            .matches("targets = [\"lib\", \"bin:portable-plot-corpus-qualification\"]")
+            .count(),
+        1,
+        "the governed candidate profile must compile the corpus qualification binary"
+    );
+    assert_eq!(
+        writer_manifest
+            .matches("required-features = [\"portable-plot-qualification\"]")
+            .count(),
+        1,
+        "the corpus qualification binary must stay inside its candidate-only dependency graph"
     );
 
     let integration_source =

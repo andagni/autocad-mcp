@@ -20,14 +20,20 @@ name = "portable-plot-qualification"
 features = ["portable-plot-qualification"]
 clippy = true
 test = true
-targets = ["lib"]
+targets = ["lib", "bin:portable-plot-corpus-qualification"]
 candidate-only = true
 cache = "disposable"
 
 [features]
 default = []
 preview = []
-portable-plotting = ["dep:krilla", "dep:rustybuzz", "dep:write-fonts"]
+portable-plotting = [
+    "dep:krilla",
+    "dep:rustybuzz",
+    "dep:tempfile",
+    "dep:windows-sys",
+    "dep:write-fonts",
+]
 portable-plot-qualification = ["portable-plotting", "dep:hayro", "dep:lopdf"]
 
 [dependencies]
@@ -43,7 +49,18 @@ schemars = "1"
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+tempfile = { workspace = true, optional = true }
 write-fonts = { version = "=0.48.1", default-features = false, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }
 
 [lib]
 path = "src/mod.rs"
@@ -52,6 +69,11 @@ path = "src/mod.rs"
 name = "portable-plot-worker"
 path = "src/bin/portable-plot-worker.rs"
 required-features = ["portable-plotting"]
+
+[[bin]]
+name = "portable-plot-corpus-qualification"
+path = "src/bin/portable-plot-corpus-qualification.rs"
+required-features = ["portable-plot-qualification"]
 
 [[test]]
 name = "portable_worker"

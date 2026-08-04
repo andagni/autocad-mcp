@@ -6,6 +6,7 @@
 //! drawing backend or resolving drawing-owned host paths.
 
 mod adapter;
+mod delivery;
 mod diagnostics;
 mod display_list;
 mod geometry;
@@ -21,6 +22,10 @@ pub use adapter::{
     BackendLimitation, PortablePlotLimits, PortablePlotReceipt, PortableResourceReceipt,
     PortableSceneCompilation, PortableSourceInventory, SelectedLayoutInventory,
     SourceInventoryCounts,
+};
+pub use delivery::{
+    deliver_portable_pdf, PortableDeliveryFidelity, PortableOutputPolicy,
+    PortablePlotDeliveryOptions, PortablePlotDeliveryReceipt,
 };
 pub use diagnostics::{
     DiagnosticLedger, DispositionCounts, FidelityDisposition, FidelitySummary, PlotCompleteness,

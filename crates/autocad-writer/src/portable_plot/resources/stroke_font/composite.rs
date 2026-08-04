@@ -168,6 +168,10 @@ impl ShxCompositeFontResource {
         &self.bytes
     }
 
+    pub(crate) fn shared_bytes(&self) -> Arc<[u8]> {
+        Arc::clone(&self.bytes)
+    }
+
     pub(crate) fn selection(&self, character: char) -> ShxCompositeGlyphSelection {
         self.mappings
             .get(&character)

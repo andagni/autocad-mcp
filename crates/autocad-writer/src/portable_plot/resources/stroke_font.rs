@@ -32,6 +32,7 @@ pub struct ShxStrokeFontResource {
     cap_height: f64,
     descent: f64,
     glyphs: BTreeMap<char, ShxStrokeGlyph>,
+    legacy_code_points: BTreeMap<u16, char>,
 }
 
 /// Caller-controlled policy for bounded raw SHX admission.
@@ -218,6 +219,7 @@ impl ShxStrokeFontResource {
             expected_digest,
             "portable_shx_v1",
             document,
+            BTreeMap::new(),
         )
     }
 
@@ -237,6 +239,7 @@ impl ShxStrokeFontResource {
             expected_digest,
             decoded.source_format,
             decoded.document,
+            options.legacy_code_points.clone(),
         )
     }
 
@@ -246,6 +249,7 @@ impl ShxStrokeFontResource {
         digest: ResourceDigest,
         source_format: &'static str,
         document: StrokeFontDocument,
+        legacy_code_points: BTreeMap<u16, char>,
     ) -> Result<Self, PortablePlotError> {
         let (cap_height, descent, glyphs, semantic_digest) = validate_document(document)?;
         Ok(Self {
@@ -257,6 +261,7 @@ impl ShxStrokeFontResource {
             cap_height,
             descent,
             glyphs,
+            legacy_code_points,
         })
     }
 
@@ -281,6 +286,14 @@ impl ShxStrokeFontResource {
 
     pub(crate) fn bytes(&self) -> &[u8] {
         &self.bytes
+    }
+
+    pub(crate) fn shared_bytes(&self) -> Arc<[u8]> {
+        Arc::clone(&self.bytes)
+    }
+
+    pub(crate) fn legacy_code_points(&self) -> &BTreeMap<u16, char> {
+        &self.legacy_code_points
     }
 
     pub(crate) fn cap_height(&self) -> f64 {

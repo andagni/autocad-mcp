@@ -3,13 +3,13 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "AutoCAD-MCP Windows x64 product build-source closure",
-  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/windows-x64-source-build-closure-31cfa1ec5a7d0b91c25d3c1c271ae686672a469017cd69b3b6ee0b40c6a67a9b",
+  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/windows-x64-source-build-closure-b856a7bbb064f6c78911a8ad997ac89c0836e9ce6191f29b8726eb4d77d20849",
   "creationInfo": {
-    "created": "2026-07-31T14:36:20Z",
+    "created": "2026-08-03T13:24:34Z",
     "creators": [
       "Tool: AutoCAD-MCP distribution-evidence-8"
     ],
-    "comment": "Generated deterministically from Cargo.lock and two exact commands: `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features` for Release, and `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features --features autocad-mcp/preview` for Preview. Generation requires the selected normal/build package and dependency-edge closures of the autocad-mcp and autolisp-lsp product roots to be identical across both modes, excluding development-only edges; any divergence fails closed pending separately reviewed mode-specific evidence. Cargo.lock SHA-256: 8c04b2abd8b339a1c75dcd9043bcf62fbfd64abf89740ad065b2ba4f33c6e494. This is conservative target build-source evidence, including build scripts and proc macros; it is not a linked-binary or native-object SBOM and does not assert legal approval. Exact executable hashes and native imports require a separate build attestation."
+    "comment": "Generated deterministically from Cargo.lock and two exact commands: `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features` for Release, and `cargo metadata --locked --offline --format-version 1 --filter-platform x86_64-pc-windows-msvc --no-default-features --features autocad-mcp/preview` for Preview. Generation requires the selected normal/build package and dependency-edge closures of the autocad-mcp and autolisp-lsp product roots to be identical across both modes, excluding development-only edges; any divergence fails closed pending separately reviewed mode-specific evidence. Cargo.lock SHA-256: bc4f2ebd3fb18996866e6610a635f567ca9e2d2559852145876b6da98edc9e28. This is conservative target build-source evidence, including build scripts and proc macros; it is not a linked-binary or native-object SBOM and does not assert legal approval. Exact executable hashes and native imports require a separate build attestation."
   },
   "documentDescribes": [
     "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",

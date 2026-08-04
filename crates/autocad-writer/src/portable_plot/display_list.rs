@@ -215,6 +215,10 @@ impl FontResource {
         &self.bytes
     }
 
+    pub(crate) fn shared_bytes(&self) -> Arc<[u8]> {
+        Arc::clone(&self.bytes)
+    }
+
     pub fn face_index(&self) -> u32 {
         self.face_index
     }
@@ -317,6 +321,10 @@ impl ImageResource {
 
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
+    }
+
+    pub(crate) fn shared_bytes(&self) -> Arc<[u8]> {
+        Arc::clone(&self.bytes)
     }
 
     pub fn digest(&self) -> ResourceDigest {

@@ -1010,6 +1010,7 @@ mod tests {
         assert!(resource.glyph('A').is_some());
         assert!(resource.glyph('\u{20ac}').is_some());
         assert!(resource.glyph('\u{00b0}').is_some());
+        assert_eq!(resource.legacy_code_points().get(&0x80), Some(&'\u{20ac}'));
     }
 
     #[test]

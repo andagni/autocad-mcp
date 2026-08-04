@@ -3,13 +3,13 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "AutoCAD-MCP Cargo.lock source dependency graph",
-  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-31cfa1ec5a7d0b91c25d3c1c271ae686672a469017cd69b3b6ee0b40c6a67a9b",
+  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-b856a7bbb064f6c78911a8ad997ac89c0836e9ce6191f29b8726eb4d77d20849",
   "creationInfo": {
-    "created": "2026-07-31T14:36:20Z",
+    "created": "2026-08-03T13:24:34Z",
     "creators": [
       "Tool: AutoCAD-MCP distribution-evidence-8"
     ],
-    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1 --all-features`, including workspace, every declared feature, development, build, and all-target dependencies. Cargo.lock SHA-256: 8c04b2abd8b339a1c75dcd9043bcf62fbfd64abf89740ad065b2ba4f33c6e494. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
+    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1 --all-features`, including workspace, every declared feature, development, build, and all-target dependencies. Cargo.lock SHA-256: bc4f2ebd3fb18996866e6610a635f567ca9e2d2559852145876b6da98edc9e28. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
   },
   "documentDescribes": [
     "SPDXRef-Package-130ec320e51ed7c366c24c909c227797f31ec6a016ac64b4553aa4aab5a2a576",
@@ -10393,6 +10393,11 @@
     {
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
       "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-3e20b48cc7f80ce7cc6dba229b50207497d767c02ad3fc8573f82e4e50b5a519"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
+      "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-40414871e5ff51873a76f62e54f9c0bba832bc0e2cc1e19caabd5b5b9c496b3d"
     },
     {
@@ -10404,6 +10409,11 @@
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-4a6c1d3754457c2d6af5f242f6df04e7cd9cff44d0b97ead45d7736da50b497e"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b"
     },
     {
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",

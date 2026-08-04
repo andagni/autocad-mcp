@@ -12,10 +12,10 @@ pub use stroke_font::{ShxAdmissionOptions, ShxCompositeFontResource, ShxStrokeFo
 pub(crate) use stroke_font::{ShxCompositeFace, ShxStrokeCommand, ShxStrokeGlyph};
 
 use super::{
-    FontId, FontResource, ImageResource, LineCap, LineJoin, PortablePlotError, ResourceDigest,
-    SceneColor,
+    FontId, FontResource, ImageColorSpace, ImageResource, LineCap, LineJoin, PortablePlotError,
+    ResourceDigest, SceneColor,
 };
-use crate::DrawingSnapshot;
+use crate::{DrawingFormat, DrawingSnapshot};
 
 /// Immutable resources supplied explicitly for one portable compilation.
 ///
@@ -312,6 +312,10 @@ impl PlotStyleResource {
         &self.bytes
     }
 
+    pub(crate) fn shared_bytes(&self) -> Arc<[u8]> {
+        Arc::clone(&self.bytes)
+    }
+
     pub(crate) fn style(&self, aci: u16) -> Option<PlotStyleRule> {
         self.styles.get(&aci).copied()
     }
@@ -462,6 +466,63 @@ impl XrefResource {
 #[derive(Debug, Clone)]
 struct XrefBinding {
     resource: XrefResource,
+}
+
+/// Path-free source material used to reconstruct an admitted bundle in the
+/// dedicated worker. Every variant carries the exact caller-supplied bytes
+/// and both byte and semantic bindings where the resource format has a
+/// normalized semantic representation.
+#[derive(Debug, Clone)]
+pub(crate) enum PortableResourceTransport {
+    Font {
+        binding_identity: String,
+        fallback: bool,
+        logical_identity: String,
+        face_index: u32,
+        digest: ResourceDigest,
+        bytes: Arc<[u8]>,
+    },
+    StrokeFont {
+        binding_identity: String,
+        logical_identity: String,
+        source_format: String,
+        semantic_digest: ResourceDigest,
+        legacy_code_points: BTreeMap<u16, char>,
+        digest: ResourceDigest,
+        bytes: Arc<[u8]>,
+    },
+    CompositeStrokeFont {
+        primary_binding_identity: String,
+        big_binding_identity: String,
+        logical_identity: String,
+        semantic_digest: ResourceDigest,
+        digest: ResourceDigest,
+        bytes: Arc<[u8]>,
+    },
+    Image {
+        binding_identity: String,
+        logical_identity: String,
+        width: u32,
+        height: u32,
+        color_space: ImageColorSpace,
+        digest: ResourceDigest,
+        bytes: Arc<[u8]>,
+    },
+    PlotStyle {
+        binding_identity: String,
+        logical_identity: String,
+        source_format: String,
+        semantic_digest: ResourceDigest,
+        digest: ResourceDigest,
+        bytes: Arc<[u8]>,
+    },
+    Xref {
+        binding_identity: String,
+        logical_identity: String,
+        format: DrawingFormat,
+        digest: ResourceDigest,
+        bytes: Arc<[u8]>,
+    },
 }
 
 impl PortableResourceBundle {
@@ -624,6 +685,89 @@ impl PortableResourceBundle {
 
     pub fn xref_count(&self) -> usize {
         self.xrefs.len()
+    }
+
+    pub(crate) fn transport_entries(&self) -> Vec<PortableResourceTransport> {
+        let mut entries = Vec::with_capacity(
+            self.font_count()
+                + self.shx_stroke_font_count()
+                + self.shx_composite_font_count()
+                + self.image_count()
+                + self.plot_style_count()
+                + self.xref_count(),
+        );
+        entries.extend(self.fonts.iter().map(|(binding_identity, binding)| {
+            PortableResourceTransport::Font {
+                binding_identity: binding_identity.clone(),
+                fallback: false,
+                logical_identity: binding.resource.logical_identity().to_string(),
+                face_index: binding.resource.face_index(),
+                digest: binding.resource.digest(),
+                bytes: binding.resource.shared_bytes(),
+            }
+        }));
+        if let Some(binding) = &self.fallback_font {
+            entries.push(PortableResourceTransport::Font {
+                binding_identity: String::new(),
+                fallback: true,
+                logical_identity: binding.resource.logical_identity().to_string(),
+                face_index: binding.resource.face_index(),
+                digest: binding.resource.digest(),
+                bytes: binding.resource.shared_bytes(),
+            });
+        }
+        entries.extend(self.stroke_fonts.iter().map(|(binding_identity, binding)| {
+            PortableResourceTransport::StrokeFont {
+                binding_identity: binding_identity.clone(),
+                logical_identity: binding.resource.logical_identity().to_string(),
+                source_format: binding.resource.source_format().to_string(),
+                semantic_digest: binding.resource.semantic_digest(),
+                legacy_code_points: binding.resource.legacy_code_points().clone(),
+                digest: binding.resource.digest(),
+                bytes: binding.resource.shared_bytes(),
+            }
+        }));
+        entries.extend(self.composite_stroke_fonts.iter().map(|(key, binding)| {
+            PortableResourceTransport::CompositeStrokeFont {
+                primary_binding_identity: key.primary.clone(),
+                big_binding_identity: key.big.clone(),
+                logical_identity: binding.resource.logical_identity().to_string(),
+                semantic_digest: binding.resource.semantic_digest(),
+                digest: binding.resource.digest(),
+                bytes: binding.resource.shared_bytes(),
+            }
+        }));
+        entries.extend(self.images.iter().map(|(binding_identity, binding)| {
+            PortableResourceTransport::Image {
+                binding_identity: binding_identity.clone(),
+                logical_identity: binding.resource.logical_identity().to_string(),
+                width: binding.resource.width(),
+                height: binding.resource.height(),
+                color_space: binding.resource.color_space(),
+                digest: binding.resource.digest(),
+                bytes: binding.resource.shared_bytes(),
+            }
+        }));
+        entries.extend(self.plot_styles.iter().map(|(binding_identity, binding)| {
+            PortableResourceTransport::PlotStyle {
+                binding_identity: binding_identity.clone(),
+                logical_identity: binding.resource.logical_identity().to_string(),
+                source_format: binding.resource.source_format().to_string(),
+                semantic_digest: binding.resource.semantic_digest(),
+                digest: binding.resource.digest(),
+                bytes: binding.resource.shared_bytes(),
+            }
+        }));
+        entries.extend(self.xrefs.iter().map(|(binding_identity, binding)| {
+            PortableResourceTransport::Xref {
+                binding_identity: binding_identity.clone(),
+                logical_identity: binding.resource.logical_identity().to_string(),
+                format: binding.resource.snapshot().format(),
+                digest: binding.resource.digest(),
+                bytes: binding.resource.snapshot().bytes(),
+            }
+        }));
+        entries
     }
 
     pub(crate) fn resolve_font(
