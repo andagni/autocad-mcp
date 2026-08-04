@@ -798,6 +798,12 @@ checked-out commit and reviewed signer thumbprint, and explicitly confirm the
 live protected-Environment audit. The repository owner must first protect the
 `preview-signing` Environment and configure its exact certificate,
 certificate-digest, signer-thumbprint, password, and HTTPS timestamp inputs.
+That certificate is a self-signed preview signer, not a publicly trusted one.
+The signing job installs it as its own trusted root inside the isolated runner
+purely so Authenticode verification can build a chain, and removes it again in
+the same job. Its signature is therefore signer pinning and tamper-evidence
+across the pipeline; it is not public trust, it does not satisfy SmartScreen,
+and it is not a distribution or support claim.
 Immediately before dispatch, verify its main-only branch policy, required
 reviewer, no-administrator-bypass setting, Environment-scoped values, and the
 absence of same-named repository or organization fallbacks. The workflow includes

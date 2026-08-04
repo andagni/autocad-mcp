@@ -376,6 +376,8 @@ jobs:
           $pfxBytes = $null
           $securePassword = $null
           $newThumbprints = @()
+          $rootCertificatePath = Join-Path $signingDirectory "certificate.cer"
+          $rootImported = $false
           try {
             try {
               $securePassword = ConvertTo-SecureString $env:SIGNING_CERTIFICATE_PASSWORD -AsPlainText -Force
@@ -418,6 +420,24 @@ jobs:
             $signingCertificate = Get-Item -LiteralPath "Cert:\CurrentUser\My\$expectedThumbprint"
             if (-not $signingCertificate.HasPrivateKey) {
               throw "the protected signing certificate has no private key"
+            }
+
+            # The preview signer is self-signed, so it must be its own trusted
+            # root for the /pa verification below to build a chain. This makes
+            # that verification prove signer pinning and tamper-evidence only;
+            # it is not evidence of public trust and never leaves this runner.
+            $preexistingRootThumbprints = @(
+              Get-ChildItem -Path Cert:\CurrentUser\Root |
+                ForEach-Object { $_.Thumbprint.ToLowerInvariant() }
+            )
+            if ($preexistingRootThumbprints -contains $expectedThumbprint) {
+              throw "the expected signing certificate was already trusted on the isolated runner"
+            }
+            Export-Certificate -Cert $signingCertificate -FilePath $rootCertificatePath -Type CERT | Out-Null
+            Import-Certificate -FilePath $rootCertificatePath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+            $rootImported = $true
+            if (-not (Test-Path -LiteralPath "Cert:\CurrentUser\Root\$expectedThumbprint")) {
+              throw "the preview signer was not installed as a trusted root"
             }
 
             $kitsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/bin"
@@ -489,11 +509,20 @@ jobs:
             "signed_server_sha256=$signedServerSha256" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             "signed_lsp_sha256=$signedLspSha256" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           } finally {
+            if ($rootImported) {
+              $trustedRootPath = "Cert:\CurrentUser\Root\$expectedThumbprint"
+              if (Test-Path -LiteralPath $trustedRootPath) {
+                Remove-Item -LiteralPath $trustedRootPath -Force
+              }
+            }
             foreach ($thumbprint in $newThumbprints) {
               $certificatePath = "Cert:\CurrentUser\My\$thumbprint"
               if (Test-Path -LiteralPath $certificatePath) {
                 Remove-Item -LiteralPath $certificatePath -DeleteKey -Force
               }
+            }
+            if (Test-Path -LiteralPath $rootCertificatePath -PathType Leaf) {
+              Remove-Item -LiteralPath $rootCertificatePath -Force
             }
             if (Test-Path -LiteralPath $pfxPath -PathType Leaf) {
               Remove-Item -LiteralPath $pfxPath -Force
