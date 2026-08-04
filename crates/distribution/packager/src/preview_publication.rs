@@ -43,9 +43,12 @@ const PREVIEW_GITHUB_IMMUTABLE_RELEASES_ENDPOINT: &str =
 const GITHUB_API_VERSION: &str = "2026-03-10";
 const GITHUB_ACCEPT: &str = "application/vnd.github+json";
 const PREVIEW_RELEASE_BODY: &str = "Experimental Preview software; this is not a certified Release.\n\nThe attached deterministic Windows Preview build-source ZIP is the corresponding-source artifact for the MCPB. GitHub-generated source archives are not the build-source deliverable.\n";
-const PROJECTION_AUTHOR: &str = "andagni <dev@andagni.invalid>";
-const PROJECTION_TIMESTAMP: &str = "1785307643 +0100";
-const PROJECTION_MESSAGE: &str = "Initial public development snapshot";
+const PUBLIC_HISTORY_AUTHOR_NAME: &str = "andagni";
+const PUBLIC_HISTORY_AUTHOR_EMAIL: &str = "dev@andagni.invalid";
+const PUBLIC_ROOT_AUTHOR: &str = "andagni <dev@andagni.invalid>";
+const PUBLIC_ROOT_TIMESTAMP: &str = "1785307643 +0100";
+const PUBLIC_ROOT_MESSAGE: &str = "Initial public development snapshot";
+const PUBLIC_PROMOTION_RECEIPT_KIND: &str = "public_promotion_receipt";
 #[cfg(target_os = "macos")]
 const TRUSTED_GIT_PROGRAM: &str = "/usr/bin/git";
 #[cfg(not(target_os = "macos"))]
@@ -139,10 +142,12 @@ pub struct VerifiedPreviewPublicationHandoff {
     key_id: String,
     release_version: String,
     decision_id: String,
-    source_commit: String,
+    authority_source_commit: String,
+    authority_source_tree_oid: String,
     source_authority_sha256: String,
-    source_tree_oid: String,
-    projection_commit: String,
+    public_source_commit: String,
+    public_source_parent_commit: String,
+    public_source_tree_oid: String,
     public_assets: Vec<PreviewPublicAsset>,
 }
 
@@ -193,9 +198,11 @@ struct FileSnapshot {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct SemanticSelection {
     git_object_format: GitObjectFormat,
-    source_commit: String,
-    source_tree_oid: String,
-    projection_commit: String,
+    authority_source_commit: String,
+    authority_source_tree_oid: String,
+    public_source_commit: String,
+    public_source_parent_commit: String,
+    public_source_tree_oid: String,
     release_version: String,
     decision_id: String,
 }
@@ -206,13 +213,26 @@ struct VerifiedSourceRepository {
     authority_sha256: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct VerifiedProjectionRepository {
+    path: PathBuf,
+    main_commit: String,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProjectionReceipt {
     schema_version: u32,
+    kind: String,
     source_commit: String,
     source_tree: String,
+    projection_parent_commit: String,
     projection_commit: String,
+    projection_tree: String,
+    projection_policy_sha256: String,
+    source_audit_sha256: String,
+    projection_audit_sha256: String,
+    source_quality_receipt_key_sha256: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -293,8 +313,8 @@ pub fn seal_preview_publication_handoff(
         &mut git_executor,
         &options.repository,
         selection.git_object_format,
-        &selection.source_commit,
-        &selection.source_tree_oid,
+        &selection.authority_source_commit,
+        &selection.authority_source_tree_oid,
     )?;
     require_unchanged_inventory(&root, false, &files)?;
 
@@ -313,8 +333,8 @@ pub fn seal_preview_publication_handoff(
         .map_err(|_| anyhow!("internal Preview publication inventory cardinality error"))?;
     let source_identity = PreviewPublicationSourceIdentity::new(
         selection.git_object_format,
-        &selection.projection_commit,
-        &selection.source_tree_oid,
+        &selection.public_source_commit,
+        &selection.public_source_tree_oid,
         &source_repository.authority_sha256,
     )
     .map_err(|error| anyhow!("construct projected publication identity: {error}"))?;
@@ -410,8 +430,8 @@ pub fn verify_preview_publication_handoff(
 
     let selection = verify_semantic_selection(&root, &files)?;
     if statement.source_identity().git_object_format() != selection.git_object_format
-        || statement.source_identity().git_commit_oid() != selection.projection_commit
-        || statement.source_identity().git_tree_oid() != selection.source_tree_oid
+        || statement.source_identity().git_commit_oid() != selection.public_source_commit
+        || statement.source_identity().git_tree_oid() != selection.public_source_tree_oid
         || statement.release_version() != selection.release_version
         || statement.decision_id() != selection.decision_id
     {
@@ -424,8 +444,8 @@ pub fn verify_preview_publication_handoff(
         &mut git_executor,
         &options.repository,
         selection.git_object_format,
-        &selection.source_commit,
-        &selection.source_tree_oid,
+        &selection.authority_source_commit,
+        &selection.authority_source_tree_oid,
     )?;
     if statement.source_identity().source_authority_sha256() != source_repository.authority_sha256 {
         bail!("authenticated source authority does not match the selected private repository");
@@ -435,8 +455,8 @@ pub fn verify_preview_publication_handoff(
         &mut git_executor,
         &source_repository.path,
         selection.git_object_format,
-        &selection.source_commit,
-        &selection.source_tree_oid,
+        &selection.authority_source_commit,
+        &selection.authority_source_tree_oid,
     )?;
     if source_repository_after.authority_sha256 != source_repository.authority_sha256 {
         bail!("source repository authority changed during handoff verification");
@@ -447,10 +467,12 @@ pub fn verify_preview_publication_handoff(
         key_id: options.key_id.clone(),
         release_version: selection.release_version,
         decision_id: selection.decision_id,
-        source_commit: selection.source_commit,
+        authority_source_commit: selection.authority_source_commit,
+        authority_source_tree_oid: selection.authority_source_tree_oid,
         source_authority_sha256: source_repository.authority_sha256,
-        source_tree_oid: selection.source_tree_oid,
-        projection_commit: selection.projection_commit,
+        public_source_commit: selection.public_source_commit,
+        public_source_parent_commit: selection.public_source_parent_commit,
+        public_source_tree_oid: selection.public_source_tree_oid,
         public_assets,
     })
 }
@@ -531,25 +553,9 @@ fn verify_semantic_selection(
         GitObjectFormat::Sha1 => 40,
         GitObjectFormat::Sha256 => 64,
     };
-    for (value, label) in [
-        (
-            projection.source_commit.as_str(),
-            "projection source commit",
-        ),
-        (projection.source_tree.as_str(), "projection source tree"),
-        (
-            projection.projection_commit.as_str(),
-            "projection public commit",
-        ),
-    ] {
-        require_object_id(value, object_id_length, label)?;
-    }
-    if projection.schema_version != 1 {
-        bail!("publication projection receipt schema_version must equal 1");
-    }
-
+    validate_projection_receipt(&projection, object_id_length)?;
     if projection.projection_commit != approval_report.source_commit
-        || projection.source_tree != approval_report.source_tree_oid
+        || projection.projection_tree != approval_report.source_tree_oid
         || current.candidate.source_commit != approval_report.source_commit
         || current.candidate.source_tree_oid != approval_report.source_tree_oid
         || current.candidate.git_object_format != approval_report.git_object_format
@@ -615,12 +621,65 @@ fn verify_semantic_selection(
 
     Ok(SemanticSelection {
         git_object_format,
-        source_commit: projection.source_commit,
-        source_tree_oid: approval_report.source_tree_oid,
-        projection_commit: projection.projection_commit,
+        authority_source_commit: projection.source_commit,
+        authority_source_tree_oid: projection.source_tree,
+        public_source_commit: projection.projection_commit,
+        public_source_parent_commit: projection.projection_parent_commit,
+        public_source_tree_oid: projection.projection_tree,
         release_version: approval.project().release_version().to_owned(),
         decision_id: approval_report.decision_id,
     })
+}
+
+fn validate_projection_receipt(
+    projection: &ProjectionReceipt,
+    object_id_length: usize,
+) -> Result<()> {
+    for (value, label) in [
+        (
+            projection.source_commit.as_str(),
+            "projection source commit",
+        ),
+        (projection.source_tree.as_str(), "projection source tree"),
+        (
+            projection.projection_parent_commit.as_str(),
+            "projection public parent commit",
+        ),
+        (
+            projection.projection_commit.as_str(),
+            "projection public commit",
+        ),
+        (
+            projection.projection_tree.as_str(),
+            "projection public tree",
+        ),
+    ] {
+        require_object_id(value, object_id_length, label)?;
+    }
+    for (value, label) in [
+        (
+            projection.projection_policy_sha256.as_str(),
+            "projection policy",
+        ),
+        (projection.source_audit_sha256.as_str(), "source audit"),
+        (
+            projection.projection_audit_sha256.as_str(),
+            "projection audit",
+        ),
+        (
+            projection.source_quality_receipt_key_sha256.as_str(),
+            "source-quality receipt key",
+        ),
+    ] {
+        require_sha256(value, label)?;
+    }
+    if projection.schema_version != 2 || projection.kind != PUBLIC_PROMOTION_RECEIPT_KIND {
+        bail!("publication projection receipt must use the durable promotion schema");
+    }
+    if projection.projection_parent_commit == projection.projection_commit {
+        bail!("publication projection receipt cannot name its commit as its own parent");
+    }
+    Ok(())
 }
 
 fn validate_current_distribution(current: &CurrentDistributionVerification) -> Result<()> {
@@ -2065,12 +2124,13 @@ fn publish_verified_preview(
     let projection = verify_projection_repository(
         executor,
         &options.projection_repository,
-        &verified.projection_commit,
-        &verified.source_tree_oid,
+        &verified.public_source_commit,
+        &verified.public_source_tree_oid,
+        &verified.public_source_parent_commit,
     )?;
     require_directory_detached_from_repository(
         &options.handoff_directory,
-        &projection,
+        &projection.path,
         "Preview handoff directory",
     )?;
     require_uploadable_assets(&verified.public_assets)?;
@@ -2082,7 +2142,7 @@ fn publish_verified_preview(
     )?;
     require_directory_detached_from_repository(
         staged.directory.path(),
-        &projection,
+        &projection.path,
         "Preview upload staging directory",
     )?;
     require_disjoint_directories(
@@ -2124,7 +2184,7 @@ struct PreviewPublishContext<'a> {
     options: &'a PublishPreviewPrereleaseOptions,
     verification_options: &'a VerifyPreviewPublicationHandoffOptions,
     verified: &'a VerifiedPreviewPublicationHandoff,
-    projection: &'a Path,
+    projection: &'a VerifiedProjectionRepository,
     github: &'a GitHubTransport,
     tag: &'a str,
     release_name: &'a str,
@@ -2148,7 +2208,7 @@ fn publish_staged_preview(
     require_fixed_public_repository(executor, github)?;
     require_neutral_github_publisher(executor, github)?;
     require_immutable_releases_enabled(executor, github)?;
-    require_remote_main(executor, github, &verified.projection_commit)?;
+    require_remote_main(executor, github, &projection.main_commit)?;
     require_remote_absent(
         executor,
         github,
@@ -2161,7 +2221,7 @@ fn publish_staged_preview(
 
     let create_request = CreateReleaseRequest {
         tag_name: tag,
-        target_commitish: &verified.projection_commit,
+        target_commitish: &verified.public_source_commit,
         name: release_name.to_owned(),
         body: PREVIEW_RELEASE_BODY,
         draft: true,
@@ -2182,7 +2242,7 @@ fn publish_staged_preview(
     require_release_state(
         &created,
         tag,
-        &verified.projection_commit,
+        &verified.public_source_commit,
         release_name,
         true,
         false,
@@ -2197,7 +2257,7 @@ fn publish_staged_preview(
     require_release_state(
         &uploaded,
         tag,
-        &verified.projection_commit,
+        &verified.public_source_commit,
         release_name,
         true,
         false,
@@ -2212,13 +2272,13 @@ fn publish_staged_preview(
         executor,
         public_assets,
     )?;
-    require_remote_main(executor, github, &verified.projection_commit)?;
+    require_remote_main(executor, github, &projection.main_commit)?;
     require_immutable_releases_enabled(executor, github)?;
     let final_draft = get_release(executor, github, created.id)?;
     require_release_state(
         &final_draft,
         tag,
-        &verified.projection_commit,
+        &verified.public_source_commit,
         release_name,
         true,
         false,
@@ -2245,7 +2305,7 @@ fn publish_staged_preview(
 
     let publish_request = PublishReleaseRequest {
         tag_name: tag.to_owned(),
-        target_commitish: verified.projection_commit.clone(),
+        target_commitish: verified.public_source_commit.clone(),
         name: release_name.to_owned(),
         body: PREVIEW_RELEASE_BODY,
         draft: false,
@@ -2261,7 +2321,7 @@ fn publish_staged_preview(
     let expected_release = ExpectedReleaseState {
         release_id: created.id,
         tag,
-        commit: &verified.projection_commit,
+        commit: &verified.public_source_commit,
         name: release_name,
         assets: public_assets,
     };
@@ -2275,7 +2335,7 @@ fn publish_staged_preview(
     require_release_state(
         &final_release,
         tag,
-        &verified.projection_commit,
+        &verified.public_source_commit,
         release_name,
         false,
         true,
@@ -2302,18 +2362,20 @@ fn publish_staged_preview(
     require_fixed_public_repository(executor, github)
         .and_then(|_| require_neutral_github_publisher(executor, github))
         .and_then(|_| require_immutable_releases_enabled(executor, github))
-        .and_then(|_| require_remote_main(executor, github, &verified.projection_commit))
+        .and_then(|_| require_remote_main(executor, github, &projection.main_commit))
         .and_then(|_| require_only_created_release_with_tag(executor, github, tag, created.id))
         .map_err(|error| {
             anyhow!(
                 "immutable Preview prerelease was published, but final repository validation failed: {error:#}"
             )
         })?;
-    require_exact_remote_tag(executor, github, tag, &verified.projection_commit).map_err(|error| {
+    require_exact_remote_tag(executor, github, tag, &verified.public_source_commit).map_err(
+        |error| {
         anyhow!(
             "immutable Preview prerelease was confirmed published, but tag validation failed: {error:#}"
         )
-    })?;
+        },
+    )?;
     run_github_success(
         executor,
         github,
@@ -2335,7 +2397,7 @@ fn reverify_local_publication_selection(
     options: &PublishPreviewPrereleaseOptions,
     verification_options: &VerifyPreviewPublicationHandoffOptions,
     verified: &VerifiedPreviewPublicationHandoff,
-    projection: &Path,
+    projection: &VerifiedProjectionRepository,
     executor: &mut dyn PublicationCommandExecutor,
     public_assets: &mut [StagedPublicAsset],
 ) -> Result<()> {
@@ -2344,15 +2406,19 @@ fn reverify_local_publication_selection(
     if &reverified != verified {
         bail!("signed Preview handoff selection changed after publication began");
     }
-    verify_projection_repository(
+    let reverified_projection = verify_projection_repository(
         executor,
-        projection,
-        &verified.projection_commit,
-        &verified.source_tree_oid,
+        &projection.path,
+        &verified.public_source_commit,
+        &verified.public_source_tree_oid,
+        &verified.public_source_parent_commit,
     )?;
+    if &reverified_projection != projection {
+        bail!("public projection main changed after publication began");
+    }
     require_directory_detached_from_repository(
         &options.handoff_directory,
-        projection,
+        &projection.path,
         "Preview handoff directory",
     )?;
     require_unchanged_staged_assets(public_assets)
@@ -2730,11 +2796,6 @@ fn verify_source_repository(
         &git_command(&repository, &["rev-parse", "--verify", "HEAD^{commit}"]),
         "resolve source repository HEAD",
     )?;
-    let tree = run_success_text(
-        executor,
-        &git_command(&repository, &["rev-parse", "--verify", "HEAD^{tree}"]),
-        "resolve source repository tree",
-    )?;
     let main = run_success_text(
         executor,
         &git_command(
@@ -2743,9 +2804,49 @@ fn verify_source_repository(
         ),
         "resolve source repository authoritative main",
     )?;
-    if head != expected_commit || main != expected_commit || tree != expected_tree {
-        bail!("source repository HEAD or tree does not match the projection receipt");
+    if head != main {
+        bail!("source repository HEAD must equal authoritative main");
     }
+    let selected_commit = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "rev-parse",
+                "--verify",
+                &format!("{expected_commit}^{{commit}}"),
+            ],
+        ),
+        "resolve selected source commit",
+    )?;
+    let selected_tree = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "rev-parse",
+                "--verify",
+                &format!("{expected_commit}^{{tree}}"),
+            ],
+        ),
+        "resolve selected source tree",
+    )?;
+    if selected_commit != expected_commit || selected_tree != expected_tree {
+        bail!("selected source identity does not match the promotion receipt");
+    }
+    run_success_output(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "merge-base",
+                "--is-ancestor",
+                expected_commit,
+                "refs/heads/main",
+            ],
+        ),
+        "prove selected source is retained by authoritative main",
+    )?;
     let authority_sha256 = source_authority_sha256(
         &repository,
         &common_git,
@@ -2783,7 +2884,7 @@ fn source_authority_sha256(
         GitObjectFormat::Sha256 => b"sha256".as_slice(),
     };
     let mut hasher = Sha256::new();
-    hasher.update(b"autocad-mcp.preview-source-authority/v1\0");
+    hasher.update(b"autocad-mcp.preview-source-authority/v2\0");
     for component in [
         repository.as_bytes(),
         common_git_text.as_bytes(),
@@ -2844,35 +2945,44 @@ fn verify_projection_repository(
     requested: &Path,
     expected_commit: &str,
     expected_tree: &str,
-) -> Result<PathBuf> {
+    expected_parent: &str,
+) -> Result<VerifiedProjectionRepository> {
     require_real_directory(requested, "public projection repository")?;
     let repository = requested
         .canonicalize()
         .context("canonicalize public projection repository")?;
-    let status = run_success_output(
+    let top_level = run_success_text(
         executor,
-        &git_command(
-            &repository,
-            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
-        ),
-        "inspect public projection worktree",
+        &git_command(&repository, &["rev-parse", "--show-toplevel"]),
+        "resolve public projection repository top level",
     )?;
-    if !status.is_empty() {
-        bail!("public projection worktree is not completely clean");
+    if Path::new(&top_level).canonicalize()? != repository {
+        bail!("public projection repository must be its canonical top-level checkout");
     }
-    let index = run_success_output(
+    let dot_git = repository.join(".git");
+    require_real_directory(&dot_git, "public projection repository Git directory")?;
+    let dot_git = dot_git
+        .canonicalize()
+        .context("canonicalize public projection repository Git directory")?;
+    let common_git = run_success_text(
         executor,
-        &git_command(&repository, &["ls-files", "-v", "-z"]),
-        "inspect public projection index flags",
+        &git_command(&repository, &["rev-parse", "--git-common-dir"]),
+        "resolve public projection repository common Git directory",
     )?;
-    if index.is_empty()
-        || index
-            .split(|byte| *byte == 0)
-            .filter(|record| !record.is_empty())
-            .any(|record| !record.starts_with(b"H "))
-    {
-        bail!("public projection index contains nonordinary tracked-file flags");
+    let common_git = {
+        let reported = PathBuf::from(common_git);
+        if reported.is_absolute() {
+            reported
+        } else {
+            repository.join(reported)
+        }
     }
+    .canonicalize()
+    .context("canonicalize public projection repository common Git directory")?;
+    if common_git != dot_git {
+        bail!("public projection repository must be an independent primary checkout");
+    }
+    require_clean_ordinary_checkout(executor, &repository, "public projection repository")?;
     let branch = run_success_text(
         executor,
         &git_command(&repository, &["symbolic-ref", "--short", "HEAD"]),
@@ -2889,41 +2999,175 @@ fn verify_projection_repository(
     if shallow != "false" {
         bail!("public projection must not be a shallow repository");
     }
-    let commit_object = run_success_output(
-        executor,
-        &git_command(&repository, &["cat-file", "-p", "HEAD"]),
-        "inspect public projection root commit",
-    )?;
-    let expected_commit_object = format!(
-        "tree {expected_tree}\nauthor {PROJECTION_AUTHOR} {PROJECTION_TIMESTAMP}\ncommitter {PROJECTION_AUTHOR} {PROJECTION_TIMESTAMP}\n\n{PROJECTION_MESSAGE}\n"
-    );
-    if commit_object != expected_commit_object.as_bytes() {
-        bail!(
-            "public projection root commit metadata and message are not the deterministic publication identity"
-        );
-    }
-    let commit_count = run_success_text(
-        executor,
-        &git_command(&repository, &["rev-list", "--count", "--all"]),
-        "count public projection commits",
-    )?;
-    if commit_count != "1" {
-        bail!("public projection must contain exactly one reachable commit");
-    }
     let head = run_success_text(
         executor,
         &git_command(&repository, &["rev-parse", "--verify", "HEAD^{commit}"]),
         "resolve public projection HEAD",
     )?;
-    let tree = run_success_text(
+    let main = run_success_text(
         executor,
-        &git_command(&repository, &["rev-parse", "--verify", "HEAD^{tree}"]),
-        "resolve public projection tree",
+        &git_command(
+            &repository,
+            &["rev-parse", "--verify", "refs/heads/main^{commit}"],
+        ),
+        "resolve public projection main",
     )?;
-    if head != expected_commit || tree != expected_tree {
-        bail!("public projection HEAD or tree does not match the signed handoff");
+    if head != main {
+        bail!("public projection HEAD must equal main");
     }
-    Ok(repository)
+    let local_heads = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "for-each-ref",
+                "--format=%(refname)%00%(objectname)",
+                "refs/heads",
+            ],
+        ),
+        "inspect public projection local branches",
+    )?;
+    let mut local_head_fields = local_heads.split('\0');
+    if local_head_fields.next() != Some("refs/heads/main")
+        || local_head_fields.next() != Some(main.as_str())
+        || local_head_fields.next().is_some()
+    {
+        bail!("public projection must contain exactly one local branch named main");
+    }
+    let selected_commit = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "rev-parse",
+                "--verify",
+                &format!("{expected_commit}^{{commit}}"),
+            ],
+        ),
+        "resolve selected public source commit",
+    )?;
+    let selected_tree = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "rev-parse",
+                "--verify",
+                &format!("{expected_commit}^{{tree}}"),
+            ],
+        ),
+        "resolve selected public source tree",
+    )?;
+    if selected_commit != expected_commit || selected_tree != expected_tree {
+        bail!("selected public source identity does not match the signed handoff");
+    }
+    let selected_parents = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &["rev-list", "--parents", "-n", "1", expected_commit],
+        ),
+        "inspect selected public source parent",
+    )?;
+    let selected_parent_fields = selected_parents.split_whitespace().collect::<Vec<_>>();
+    if selected_parent_fields != [expected_commit, expected_parent] {
+        bail!("selected public source does not have the promotion-bound parent");
+    }
+    run_success_output(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "merge-base",
+                "--is-ancestor",
+                expected_commit,
+                "refs/heads/main",
+            ],
+        ),
+        "prove selected public source is retained by main",
+    )?;
+
+    let roots = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &["rev-list", "--max-parents=0", "refs/heads/main"],
+        ),
+        "resolve public history root",
+    )?;
+    let roots = roots.lines().collect::<Vec<_>>();
+    if roots.len() != 1 {
+        bail!("public history must have exactly one root commit");
+    }
+    let root = roots[0];
+    let root_tree = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &["rev-parse", "--verify", &format!("{root}^{{tree}}")],
+        ),
+        "resolve public history root tree",
+    )?;
+    let root_commit = run_success_output(
+        executor,
+        &git_command(&repository, &["cat-file", "-p", root]),
+        "inspect public history root commit",
+    )?;
+    let expected_root_commit = format!(
+        "tree {root_tree}\nauthor {PUBLIC_ROOT_AUTHOR} {PUBLIC_ROOT_TIMESTAMP}\ncommitter {PUBLIC_ROOT_AUTHOR} {PUBLIC_ROOT_TIMESTAMP}\n\n{PUBLIC_ROOT_MESSAGE}\n"
+    );
+    if root_commit != expected_root_commit.as_bytes() {
+        bail!("public history root does not have the canonical publication identity");
+    }
+
+    let history = run_success_text(
+        executor,
+        &git_command(&repository, &["rev-list", "--parents", "refs/heads/main"]),
+        "inspect public history topology",
+    )?;
+    let mut root_records = 0_u64;
+    for record in history.lines() {
+        let fields = record.split_whitespace().collect::<Vec<_>>();
+        match fields.len() {
+            1 => root_records += 1,
+            2 => {}
+            _ => bail!("public history must be linear and contain no merge commits"),
+        }
+    }
+    if root_records != 1 {
+        bail!("public history must contain exactly one parentless commit");
+    }
+
+    let identities = run_success_text(
+        executor,
+        &git_command(
+            &repository,
+            &[
+                "log",
+                "--format=%an%x00%ae%x00%cn%x00%ce",
+                "refs/heads/main",
+            ],
+        ),
+        "inspect public history identities",
+    )?;
+    for record in identities.lines() {
+        let fields = record.split('\0').collect::<Vec<_>>();
+        if fields
+            != [
+                PUBLIC_HISTORY_AUTHOR_NAME,
+                PUBLIC_HISTORY_AUTHOR_EMAIL,
+                PUBLIC_HISTORY_AUTHOR_NAME,
+                PUBLIC_HISTORY_AUTHOR_EMAIL,
+            ]
+        {
+            bail!("public history contains a non-neutral author or committer identity");
+        }
+    }
+    require_clean_ordinary_checkout(executor, &repository, "public projection repository")?;
+    Ok(VerifiedProjectionRepository {
+        path: repository,
+        main_commit: main,
+    })
 }
 
 fn require_immutable_releases_enabled(
@@ -3008,7 +3252,7 @@ fn require_remote_main(
         || reference.object.object_type != "commit"
         || reference.object.sha != expected_commit
     {
-        bail!("fixed repository remote main does not match the signed projection commit");
+        bail!("fixed repository remote main does not match the verified public main");
     }
     const PAGE_SIZE: usize = 100;
     let mut page = 1_u32;
@@ -3040,7 +3284,7 @@ fn require_remote_main(
         || branches[0].name != "main"
         || branches[0].commit.sha != expected_commit
     {
-        bail!("fixed repository must expose exactly the signed main branch and no stale heads");
+        bail!("fixed repository must expose exactly the verified main branch and no stale heads");
     }
     Ok(())
 }
@@ -3966,10 +4210,41 @@ mod tests {
     }
 
     #[test]
+    fn durable_promotion_receipt_separates_authority_and_public_trees() {
+        let mut receipt = ProjectionReceipt {
+            schema_version: 2,
+            kind: PUBLIC_PROMOTION_RECEIPT_KIND.to_owned(),
+            source_commit: "a".repeat(40),
+            source_tree: "b".repeat(40),
+            projection_parent_commit: "c".repeat(40),
+            projection_commit: "d".repeat(40),
+            projection_tree: "e".repeat(40),
+            projection_policy_sha256: "1".repeat(64),
+            source_audit_sha256: "2".repeat(64),
+            projection_audit_sha256: "3".repeat(64),
+            source_quality_receipt_key_sha256: "4".repeat(64),
+        };
+        validate_projection_receipt(&receipt, 40).unwrap();
+        assert_ne!(receipt.source_tree, receipt.projection_tree);
+
+        receipt.schema_version = 1;
+        assert!(validate_projection_receipt(&receipt, 40).is_err());
+        receipt.schema_version = 2;
+        receipt.projection_parent_commit = receipt.projection_commit.clone();
+        assert!(validate_projection_receipt(&receipt, 40).is_err());
+        receipt.projection_parent_commit = "c".repeat(40);
+        receipt.source_quality_receipt_key_sha256 = "not-a-digest".to_owned();
+        assert!(validate_projection_receipt(&receipt, 40).is_err());
+    }
+
+    #[test]
     fn projection_plan_disables_replace_refs_and_rejects_index_flags() {
         let directory = tempfile::tempdir().unwrap();
+        fs::create_dir(directory.path().join(".git")).unwrap();
         let canonical_directory = directory.path().canonicalize().unwrap();
         let mut executor = ScriptedExecutor::with_results([
+            success(format!("{}\n", canonical_directory.display()).into_bytes()),
+            success(b".git\n".to_vec()),
             success(Vec::new()),
             success(b"S hidden.txt\0".to_vec()),
         ]);
@@ -3978,6 +4253,7 @@ mod tests {
             directory.path(),
             &"a".repeat(40),
             &"b".repeat(40),
+            &"c".repeat(40),
         )
         .unwrap_err();
         assert!(error.to_string().contains("nonordinary"));
@@ -4036,42 +4312,74 @@ mod tests {
     }
 
     #[test]
-    fn projection_plan_accepts_only_clean_single_commit_main() {
+    fn projection_plan_accepts_a_selected_commit_in_clean_linear_main() {
         let directory = tempfile::tempdir().unwrap();
+        fs::create_dir(directory.path().join(".git")).unwrap();
+        let canonical = directory.path().canonicalize().unwrap();
         let commit = "a".repeat(40);
         let tree = "b".repeat(40);
+        let main = "c".repeat(40);
+        let parent = "d".repeat(40);
+        let root = "e".repeat(40);
+        let root_tree = "f".repeat(40);
+        let identities = [
+            PUBLIC_HISTORY_AUTHOR_NAME,
+            PUBLIC_HISTORY_AUTHOR_EMAIL,
+            PUBLIC_HISTORY_AUTHOR_NAME,
+            PUBLIC_HISTORY_AUTHOR_EMAIL,
+        ]
+        .join("\0");
         let mut executor = ScriptedExecutor::with_results([
+            success(format!("{}\n", canonical.display()).into_bytes()),
+            success(b".git\n".to_vec()),
             success(Vec::new()),
             success(b"H Cargo.toml\0H src/lib.rs\0".to_vec()),
             success(b"main\n".to_vec()),
             success(b"false\n".to_vec()),
+            success(format!("{main}\n").into_bytes()),
+            success(format!("{main}\n").into_bytes()),
+            success(format!("refs/heads/main\0{main}\n").into_bytes()),
+            success(format!("{commit}\n").into_bytes()),
+            success(format!("{tree}\n").into_bytes()),
+            success(format!("{commit} {parent}\n").into_bytes()),
+            success(Vec::new()),
+            success(format!("{root}\n").into_bytes()),
+            success(format!("{root_tree}\n").into_bytes()),
             success(
                 format!(
-                    "tree {tree}\nauthor {PROJECTION_AUTHOR} {PROJECTION_TIMESTAMP}\ncommitter {PROJECTION_AUTHOR} {PROJECTION_TIMESTAMP}\n\n{PROJECTION_MESSAGE}\n"
+                    "tree {root_tree}\nauthor {PUBLIC_ROOT_AUTHOR} {PUBLIC_ROOT_TIMESTAMP}\ncommitter {PUBLIC_ROOT_AUTHOR} {PUBLIC_ROOT_TIMESTAMP}\n\n{PUBLIC_ROOT_MESSAGE}\n"
                 )
                 .into_bytes(),
             ),
-            success(b"1\n".to_vec()),
-            success(format!("{commit}\n").into_bytes()),
-            success(format!("{tree}\n").into_bytes()),
+            success(format!("{main} {commit}\n{commit} {parent}\n{parent} {root}\n{root}\n").into_bytes()),
+            success(format!("{identities}\n{identities}\n{identities}\n{identities}\n").into_bytes()),
+            success(Vec::new()),
+            success(b"H Cargo.toml\0H src/lib.rs\0".to_vec()),
         ]);
-        let canonical =
-            verify_projection_repository(&mut executor, directory.path(), &commit, &tree).unwrap();
-        assert_eq!(canonical, directory.path().canonicalize().unwrap());
-        assert_eq!(executor.seen.len(), 8);
+        let verified =
+            verify_projection_repository(&mut executor, directory.path(), &commit, &tree, &parent)
+                .unwrap();
+        assert_eq!(verified.path, canonical);
+        assert_eq!(verified.main_commit, main);
+        assert_eq!(executor.seen.len(), 20);
     }
 
     #[test]
     fn projection_timestamp_is_bound_to_initial_publication() {
-        assert_eq!(PROJECTION_TIMESTAMP, "1785307643 +0100");
+        assert_eq!(PUBLIC_ROOT_TIMESTAMP, "1785307643 +0100");
     }
 
     #[test]
-    fn projection_plan_rejects_shallow_or_nondeterministic_root_metadata() {
+    fn projection_plan_rejects_shallow_history() {
         let directory = tempfile::tempdir().unwrap();
+        fs::create_dir(directory.path().join(".git")).unwrap();
+        let canonical = directory.path().canonicalize().unwrap();
         let commit = "a".repeat(40);
         let tree = "b".repeat(40);
+        let parent = "c".repeat(40);
         let prefix = [
+            success(format!("{}\n", canonical.display()).into_bytes()),
+            success(b".git\n".to_vec()),
             success(Vec::new()),
             success(b"H Cargo.toml\0".to_vec()),
             success(b"main\n".to_vec()),
@@ -4083,37 +4391,122 @@ mod tests {
                 .into_iter()
                 .chain([success(b"true\n".to_vec())]),
         );
-        let error = verify_projection_repository(&mut shallow, directory.path(), &commit, &tree)
-            .unwrap_err();
+        let error =
+            verify_projection_repository(&mut shallow, directory.path(), &commit, &tree, &parent)
+                .unwrap_err();
         assert!(error.to_string().contains("must not be a shallow"));
-
-        let mut parented = ScriptedExecutor::with_results(prefix.into_iter().chain([
-            success(b"false\n".to_vec()),
-            success(format!("tree {tree}\nparent {}\n\nnot a root\n", "c".repeat(40)).into_bytes()),
-        ]));
-        let error = verify_projection_repository(&mut parented, directory.path(), &commit, &tree)
-            .unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("deterministic publication identity"));
     }
 
     #[test]
-    fn source_repository_requires_clean_ordinary_exact_head_and_tree() {
+    fn projection_plan_rejects_merges_and_non_neutral_identities() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::create_dir(directory.path().join(".git")).unwrap();
+        let canonical = directory.path().canonicalize().unwrap();
+        let selected = "a".repeat(40);
+        let selected_tree = "b".repeat(40);
+        let main = "c".repeat(40);
+        let parent = "d".repeat(40);
+        let root = "e".repeat(40);
+        let root_tree = "f".repeat(40);
+        let prefix = vec![
+            success(format!("{}\n", canonical.display()).into_bytes()),
+            success(b".git\n".to_vec()),
+            success(Vec::new()),
+            success(b"H Cargo.toml\0".to_vec()),
+            success(b"main\n".to_vec()),
+            success(b"false\n".to_vec()),
+            success(format!("{main}\n").into_bytes()),
+            success(format!("{main}\n").into_bytes()),
+            success(format!("refs/heads/main\0{main}\n").into_bytes()),
+            success(format!("{selected}\n").into_bytes()),
+            success(format!("{selected_tree}\n").into_bytes()),
+            success(format!("{selected} {parent}\n").into_bytes()),
+            success(Vec::new()),
+            success(format!("{root}\n").into_bytes()),
+            success(format!("{root_tree}\n").into_bytes()),
+            success(
+                format!(
+                    "tree {root_tree}\nauthor {PUBLIC_ROOT_AUTHOR} {PUBLIC_ROOT_TIMESTAMP}\ncommitter {PUBLIC_ROOT_AUTHOR} {PUBLIC_ROOT_TIMESTAMP}\n\n{PUBLIC_ROOT_MESSAGE}\n"
+                )
+                .into_bytes(),
+            ),
+        ];
+
+        let mut merge = ScriptedExecutor::with_results(
+            prefix.clone().into_iter().chain([success(
+                format!(
+                    "{main} {selected} {}\n{selected} {parent}\n{parent} {root}\n{root}\n",
+                    "9".repeat(40)
+                )
+                .into_bytes(),
+            )]),
+        );
+        let error = verify_projection_repository(
+            &mut merge,
+            directory.path(),
+            &selected,
+            &selected_tree,
+            &parent,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("no merge commits"), "{error:#}");
+
+        let neutral = [
+            PUBLIC_HISTORY_AUTHOR_NAME,
+            PUBLIC_HISTORY_AUTHOR_EMAIL,
+            PUBLIC_HISTORY_AUTHOR_NAME,
+            PUBLIC_HISTORY_AUTHOR_EMAIL,
+        ]
+        .join("\0");
+        let personal = [
+            "personal",
+            "personal@example.com",
+            PUBLIC_HISTORY_AUTHOR_NAME,
+            PUBLIC_HISTORY_AUTHOR_EMAIL,
+        ]
+        .join("\0");
+        let mut identity = ScriptedExecutor::with_results(
+            prefix.into_iter().chain([
+                success(
+                    format!("{main} {selected}\n{selected} {parent}\n{parent} {root}\n{root}\n")
+                        .into_bytes(),
+                ),
+                success(format!("{personal}\n{neutral}\n{neutral}\n{neutral}\n").into_bytes()),
+            ]),
+        );
+        let error = verify_projection_repository(
+            &mut identity,
+            directory.path(),
+            &selected,
+            &selected_tree,
+            &parent,
+        )
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("non-neutral author"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn source_repository_accepts_a_selected_ancestor_of_clean_main() {
         let directory = tempfile::tempdir().unwrap();
         fs::create_dir(directory.path().join(".git")).unwrap();
         let canonical = directory.path().canonicalize().unwrap();
         let commit = "a".repeat(40);
         let tree = "b".repeat(40);
+        let main = "c".repeat(40);
         let passing = [
             success(format!("{}\n", canonical.display()).into_bytes()),
             success(b".git\n".to_vec()),
             success(b"refs/heads/main\n".to_vec()),
             success(Vec::new()),
             success(b"H Cargo.toml\0".to_vec()),
+            success(format!("{main}\n").into_bytes()),
+            success(format!("{main}\n").into_bytes()),
             success(format!("{commit}\n").into_bytes()),
             success(format!("{tree}\n").into_bytes()),
-            success(format!("{commit}\n").into_bytes()),
+            success(Vec::new()),
             success(Vec::new()),
             success(b"H Cargo.toml\0".to_vec()),
         ];
@@ -4133,7 +4526,7 @@ mod tests {
             .iter()
             .all(|command| command.clear_environment));
 
-        let mut stale = ScriptedExecutor::with_results([
+        let mut unretained = ScriptedExecutor::with_results([
             success(
                 format!("{}\n", directory.path().canonicalize().unwrap().display()).into_bytes(),
             ),
@@ -4141,19 +4534,26 @@ mod tests {
             success(b"refs/heads/main\n".to_vec()),
             success(Vec::new()),
             success(b"H Cargo.toml\0".to_vec()),
-            success(format!("{}\n", "c".repeat(40)).into_bytes()),
-            success(format!("{tree}\n").into_bytes()),
+            success(format!("{main}\n").into_bytes()),
+            success(format!("{main}\n").into_bytes()),
             success(format!("{commit}\n").into_bytes()),
+            success(format!("{tree}\n").into_bytes()),
+            CommandResult {
+                success: false,
+                status_code: Some(1),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
         ]);
         let error = verify_source_repository(
-            &mut stale,
+            &mut unretained,
             directory.path(),
             GitObjectFormat::Sha1,
             &commit,
             &tree,
         )
         .unwrap_err();
-        assert!(error.to_string().contains("projection receipt"));
+        assert!(error.to_string().contains("retained by authoritative main"));
     }
 
     #[test]

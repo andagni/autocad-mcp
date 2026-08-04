@@ -68,7 +68,7 @@ from this source use `0.0.1` and are visibly marked as evaluation artifacts,
 not Release candidates or certification results. Release requires a closed
 stable-form version whose major component is at least 1, making `1.0.0` the
 first eligible version, and requires every
-native AutoCAD, private-evidence join, package-privacy, signing, source-closure,
+native AutoCAD, detached approval-evidence join, package-privacy, signing, source-closure,
 third-party licence, and clean-host gates. A Preview-capable binary exposes only the 36 read-only tools
 through plain `serve`; `serve --experimental` opts into all 51, including the
 15 state-changing tools. The default binary flavor is compiled without that
@@ -926,138 +926,23 @@ The structured receipt is Preview evidence for the exact Windows candidate
 only. It does not satisfy Release certification, signing, AutoCAD-host
 qualification, macOS acceptance, or future-client compatibility.
 
-## Select and publish an approved Preview
+## Published Preview inventory
 
-After the projection audit, signed Windows review, clean-host acceptance, and
-owner approval all exist for the same source identity, emit the private
-current-distribution result:
-
-```text
-cargo run --locked -p xtask -- current-distribution-verify \
-  --candidate-dir <exact-preview-source-candidate> \
-  --approval <owner-distribution-approval.json> \
-  --mcpb <autocad-mcp-windows-x64-preview.mcpb> \
-  --source-closure-sbom <windows-x64-preview-source-closure.spdx.json> \
-  --build-attestation <windows-x64-preview-build.json> \
-  --clean-host-receipt <windows-x64-preview-clean-host.json> \
-  > <detached-handoff/current-distribution-verification.json>
-```
-
-The detached handoff must have the exact nine-file pre-signing inventory
-before sealing:
+An approved Preview is published as an immutable GitHub prerelease containing
+exactly these public assets:
 
 1. `autocad-mcp-windows-x64-preview.mcpb`;
 2. `autocad-mcp-windows-x64-preview-build-source.zip`;
-3. `distribution-evidence/windows-x64-preview-source-closure.spdx.json`;
-4. `distribution-evidence/windows-x64-preview-build.json`;
-5. `distribution-evidence/windows-x64-preview-clean-host.json`;
-6. `owner-distribution-approval.json`;
-7. the owner-private `publication-candidate-receipt.json`;
-8. `current-distribution-verification.json`; and
-9. `SHA256SUMS.txt`.
+3. `windows-x64-preview-source-closure.spdx.json`;
+4. `windows-x64-preview-build.json`;
+5. `windows-x64-preview-clean-host.json`;
+6. `owner-distribution-approval.json`; and
+7. `SHA256SUMS.txt`.
 
-`SHA256SUMS.txt` binds the first six public files using their flat downloadable
-release-asset names rather than internal `distribution-evidence/` paths.
-Sealing adds `preview-publication-handoff.json`. The projection receipt,
-current-distribution result, and signed handoff are private selection records,
-not release assets.
-
-Seal and independently verify the handoff with an owner-selected Ed25519 trust
-anchor:
-
-```text
-chmod 700 <detached-handoff>
-find <detached-handoff> -type d -exec chmod 700 {} +
-find <detached-handoff> -type f -exec chmod 600 {} +
-
-cargo run --locked -p release-packager -- seal-preview-publication-handoff \
-  --repository <source-repository> \
-  --handoff-dir <detached-handoff> \
-  --key-id <owner-key-id> \
-  --private-key-file <detached-raw-32-byte-private-key>
-
-cargo run --locked -p release-packager -- verify-preview-publication-handoff \
-  --repository <source-repository> \
-  --handoff-dir <detached-handoff> \
-  --key-id <owner-key-id> \
-  --public-key <64-lowercase-hex-characters>
-```
-
-Handoff sealing currently requires macOS and a regular, single-link private-key
-file owned by the effective user, with owner-only mode bits and no extended ACL
-entries. The handoff root and every directory must be owned by the effective
-user with mode `0700`; every file must be an owner-owned, single-link regular
-file with mode `0600`; no handoff entry may have an extended ACL. Inspect and
-remove any ACLs before sealing (for example, with `ls -le` and the
-platform-appropriate `chmod -N`) rather than relying on mode bits alone. Other
-Unix hosts and Windows cannot seal until equivalent owner/ACL admission is
-implemented.
-
-Canonical-envelope parsing and Ed25519 verification are portable primitives,
-but complete handoff verification is authority-local. The supplied source must
-be the canonical primary common checkout with authoritative `main` checked
-out—not a linked worktree or copied/stale clone—and it must retain the exact
-path, Git-directory identity, commit, and tree bound during sealing.
-
-Only after a separate publication authorization, use a clean one-commit
-projection with `main` checked out:
-
-```text
-cargo run --locked -p release-packager -- publish-preview-prerelease \
-  --handoff-dir <detached-handoff> \
-  --source-repository <clean-private-source-repository> \
-  --projection <clean-one-commit-public-projection> \
-  --github-cli <absolute-canonical-path-to-gh> \
-  --key-id <owner-key-id> \
-  --public-key <64-lowercase-hex-characters> \
-  --serial <positive-integer> \
-  --exclusive-write-window-confirmed
-```
-
-Set `GH_TOKEN` only in the publisher process environment. The command does not
-accept the token as an argument, persist it in its command model, or write it to
-the handoff, projection, receipt, or logs.
-
-The publisher is fixed to `github.com/andagni/autocad-mcp`, its `main` ref, and
-the neutral authenticated publisher identity `andagni`. Live publication
-revalidates that the destination exists, is public, active, non-forked, and has
-the required default branch and remote inventory. The supplied clean private
-source repository must be the canonical primary common checkout with
-authoritative `main` at the exact commit and tree named by the projection
-receipt; linked worktrees and copied or stale clones are rejected. The
-deterministic public projection must have the exact root commit, tree, metadata,
-and message required by the projection design. The handoff and process-owned
-upload staging directory must remain detached from both repositories.
-
-Before mutation, the publisher scans every release page, including drafts, to
-prove the Preview tag is unused and checks that the installed GitHub CLI
-supports release-integrity verification. It creates one draft, copies the seven
-already verified public assets into anonymous owner-only file handles in a
-fresh owner-only staging directory, and uploads those stable handles over
-standard input through the created release's exact ID and validated absolute
-upload URL; it never asks `gh` to reopen a mutable handoff or named staging path
-or select a draft by tag. The owner-selected `gh` executable is supplied by
-absolute path and rechecked around each token-bearing command; each invocation
-uses a cleared environment and fresh private configuration directory. Local
-Git inspection uses the system Git with a closed environment. The command then
-re-verifies the exact assets, source, projection, complete one-branch remote
-inventory, repository, principal, tag absence, and immutable-release setting
-immediately before publishing. It never deletes, overwrites, clobbers, or
-implicitly resumes a release, and removes the process-owned staging directory
-on every exit path.
-
-GitHub does not provide a conditional publish operation that atomically binds
-the inspected draft, asset inventory, tag absence, and immutable-release
-setting. The confirmation flag therefore asserts an externally enforced
-single-writer interval over the canonical source checkout, public projection,
-detached handoff and retained staged handles; repository visibility, archive,
-disabled, default-branch, remote-main, and other-branch state; releases; the
-exact tag; and repository or organization immutability settings for the whole
-command. Do not invoke the publisher if another local process, writer, or
-administrator can mutate that state during the interval. Failures before PATCH
-dispatch leave a draft; after dispatch, the command reconciles the exact
-immutable result, exact draft, or an explicit terminal ambiguous outcome and
-never retries publication.
+`SHA256SUMS.txt` binds the other six flat release-asset names. The deterministic
+build-source ZIP, rather than GitHub's generated source archive, is the
+corresponding-source artifact for the MCPB. Publication does not broaden the
+Preview compatibility or certification claims described above.
 
 ## Troubleshooting
 

@@ -182,6 +182,7 @@ struct LocalGateValidation {
 #[derive(Debug, Eq, PartialEq)]
 struct QualityOutcome {
     identity: candidate_seal::CandidateIdentity,
+    receipt_key_sha256: Option<String>,
     reused: bool,
 }
 
@@ -1163,6 +1164,7 @@ fn run_source_quality(root: &Path, cargo_timings: bool) -> Result<QualityOutcome
     }
     Ok(QualityOutcome {
         identity: before,
+        receipt_key_sha256: composition.receipt_key_sha256,
         reused: composition.reused,
     })
 }
@@ -1240,6 +1242,7 @@ fn run_candidate_quality(root: &Path, cargo_timings: bool) -> Result<QualityOutc
     }
     Ok(QualityOutcome {
         identity: sealed.unwrap_or(before),
+        receipt_key_sha256: composition.receipt_key_sha256,
         reused: composition.reused,
     })
 }
@@ -1260,6 +1263,9 @@ fn report_local_gate(cargo_timings: bool) -> ExitCode {
 fn report_source_quality(cargo_timings: bool) -> ExitCode {
     match run_source_quality(&repository_root(), cargo_timings) {
         Ok(outcome) => {
+            if let Some(receipt_key_sha256) = &outcome.receipt_key_sha256 {
+                eprintln!("source-quality receipt key {receipt_key_sha256}");
+            }
             if outcome.reused {
                 eprintln!(
                     "exact-commit source-quality validation was reused for {}",
