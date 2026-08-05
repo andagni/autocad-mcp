@@ -72,38 +72,38 @@ fn route_capability_inventory_is_exact() {
         (
             MutationRoute::AttachXref,
             true,
-            MutationSupport::BackendBlocked,
-            Some("xref_graph_invariants_unavailable"),
+            MutationSupport::CandidateGeneration,
+            None,
         ),
         (
             MutationRoute::UpdateXref,
             true,
-            MutationSupport::BackendBlocked,
-            Some("xref_graph_invariants_unavailable"),
+            MutationSupport::CandidateGeneration,
+            None,
         ),
         (
             MutationRoute::DetachXref,
             true,
-            MutationSupport::BackendBlocked,
-            Some("xref_reverse_links_unavailable"),
+            MutationSupport::CandidateGeneration,
+            None,
         ),
         (
             MutationRoute::InsertXrefInstance,
             true,
-            MutationSupport::BackendBlocked,
-            Some("xref_reverse_links_unavailable"),
+            MutationSupport::CandidateGeneration,
+            None,
         ),
         (
             MutationRoute::UpdateXrefInstance,
             true,
-            MutationSupport::BackendBlocked,
-            Some("xref_reverse_links_unavailable"),
+            MutationSupport::CandidateGeneration,
+            None,
         ),
         (
             MutationRoute::DeleteXrefInstance,
             true,
-            MutationSupport::BackendBlocked,
-            Some("xref_reverse_links_unavailable"),
+            MutationSupport::CandidateGeneration,
+            None,
         ),
         (
             MutationRoute::ReloadXref,
@@ -139,8 +139,21 @@ fn route_capability_inventory_is_exact() {
         assert_eq!(capability.support, support);
         assert_eq!(capability.blocker_code.as_deref(), blocker_code);
         if support == MutationSupport::CandidateGeneration {
+            // Mirrors `autocad_writer`'s internal (crate-private)
+            // `dwg_preview_qualified_route`: the title-block writer and the
+            // six real XREF mutation routes are the only ones qualified to
+            // produce DWG bytes under Preview.
             #[cfg(feature = "preview")]
-            let expected_formats = if route == MutationRoute::WriteTitleBlock {
+            let expected_formats = if matches!(
+                route,
+                MutationRoute::WriteTitleBlock
+                    | MutationRoute::AttachXref
+                    | MutationRoute::UpdateXref
+                    | MutationRoute::DetachXref
+                    | MutationRoute::InsertXrefInstance
+                    | MutationRoute::UpdateXrefInstance
+                    | MutationRoute::DeleteXrefInstance
+            ) {
                 vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
             } else {
                 vec![CandidateFormat::AsciiDxf]

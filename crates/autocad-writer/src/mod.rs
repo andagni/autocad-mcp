@@ -15,6 +15,8 @@ mod qualification;
 mod session;
 mod snapshot;
 mod title_blocks;
+mod xref_handle_bridge;
+mod xref_reader_postconditions;
 mod xrefs;
 
 pub use error::{WriteError, WriteErrorKind};

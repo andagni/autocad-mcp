@@ -1,8 +1,10 @@
-//! Normalized, post-validation XREF mutation plans for writer backends.
+//! Transport-neutral XREF mutation plans for writer backends.
 //!
 //! These types cover the live route semantics but are not the public MCP
 //! transport request schemas. The application adapter remains responsible for
-//! transport null handling, schema compatibility, and stable failure codes.
+//! transport null handling and schema compatibility; writer entry points own
+//! backend-independent plan validation, normalization, and stable failure
+//! codes.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -167,8 +169,15 @@ pub enum EffectiveLayerReconciliationMode {
 #[serde(deny_unknown_fields)]
 pub struct LayerReconciliationEvidence {
     pub requested_mode: LayerReconciliationMode,
-    pub effective_mode: EffectiveLayerReconciliationMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_mode: Option<EffectiveLayerReconciliationMode>,
     pub synchronized_properties: Vec<XrefLayerProperty>,
+    /// Whether the candidate bytes contain the reported reconciliation.
+    ///
+    /// Stock acadrust does not currently materialize this operation, so the
+    /// writer baseline records the requested plan without presenting it as
+    /// persisted evidence.
+    pub materialized: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -347,12 +356,14 @@ pub struct DeleteXrefInstanceResult {
 pub struct ReloadXrefResult {
     pub attachment: XrefAttachmentRecord,
     pub layer_reconciliation: LayerReconciliationEvidence,
+    pub load_state_materialized: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct UnloadXrefResult {
     pub attachment: XrefAttachmentRecord,
+    pub load_state_materialized: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -468,6 +479,9 @@ pub struct XrefBoundDependency {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BindXrefResult {
+    /// False until source graph import and strategy execution are represented
+    /// in candidate bytes.
+    pub materialized: bool,
     pub symbol_strategy: SymbolStrategy,
     pub dependency_strategy: DependencyStrategy,
     pub attachment: XrefAttachmentRecord,

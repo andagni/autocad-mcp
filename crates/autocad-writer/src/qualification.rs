@@ -7,9 +7,9 @@ use acadrust::entities::{
 use acadrust::tables::{BlockRecord, Layer, TableEntry};
 use acadrust::types::{Color, Handle, Vector3};
 use acadrust::xdata::{ExtendedDataRecord, XDataValue};
-#[cfg(feature = "preview")]
-use acadrust::DwgWriter;
 use acadrust::{CadDocument, DxfWriter};
+#[cfg(feature = "preview")]
+use acadrust::{DwgReader, DwgWriter};
 
 use super::contract::{
     AttachXref, CandidateFormat, CreateLayer, DeleteLayer, DetachXref, InsertXrefInstance,
@@ -45,6 +45,113 @@ fn document_with_layer(name: &str) -> CadDocument {
     layer.set_handle(document.allocate_handle());
     document.layers.add(layer).unwrap();
     document
+}
+
+#[cfg(feature = "preview")]
+fn dwg_qualified_document_with_layer(name: &str) -> CadDocument {
+    let mut document = document_with_layer(name);
+    document.dwg_source_version = Some(acadrust::types::DxfVersion::AC1032);
+    document
+}
+
+#[cfg(feature = "preview")]
+fn skipped_object_family_documents() -> [(&'static str, CadDocument, &'static str); 4] {
+    let mut geodata_doc = dwg_qualified_document_with_layer("HOST");
+    let mut geodata = acadrust::objects::GeoData::new();
+    geodata.handle = geodata_doc.allocate_handle();
+    geodata_doc.objects.insert(
+        geodata.handle,
+        acadrust::objects::ObjectType::GeoData(geodata),
+    );
+
+    let mut visual_style_doc = dwg_qualified_document_with_layer("HOST");
+    let mut visual_style = acadrust::objects::VisualStyle::new();
+    visual_style.handle = visual_style_doc.allocate_handle();
+    visual_style_doc.objects.insert(
+        visual_style.handle,
+        acadrust::objects::ObjectType::VisualStyle(visual_style),
+    );
+
+    let mut material_doc = dwg_qualified_document_with_layer("HOST");
+    let mut material = acadrust::objects::Material::new();
+    material.handle = material_doc.allocate_handle();
+    material_doc.objects.insert(
+        material.handle,
+        acadrust::objects::ObjectType::Material(material),
+    );
+
+    let mut table_style_doc = dwg_qualified_document_with_layer("HOST");
+    let mut table_style = acadrust::objects::TableStyle::new("PROBE");
+    table_style.handle = table_style_doc.allocate_handle();
+    table_style_doc.objects.insert(
+        table_style.handle,
+        acadrust::objects::ObjectType::TableStyle(table_style),
+    );
+
+    [
+        (
+            "dwg_geodata_object_will_be_dropped_by_acadrust_writer",
+            geodata_doc,
+            "GeoData",
+        ),
+        (
+            "dwg_visual_style_object_will_be_dropped_by_acadrust_writer",
+            visual_style_doc,
+            "VisualStyle",
+        ),
+        (
+            "dwg_material_object_will_be_dropped_by_acadrust_writer",
+            material_doc,
+            "Material",
+        ),
+        (
+            "dwg_table_style_object_will_be_dropped_by_acadrust_writer",
+            table_style_doc,
+            "TableStyle",
+        ),
+    ]
+}
+
+/// acadrust's DWG object writer has a literal empty match arm for these four
+/// families -- confirmed in source, not assumed -- so unlike true-color
+/// layers and extended data (proven lossless on DWG, see
+/// `known_lossy_dxf_source_shapes_fail_writer_admission`), this is real,
+/// total, silent data loss under Preview. It stays a disclosed risk: the
+/// candidate still encodes, but every affected receipt carries the matching
+/// diagnostic. Matches the same relaxation already shipped for exactly this
+/// object-family class on `feature/xref-writer-baseline`
+/// (`b086244`/`e5a6356`).
+#[cfg(feature = "preview")]
+#[test]
+fn dwg_skipped_object_families_encode_with_a_disclosed_diagnostic() {
+    for (diagnostic, document, family) in skipped_object_family_documents() {
+        let mut session = DrawingWriteSession::from_document_for_test(DrawingFormat::Dwg, document);
+        // CreateLayer's DWG candidate generation isn't Preview-qualified
+        // (only the title-block writer and the six real XREF routes are,
+        // see `session.rs`'s `dwg_preview_qualified_route`), so this uses a
+        // qualified route to reach the diagnostic-collection code at all.
+        session
+            .attach_xref(AttachXref {
+                xref_path: "site.dwg".to_string(),
+                name: Some("SITE".to_string()),
+                reference_type: ReferenceType::Attachment,
+                search_paths: None,
+                placement: None,
+                unit_assumptions: None,
+            })
+            .unwrap();
+        let candidate = session
+            .encode_candidate()
+            .unwrap_or_else(|error| panic!("{family} candidate should still encode: {error}"));
+        assert!(
+            candidate
+                .receipt()
+                .diagnostics
+                .contains(&diagnostic.to_string()),
+            "{family} candidate should disclose {diagnostic}: {:?}",
+            candidate.receipt().diagnostics
+        );
+    }
 }
 
 fn title_block_document() -> CadDocument {
@@ -95,7 +202,7 @@ fn mutation_capability_inventory_is_exact_and_exhaustive() {
             .iter()
             .filter(|capability| capability.support == MutationSupport::CandidateGeneration)
             .count(),
-        5
+        11
     );
     assert!(capabilities
         .iter()
@@ -106,7 +213,7 @@ fn mutation_capability_inventory_is_exact_and_exhaustive() {
         .filter(|capability| capability.support == MutationSupport::CandidateGeneration)
     {
         #[cfg(feature = "preview")]
-        let expected = if capability.route == MutationRoute::WriteTitleBlock {
+        let expected = if super::contract::dwg_preview_qualified_route(capability.route) {
             vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
         } else {
             vec![CandidateFormat::AsciiDxf]
@@ -120,7 +227,7 @@ fn mutation_capability_inventory_is_exact_and_exhaustive() {
             .iter()
             .filter(|capability| capability.support == MutationSupport::BackendBlocked)
             .count(),
-        9
+        3
     );
     let plot = capabilities
         .iter()
@@ -285,14 +392,22 @@ fn title_block_write_rejects_extension_dictionary_backed_attributes() {
 fn known_lossy_dxf_source_shapes_fail_writer_admission() {
     let mut true_color = document_with_layer("RGB");
     true_color.layers.get_mut("RGB").unwrap().color = Color::from_rgb(12, 34, 56);
-    let error = super::backend::ensure_candidate_source_admitted(&true_color).unwrap_err();
+    let error = super::backend::ensure_candidate_source_admitted(DrawingFormat::Dxf, &true_color)
+        .unwrap_err();
     assert_eq!(error.code(), "true_color_layer_not_preserved");
+    // DWG's `write_cm_color` correctly preserves true color for R2004+
+    // (every version this backend admits); the refusal above is a proven
+    // DXF-writer-only limitation (`write_layer_entry` hardcodes
+    // `Color::Rgb { .. } => 7` and never emits DXF group 420 for a LAYER),
+    // not a general one. See the comment on `ensure_candidate_source_admitted`.
+    super::backend::ensure_candidate_source_admitted(DrawingFormat::Dwg, &true_color).unwrap();
 
     let mut surface = CadDocument::new();
     surface
         .add_entity(EntityType::Surface(Surface::new(SurfaceKind::Generic)))
         .unwrap();
-    let error = super::backend::ensure_candidate_source_admitted(&surface).unwrap_err();
+    let error =
+        super::backend::ensure_candidate_source_admitted(DrawingFormat::Dxf, &surface).unwrap_err();
     assert_eq!(error.code(), "unsupported_entity_preservation");
 
     let mut xdata = document_with_layer("XDATA");
@@ -301,8 +416,14 @@ fn known_lossy_dxf_source_shapes_fail_writer_admission() {
     record.add_value(XDataValue::String("must survive".to_string()));
     line.common.extended_data.add_record(record);
     xdata.add_entity(EntityType::Line(line)).unwrap();
-    let error = super::backend::ensure_candidate_source_admitted(&xdata).unwrap_err();
+    let error =
+        super::backend::ensure_candidate_source_admitted(DrawingFormat::Dxf, &xdata).unwrap_err();
     assert_eq!(error.code(), "extended_data_not_preserved");
+    // DWG's `write_extended_data` is real and wired in (unlike DXF's
+    // `write_xdata`, which exists but is never called); a same-family DWG
+    // write preserves this entity's XDATA, proven by round trip in
+    // `admits_true_color_and_extended_data_on_dwg_because_both_prove_lossless`.
+    super::backend::ensure_candidate_source_admitted(DrawingFormat::Dwg, &xdata).unwrap();
 
     let xdata_bytes = b"  0\r\nLINE\r\n1001\r\nAUTOCAD_MCP_TEST\r\n";
     let error = super::backend::ensure_ascii_dxf_source_bytes_admitted(xdata_bytes).unwrap_err();
@@ -315,6 +436,48 @@ fn known_lossy_dxf_source_shapes_fail_writer_admission() {
 
     let code_as_value = b"  1\r\n430\r\n";
     super::backend::ensure_ascii_dxf_source_bytes_admitted(code_as_value).unwrap();
+}
+
+/// Empirical proof, not just source-reading, that the two DXF-only refusals
+/// `known_lossy_dxf_source_shapes_fail_writer_admission` scopes away from
+/// DWG really are lossless there: a real `DwgWriter`-then-`DwgReader`
+/// round trip of both a true-color layer and an entity's structured XDATA.
+#[cfg(feature = "preview")]
+#[test]
+fn admits_true_color_and_extended_data_on_dwg_because_both_prove_lossless() {
+    let mut document = document_with_layer("RGB");
+    document.layers.get_mut("RGB").unwrap().color = Color::from_rgb(10, 20, 30);
+    let mut appid = acadrust::tables::AppId::new("AUTOCAD_MCP_TEST");
+    appid.set_handle(document.allocate_handle());
+    document.app_ids.add(appid).unwrap();
+    let mut line = Line::new();
+    line.common.layer = "RGB".to_string();
+    let mut record = ExtendedDataRecord::new("AUTOCAD_MCP_TEST");
+    record.add_value(XDataValue::String("must survive".to_string()));
+    line.common.extended_data.add_record(record);
+    document.add_entity(EntityType::Line(line)).unwrap();
+
+    let bytes = DwgWriter::write_to_vec(&document).unwrap();
+    let reopened = DwgReader::from_stream(std::io::Cursor::new(bytes))
+        .read()
+        .unwrap();
+
+    assert_eq!(
+        reopened.layers.get("RGB").unwrap().color,
+        Color::from_rgb(10, 20, 30)
+    );
+    let reopened_line = reopened
+        .entities()
+        .find_map(|entity| match entity {
+            EntityType::Line(line) => Some(line),
+            _ => None,
+        })
+        .expect("the LINE entity must still be present");
+    assert!(!reopened_line.common.extended_data.is_empty());
+    assert_eq!(
+        reopened_line.common.extended_data.records()[0].values,
+        [XDataValue::String("must survive".to_string())]
+    );
 }
 
 #[test]
@@ -493,7 +656,8 @@ fn compound_children_fail_admission_and_delete_reports_viewport_references() {
         .add_entity(EntityType::Polyline3D(polyline))
         .unwrap();
 
-    let error = super::backend::ensure_candidate_source_admitted(&document).unwrap_err();
+    let error = super::backend::ensure_candidate_source_admitted(DrawingFormat::Dxf, &document)
+        .unwrap_err();
     assert_eq!(error.code(), "unsupported_entity_preservation");
 
     let mut document = document_with_layer("VIEWPORT_LOCKED");
@@ -581,7 +745,14 @@ fn dwg_candidates_are_unqualified_before_serialization() {
 }
 
 #[test]
-fn xref_bearing_dxf_is_rejected_before_a_mutation_session_is_returned() {
+fn xref_bearing_dxf_admits_a_mutation_session_for_an_unrelated_route() {
+    // `Writer::open_snapshot` used to hard-refuse any source containing an
+    // XREF outright ("acadrust 0.4.1 serialization rewrites XREF membership
+    // metadata"). `XrefHandleBridge::from_source` now repairs that dropped
+    // membership state against the independent reader's proven projection
+    // unconditionally, for every session, before any mutation runs -- so an
+    // unrelated route (CreateLayer here) on an XREF-bearing source is no
+    // longer refused just because the XREF is present.
     let mut document = document_with_layer("HOST");
     let mut xref = BlockRecord::new("SITE");
     xref.handle = document.allocate_handle();
@@ -591,12 +762,15 @@ fn xref_bearing_dxf_is_rejected_before_a_mutation_session_is_returned() {
     xref.xref_path = "site.dwg".to_string();
     document.block_records.add(xref).unwrap();
 
-    let error = match Writer::open_snapshot(dxf_snapshot(&document)) {
-        Ok(_) => panic!("XREF-bearing DXF unexpectedly entered a mutation session"),
-        Err(error) => error,
-    };
-    assert_eq!(error.kind(), WriteErrorKind::BackendCapability);
-    assert_eq!(error.code(), "xref_metadata_not_preserved");
+    let mut session = Writer::open_snapshot(dxf_snapshot(&document))
+        .expect("an XREF-bearing source now admits a mutation session");
+    session
+        .create_layer(CreateLayer {
+            name: "UNRELATED".to_string(),
+            properties: LayerProperties::default(),
+        })
+        .unwrap();
+    session.encode_candidate().unwrap();
 }
 
 #[test]

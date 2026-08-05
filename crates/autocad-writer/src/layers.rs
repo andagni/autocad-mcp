@@ -1,6 +1,10 @@
-use acadrust::entities::EntityType;
+use std::collections::BTreeSet;
+
+use acadrust::entities::{EntityCommon, EntityType};
+use acadrust::objects::ObjectType;
 use acadrust::tables::TableEntry;
-use acadrust::types::{Handle, LineWeight};
+use acadrust::types::{DxfVersion, Handle, LineWeight};
+use acadrust::xdata::{ExtendedData, XDataValue};
 use acadrust::CadDocument;
 use autocad_reader::DrawingReadSession;
 
@@ -62,7 +66,7 @@ fn parse_handle(input: &str) -> Result<Handle, WriteError> {
     Ok(Handle::new(value))
 }
 
-fn current_layer_handle(document: &CadDocument) -> Option<Handle> {
+pub(super) fn current_layer_handle(document: &CadDocument) -> Option<Handle> {
     let handle = document.header.current_layer_handle;
     if !handle.is_null() && document.layers.iter().any(|layer| layer.handle() == handle) {
         return Some(handle);
@@ -78,8 +82,10 @@ fn is_current(document: &CadDocument, layer: &acadrust::tables::Layer) -> bool {
     current_layer_handle(document) == Some(layer.handle())
 }
 
-fn is_xref_dependent(layer: &acadrust::tables::Layer) -> bool {
-    layer.flags.xref_dependent || layer.name.contains('|')
+pub(super) fn is_xref_dependent(layer: &acadrust::tables::Layer) -> bool {
+    layer.flags.xref_dependent
+        || !layer.xref_block_record_handle.is_null()
+        || layer.name.contains('|')
 }
 
 fn line_weight_record(weight: LineWeight) -> LayerLineWeight {
@@ -404,56 +410,105 @@ pub(super) fn update(
     })
 }
 
-fn rewrite_entity_layers(document: &mut CadDocument, old_name: &str, new_name: &str) {
-    for entity in document.entities_mut() {
-        if name_eq(&entity.common().layer, old_name) {
-            entity.common_mut().layer = new_name.to_string();
+fn rewrite_xdata_layer_names(xdata: &mut ExtendedData, old_name: &str, new_name: &str) {
+    let mut records = xdata.records().to_vec();
+    let mut changed = false;
+    for record in &mut records {
+        for value in &mut record.values {
+            if let XDataValue::LayerName(name) = value {
+                if name_eq(name, old_name) {
+                    *name = new_name.to_string();
+                    changed = true;
+                }
+            }
         }
-        match entity {
-            EntityType::Insert(insert) => {
-                for attribute in &mut insert.attributes {
-                    if name_eq(&attribute.common.layer, old_name) {
-                        attribute.common.layer = new_name.to_string();
-                    }
-                }
-            }
-            EntityType::Polyline3D(polyline) => {
-                for vertex in &mut polyline.vertices {
-                    if name_eq(&vertex.layer, old_name) {
-                        vertex.layer = new_name.to_string();
-                    }
-                }
-            }
-            EntityType::PolygonMesh(mesh) => {
-                for vertex in &mut mesh.vertices {
-                    if name_eq(&vertex.common.layer, old_name) {
-                        vertex.common.layer = new_name.to_string();
-                    }
-                }
-            }
-            EntityType::PolyfaceMesh(mesh) => {
-                for vertex in &mut mesh.vertices {
-                    if name_eq(&vertex.common.layer, old_name) {
-                        vertex.common.layer = new_name.to_string();
-                    }
-                }
-                for face in &mut mesh.faces {
-                    if name_eq(&face.common.layer, old_name) {
-                        face.common.layer = new_name.to_string();
-                    }
-                }
-            }
-            _ => {}
+    }
+    if changed {
+        // ExtendedData::clear only clears structured records. Preserve any raw
+        // DWG EED blobs, whose layer references are handle-based.
+        xdata.clear();
+        for record in records {
+            xdata.add_record(record);
         }
     }
 }
 
-fn entity_child_uses_layer(entity: &EntityType, name: &str) -> bool {
+fn rewrite_common_layer(common: &mut EntityCommon, old_name: &str, new_name: &str) {
+    if name_eq(&common.layer, old_name) {
+        common.layer = new_name.to_string();
+    }
+    rewrite_xdata_layer_names(&mut common.extended_data, old_name, new_name);
+}
+
+pub(super) fn rewrite_entity_layer_references(
+    entity: &mut EntityType,
+    old_name: &str,
+    new_name: &str,
+) {
+    rewrite_common_layer(entity.common_mut(), old_name, new_name);
+    match entity {
+        EntityType::Insert(insert) => {
+            for attribute in &mut insert.attributes {
+                rewrite_common_layer(&mut attribute.common, old_name, new_name);
+            }
+        }
+        EntityType::Polyline3D(polyline) => {
+            for vertex in &mut polyline.vertices {
+                if name_eq(&vertex.layer, old_name) {
+                    vertex.layer = new_name.to_string();
+                }
+            }
+        }
+        EntityType::PolygonMesh(mesh) => {
+            for vertex in &mut mesh.vertices {
+                rewrite_common_layer(&mut vertex.common, old_name, new_name);
+            }
+        }
+        EntityType::PolyfaceMesh(mesh) => {
+            for vertex in &mut mesh.vertices {
+                rewrite_common_layer(&mut vertex.common, old_name, new_name);
+            }
+            for face in &mut mesh.faces {
+                rewrite_common_layer(&mut face.common, old_name, new_name);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn rewrite_entity_layers(document: &mut CadDocument, old_name: &str, new_name: &str) {
+    for entity in document.entities_mut() {
+        rewrite_entity_layer_references(entity, old_name, new_name);
+    }
+}
+
+fn xdata_references_layer(xdata: &ExtendedData, name: &str, handle: Handle) -> bool {
+    xdata.records().iter().any(|record| {
+        record.values.iter().any(|value| match value {
+            XDataValue::LayerName(candidate) => name_eq(candidate, name),
+            XDataValue::Handle(candidate) => *candidate == handle,
+            _ => false,
+        })
+    })
+}
+
+fn common_references_layer(common: &EntityCommon, name: &str, handle: Handle) -> bool {
+    name_eq(&common.layer, name) || xdata_references_layer(&common.extended_data, name, handle)
+}
+
+fn common_has_raw_eed(common: &EntityCommon) -> bool {
+    !common.extended_data.raw_dwg_eed.is_empty()
+}
+
+pub(super) fn entity_references_layer(entity: &EntityType, name: &str, handle: Handle) -> bool {
+    if common_references_layer(entity.common(), name, handle) {
+        return true;
+    }
     match entity {
         EntityType::Insert(insert) => insert
             .attributes
             .iter()
-            .any(|attribute| name_eq(&attribute.common.layer, name)),
+            .any(|attribute| common_references_layer(&attribute.common, name, handle)),
         EntityType::Polyline3D(polyline) => polyline
             .vertices
             .iter()
@@ -461,24 +516,256 @@ fn entity_child_uses_layer(entity: &EntityType, name: &str) -> bool {
         EntityType::PolygonMesh(mesh) => mesh
             .vertices
             .iter()
-            .any(|vertex| name_eq(&vertex.common.layer, name)),
+            .any(|vertex| common_references_layer(&vertex.common, name, handle)),
         EntityType::PolyfaceMesh(mesh) => {
             mesh.vertices
                 .iter()
-                .any(|vertex| name_eq(&vertex.common.layer, name))
+                .any(|vertex| common_references_layer(&vertex.common, name, handle))
                 || mesh
                     .faces
                     .iter()
-                    .any(|face| name_eq(&face.common.layer, name))
+                    .any(|face| common_references_layer(&face.common, name, handle))
         }
         _ => false,
     }
 }
 
-fn has_opaque_layer_references(document: &CadDocument) -> bool {
-    document
-        .entities()
-        .any(|entity| matches!(entity, EntityType::Unknown(_)))
+pub(super) fn entity_has_opaque_layer_references(entity: &EntityType) -> bool {
+    if common_has_raw_eed(entity.common()) {
+        return true;
+    }
+    match entity {
+        EntityType::Unknown(_) => true,
+        EntityType::Surface(surface) => surface.raw_dwg_data.is_some(),
+        EntityType::MultiLeader(multileader) => multileader.raw_dwg_data.is_some(),
+        EntityType::Insert(insert) => insert
+            .attributes
+            .iter()
+            .any(|attribute| common_has_raw_eed(&attribute.common)),
+        EntityType::PolygonMesh(mesh) => mesh
+            .vertices
+            .iter()
+            .any(|vertex| common_has_raw_eed(&vertex.common)),
+        EntityType::PolyfaceMesh(mesh) => {
+            mesh.vertices
+                .iter()
+                .any(|vertex| common_has_raw_eed(&vertex.common))
+                || mesh
+                    .faces
+                    .iter()
+                    .any(|face| common_has_raw_eed(&face.common))
+        }
+        _ => false,
+    }
+}
+
+pub(super) fn has_opaque_layer_references(document: &CadDocument) -> bool {
+    let has_any_version_locked_data = document.dwg_source_version.is_some_and(|source| {
+        let other_family = if source >= DxfVersion::AC1021 {
+            DxfVersion::AC1018
+        } else {
+            DxfVersion::AC1021
+        };
+        document.has_version_locked_data(other_family)
+    });
+    has_any_version_locked_data
+        || document.entities().any(entity_has_opaque_layer_references)
+        || document.objects.values().any(|object| match object {
+            ObjectType::Unknown { .. } => true,
+            ObjectType::XRecord(record) => !record.raw_data.is_empty(),
+            _ => false,
+        })
+}
+
+fn advance(offset: usize, count: usize, len: usize) -> Option<usize> {
+    let end = offset.checked_add(count)?;
+    (end <= len).then_some(end)
+}
+
+/// Decodes the handle-bearing sub-records (DXF group 1003 "layer table
+/// reference" and 1005 "entity handle reference") out of one raw DWG EED
+/// per-application data blob, per the Open Design Alliance `.dwg` format
+/// spec §28 "Extended Entity Data": a flat sequence of `[1-byte type tag]
+/// [type-specific value]` records with no bit-packing, running to the end
+/// of the blob with no record count.
+///
+/// Returns `None` — "cannot be trusted" — the moment anything doesn't add
+/// up: an unrecognized tag, or a declared length that runs past the end of
+/// the blob, or (at the very end) leftover bytes that don't form another
+/// record. The caller must then treat this blob as fully opaque, exactly as
+/// before this function existed, rather than risk acting on a decode that
+/// silently went out of sync partway through.
+///
+/// The two handle-bearing tags (3, 5) store an 8-byte raw value that the
+/// spec only describes as "read it as hex, as usual for handles" — it does
+/// not pin down byte order, and no other 8-byte-raw-handle field in this
+/// format was found to cross-check against. Both byte-order readings are
+/// returned for every such sub-record, so a caller checking "does this
+/// blob reference handle X" can only become *more* likely to (correctly or
+/// over-cautiously) say yes; it can never become less likely to catch a
+/// real reference because of an endianness guess.
+fn parse_eed_sub_record_handles(data: &[u8], unicode_strings: bool) -> Option<Vec<Handle>> {
+    let mut handles = Vec::new();
+    let mut i = 0usize;
+    let len = data.len();
+    while i < len {
+        let tag = data[i];
+        i = advance(i, 1, len)?;
+        match tag {
+            // String (1000): R13-R2004 = 1-byte length + 2-byte codepage +
+            // N bytes; R2007+ = 2-byte length + N UTF-16 code units.
+            0 => {
+                if unicode_strings {
+                    let low = *data.get(i)? as u16;
+                    let high = *data.get(i + 1)? as u16;
+                    let n = low | (high << 8);
+                    i = advance(i, 2, len)?;
+                    i = advance(i, (n as usize) * 2, len)?;
+                } else {
+                    let n = *data.get(i)? as usize;
+                    i = advance(i, 1, len)?;
+                    i = advance(i, 2, len)?; // codepage (RS), value unused
+                    i = advance(i, n, len)?;
+                }
+            }
+            // Control string '{' / '}' (1002): 1 byte.
+            2 => i = advance(i, 1, len)?,
+            // Layer handle (1003) / entity handle (1005): 8 raw bytes.
+            3 | 5 => {
+                let raw: [u8; 8] = data.get(i..i + 8)?.try_into().ok()?;
+                handles.push(Handle::from(u64::from_be_bytes(raw)));
+                handles.push(Handle::from(u64::from_le_bytes(raw)));
+                i = advance(i, 8, len)?;
+            }
+            // Binary chunk (1004): 1-byte length + N bytes.
+            4 => {
+                let n = *data.get(i)? as usize;
+                i = advance(i, 1, len)?;
+                i = advance(i, n, len)?;
+            }
+            // Point (1010-1013): 3 doubles (XYZ), 24 bytes.
+            10..=13 => i = advance(i, 24, len)?,
+            // Real (1040-1042): 8 bytes.
+            40..=42 => i = advance(i, 8, len)?,
+            // Short int (1070): 2 bytes.
+            70 => i = advance(i, 2, len)?,
+            // Long int (1071): 4 bytes.
+            71 => i = advance(i, 4, len)?,
+            // Tag 1 is documented as never occurring, and anything else is
+            // unspecified by the spec we verified against — fail closed.
+            _ => return None,
+        }
+    }
+    Some(handles)
+}
+
+/// The handles opaque (DWG-raw) EED data references, or `None` if any part
+/// of the document's opaque data cannot be decoded with confidence — in
+/// which case the caller must fall back to refusing unconditionally.
+///
+/// Scope, deliberately: this only proves the *structural* concern (would a
+/// deletion leave a dangling handle reference behind, corrupting the
+/// document's handle graph). It does not, and cannot, prove the *rename*
+/// concern (an opaque XRECORD or EED string sub-record holding the XREF's
+/// old name as literal text, which a rename cannot detect or fix) — that
+/// risk is not a byte-format question, it's arbitrary third-party
+/// application semantics no DWG-writing tool can fully see into, including
+/// real AutoCAD itself. Callers concerned with renames must keep using
+/// [`has_opaque_layer_references`] unscoped.
+///
+/// `XRecord.raw_data` and any `Unknown`-typed entity/object remain
+/// unconditionally opaque here (not attempted): unlike EED, XRECORD's own
+/// handle-typed group codes (320-369, 480-481) are documented as being
+/// resolved from the object's separate handle stream, not stored inline in
+/// the databytes this crate has access to — so there is no length to trust
+/// for them, and guessing one risks silently desynchronizing every
+/// subsequent record in the same XRECORD, which is the outcome this
+/// function exists to avoid. This is a disclosed, structural gap, not a
+/// relaxation.
+///
+/// `document.has_version_locked_data` is deliberately not consulted here:
+/// it tests whether the document would be lossy if written to a *different*
+/// DWG version family, which XREF mutation never does (routes always write
+/// back the source's own family), and its only signal beyond what this
+/// function already inspects directly (per-entity raw EED, covered above)
+/// is acadrust's private `eed_by_handle` table-entry EED cache, which has no
+/// public accessor — calling it would just re-introduce an unscoped, whole-
+/// document trigger for data already accounted for precisely.
+fn opaque_referenced_handles(document: &CadDocument) -> Option<BTreeSet<Handle>> {
+    let unicode_strings = document
+        .dwg_source_version
+        .is_some_and(|version| version >= DxfVersion::AC1021);
+    let mut handles = BTreeSet::new();
+
+    let absorb_common = |common: &EntityCommon, handles: &mut BTreeSet<Handle>| -> Option<()> {
+        for (_, data) in &common.extended_data.raw_dwg_eed {
+            handles.extend(parse_eed_sub_record_handles(data, unicode_strings)?);
+        }
+        Some(())
+    };
+
+    for entity in document.entities() {
+        if matches!(entity, EntityType::Unknown(_)) {
+            return None;
+        }
+        if let EntityType::Surface(surface) = entity {
+            if surface.raw_dwg_data.is_some() {
+                return None;
+            }
+        }
+        if let EntityType::MultiLeader(multileader) = entity {
+            if multileader.raw_dwg_data.is_some() {
+                return None;
+            }
+        }
+        absorb_common(entity.common(), &mut handles)?;
+        match entity {
+            EntityType::Insert(insert) => {
+                for attribute in &insert.attributes {
+                    absorb_common(&attribute.common, &mut handles)?;
+                }
+            }
+            EntityType::PolygonMesh(mesh) => {
+                for vertex in &mesh.vertices {
+                    absorb_common(&vertex.common, &mut handles)?;
+                }
+            }
+            EntityType::PolyfaceMesh(mesh) => {
+                for vertex in &mesh.vertices {
+                    absorb_common(&vertex.common, &mut handles)?;
+                }
+                for face in &mesh.faces {
+                    absorb_common(&face.common, &mut handles)?;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for object in document.objects.values() {
+        match object {
+            ObjectType::Unknown { .. } => return None,
+            ObjectType::XRecord(record) if !record.raw_data.is_empty() => return None,
+            _ => {}
+        }
+    }
+
+    Some(handles)
+}
+
+/// Scoped replacement for [`has_opaque_layer_references`], usable only where
+/// the concern is a dangling handle reference left behind by a deletion (see
+/// [`opaque_referenced_handles`] for exactly what this does and does not
+/// prove). Refuses if the document's opaque data cannot be decoded with
+/// confidence, or if what was decoded references any handle in `protected`.
+pub(super) fn has_opaque_references_to(
+    document: &CadDocument,
+    protected: &BTreeSet<Handle>,
+) -> bool {
+    match opaque_referenced_handles(document) {
+        Some(handles) => handles.iter().any(|handle| protected.contains(handle)),
+        None => true,
+    }
 }
 
 pub(super) fn rename(
@@ -549,10 +836,10 @@ pub(super) fn rename(
     })
 }
 
-fn layer_is_referenced(document: &CadDocument, name: &str) -> bool {
-    document.entities().any(|entity| {
-        name_eq(&entity.common().layer, name) || entity_child_uses_layer(entity, name)
-    })
+fn layer_is_referenced(document: &CadDocument, name: &str, handle: Handle) -> bool {
+    document
+        .entities()
+        .any(|entity| entity_references_layer(entity, name, handle))
 }
 
 fn layer_has_unverified_references(document: &CadDocument, handle: Handle) -> bool {
@@ -594,7 +881,7 @@ pub(super) fn delete(
             "cannot delete the current layer",
         ));
     }
-    if layer_is_referenced(document, &name) {
+    if layer_is_referenced(document, &name, handle) {
         return Err(WriteError::invalid_request(
             "layer_has_content",
             format!("layer `{name}` has content"),
@@ -707,4 +994,87 @@ pub(super) fn verify(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use acadrust::entities::{Line, Polyline3D, Vertex3DPolyline};
+    use acadrust::tables::Layer;
+    use acadrust::xdata::ExtendedDataRecord;
+
+    #[test]
+    fn rewrites_compound_child_and_structured_xdata_layer_references() {
+        let mut polyline = Polyline3D::new();
+        polyline.common.layer = "0".to_string();
+        let mut vertex = Vertex3DPolyline::from_xyz(1.0, 2.0, 3.0);
+        vertex.layer = "OLD".to_string();
+        polyline.vertices.push(vertex);
+        let mut record = ExtendedDataRecord::new("TEST");
+        record.add_value(XDataValue::LayerName("OLD".to_string()));
+        polyline.common.extended_data.add_record(record);
+
+        let mut entity = EntityType::Polyline3D(polyline);
+        rewrite_entity_layer_references(&mut entity, "OLD", "NEW");
+
+        let EntityType::Polyline3D(polyline) = entity else {
+            unreachable!();
+        };
+        assert_eq!(polyline.vertices[0].layer, "NEW");
+        assert!(matches!(
+            &polyline.common.extended_data.records()[0].values[0],
+            XDataValue::LayerName(name) if name == "NEW"
+        ));
+    }
+
+    #[test]
+    fn delete_and_rename_fail_closed_for_xdata_references() {
+        let mut document = CadDocument::new();
+        let mut layer = Layer::new("TARGET");
+        layer.set_handle(document.allocate_handle());
+        document.layers.add(layer).unwrap();
+
+        let mut line = Line::from_coords(0.0, 0.0, 0.0, 1.0, 1.0, 0.0);
+        let mut record = ExtendedDataRecord::new("TEST");
+        record.add_value(XDataValue::LayerName("TARGET".to_string()));
+        line.common.extended_data.add_record(record);
+        document.add_entity(EntityType::Line(line)).unwrap();
+
+        let delete_error = delete(
+            &mut document.clone(),
+            &DeleteLayer {
+                selector: LayerSelector {
+                    name: Some("TARGET".to_string()),
+                    ..Default::default()
+                },
+            },
+        )
+        .unwrap_err();
+        assert_eq!(delete_error.code(), "layer_has_content");
+
+        let line = document
+            .entities_mut()
+            .find_map(|entity| match entity {
+                EntityType::Line(line) => Some(line),
+                _ => None,
+            })
+            .unwrap();
+        line.common
+            .extended_data
+            .raw_dwg_eed
+            .push((1, vec![3, 0, 0, 0]));
+        let rename_error = rename(
+            &mut document,
+            DrawingFormat::Dwg,
+            &RenameLayer {
+                selector: LayerSelector {
+                    name: Some("TARGET".to_string()),
+                    ..Default::default()
+                },
+                new_name: "RENAMED".to_string(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(rename_error.code(), "layer_has_unverified_references");
+    }
 }

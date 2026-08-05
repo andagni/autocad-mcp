@@ -67,10 +67,32 @@ pub struct MutationCapability {
     pub source_admission_required: bool,
 }
 
+/// Routes whose DWG candidate generation is qualified under Preview: the
+/// title-block writer (proven via whole-document CRC preservation, see
+/// `backend::verify_dwg_title_block_preservation`) and the six real XREF
+/// mutation routes (proven via the independent reader postcondition and
+/// `XrefHandleBridge` checks in `session.rs` -- a different, route-scoped
+/// evidentiary story rather than a whole-document byte-preservation proof).
+/// Single source of truth for both this capability's advertised
+/// `candidate_formats` and `session.rs`'s `encode_candidate` gate.
+#[cfg(feature = "preview")]
+pub(crate) fn dwg_preview_qualified_route(route: MutationRoute) -> bool {
+    matches!(
+        route,
+        MutationRoute::WriteTitleBlock
+            | MutationRoute::AttachXref
+            | MutationRoute::UpdateXref
+            | MutationRoute::DetachXref
+            | MutationRoute::InsertXrefInstance
+            | MutationRoute::UpdateXrefInstance
+            | MutationRoute::DeleteXrefInstance
+    )
+}
+
 impl MutationCapability {
     fn candidate(route: MutationRoute) -> Self {
         #[cfg(feature = "preview")]
-        let candidate_formats = if route == MutationRoute::WriteTitleBlock {
+        let candidate_formats = if dwg_preview_qualified_route(route) {
             vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
         } else {
             vec![CandidateFormat::AsciiDxf]
@@ -107,16 +129,13 @@ pub fn mutation_capabilities() -> Vec<MutationCapability> {
             | MutationRoute::UpdateLayer
             | MutationRoute::RenameLayer
             | MutationRoute::DeleteLayer
-            | MutationRoute::WriteTitleBlock => MutationCapability::candidate(route),
-            MutationRoute::AttachXref | MutationRoute::UpdateXref => {
-                MutationCapability::blocked(route, "xref_graph_invariants_unavailable")
-            }
-            MutationRoute::DetachXref
+            | MutationRoute::WriteTitleBlock
+            | MutationRoute::AttachXref
+            | MutationRoute::UpdateXref
+            | MutationRoute::DetachXref
             | MutationRoute::InsertXrefInstance
             | MutationRoute::UpdateXrefInstance
-            | MutationRoute::DeleteXrefInstance => {
-                MutationCapability::blocked(route, "xref_reverse_links_unavailable")
-            }
+            | MutationRoute::DeleteXrefInstance => MutationCapability::candidate(route),
             MutationRoute::ReloadXref | MutationRoute::UnloadXref => {
                 MutationCapability::blocked(route, "xref_load_state_not_preserved")
             }
@@ -133,33 +152,4 @@ pub fn mutation_capabilities() -> Vec<MutationCapability> {
             },
         })
         .collect()
-}
-
-pub(crate) fn capability(route: MutationRoute) -> MutationCapability {
-    mutation_capabilities()
-        .into_iter()
-        .find(|capability| capability.route == route)
-        .expect("every mutation route has a capability")
-}
-
-pub(crate) fn blocker_code(route: MutationRoute) -> Option<&'static str> {
-    match route {
-        MutationRoute::CreateLayer
-        | MutationRoute::UpdateLayer
-        | MutationRoute::RenameLayer
-        | MutationRoute::DeleteLayer
-        | MutationRoute::WriteTitleBlock => None,
-        MutationRoute::AttachXref | MutationRoute::UpdateXref => {
-            Some("xref_graph_invariants_unavailable")
-        }
-        MutationRoute::DetachXref
-        | MutationRoute::InsertXrefInstance
-        | MutationRoute::UpdateXrefInstance
-        | MutationRoute::DeleteXrefInstance => Some("xref_reverse_links_unavailable"),
-        MutationRoute::ReloadXref | MutationRoute::UnloadXref => {
-            Some("xref_load_state_not_preserved")
-        }
-        MutationRoute::BindXref => Some("xref_graph_import_unavailable"),
-        MutationRoute::PlotToPdf => Some("plot_renderer_unavailable"),
-    }
 }

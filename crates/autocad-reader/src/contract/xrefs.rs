@@ -531,9 +531,19 @@ pub struct XrefPortableLayerProperties {
     pub frozen: bool,
     pub locked: bool,
     pub is_plottable: bool,
-    pub color_index: i16,
+    pub color: XrefPortableLayerColor,
     pub line_type: String,
     pub line_weight: i16,
+}
+
+/// A layer's persisted color, proven in whichever representation the DWG
+/// record actually used. AutoCAD Color Index (ACI) and True Color (RGB) are
+/// both fully round-trippable through the backend; there is no reason to
+/// treat True Color as unprovable evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XrefPortableLayerColor {
+    Aci(i16),
+    TrueColor { r: u8, g: u8, b: u8 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

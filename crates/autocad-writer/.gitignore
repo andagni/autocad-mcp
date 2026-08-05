@@ -12,3 +12,5 @@
 /tests/**
 !/tests/source_policy.rs
 !/tests/portable_worker.rs
+!/tests/xref_ascii_matrix.rs
+!/tests/xref_reader_postconditions.rs

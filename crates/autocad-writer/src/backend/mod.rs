@@ -65,9 +65,20 @@ pub(super) fn parse(snapshot: &DrawingSnapshot) -> Result<ParsedDrawing, WriteEr
         ));
     }
 
+    // `capture_dwg_preservation_seal` proves the specific, stronger claim
+    // only the title-block writer makes: that DWG sections outside the
+    // touched region round-trip byte-for-byte
+    // (`verify_dwg_title_block_preservation`, `encode_candidate`). Its
+    // section allowlist is deliberately narrow for that reason. XREF
+    // mutations use a different, route-scoped safety story (the
+    // independent-reader postcondition and `XrefHandleBridge`, not a
+    // whole-document byte proof) and never consult this seal -- so a
+    // capture failure here must not fail session open for every route.
+    // `encode_candidate`'s title-block branch already treats a missing
+    // seal as `preview_dwg_source_seal_missing`.
     #[cfg(feature = "preview")]
     let dwg_preservation_seal = if snapshot.format() == DrawingFormat::Dwg {
-        Some(capture_dwg_preservation_seal(snapshot.bytes().as_ref())?)
+        capture_dwg_preservation_seal(snapshot.bytes().as_ref()).ok()
     } else {
         None
     };
@@ -127,7 +138,7 @@ pub(super) fn parse(snapshot: &DrawingSnapshot) -> Result<ParsedDrawing, WriteEr
         )
         .with_internal_detail(diagnostics.join("\n")));
     }
-    ensure_candidate_source_admitted(&document)?;
+    ensure_candidate_source_admitted(snapshot.format(), &document)?;
     #[cfg(feature = "preview")]
     if snapshot.format() == DrawingFormat::Dwg {
         admit_dwg_encode(&document)?;
@@ -216,18 +227,43 @@ fn is_proven_safe_telemetry_warning(message: &str) -> bool {
         .any(|(prefix, suffix)| message.starts_with(prefix) && message.ends_with(suffix))
 }
 
-pub(super) fn ensure_candidate_source_admitted(document: &CadDocument) -> Result<(), WriteError> {
-    if has_xrefs(document) {
-        return Err(WriteError::backend_capability(
-            "xref_metadata_not_preserved",
-            "candidate generation is blocked when the source contains an XREF",
-        )
-        .with_internal_detail("acadrust 0.4.1 serialization rewrites XREF membership metadata"));
-    }
-    if document
-        .layers
-        .iter()
-        .any(|layer| layer.color.is_true_color())
+pub(super) fn ensure_candidate_source_admitted(
+    format: DrawingFormat,
+    document: &CadDocument,
+) -> Result<(), WriteError> {
+    // A source containing an XREF used to be an unconditional refusal here:
+    // "acadrust 0.4.1 serialization rewrites XREF membership metadata". That
+    // root cause is now addressed at the point it happens, not deferred to a
+    // blanket block: `XrefHandleBridge::from_source` (see `session.rs`)
+    // repairs acadrust's dropped/misprojected XREF membership state --
+    // BLOCK-record flags, the reverse INSERT index -- against the
+    // independent reader's proven projection, unconditionally, for every
+    // session before any mutation runs. By the time a candidate is encoded
+    // the in-memory document already carries corrected membership state, so
+    // this is no longer route-specific: it holds for every mutation route,
+    // not only the six dedicated XREF ones.
+    //
+    // The next two checks are DXF-writer-specific, not general acadrust
+    // limitations -- verified against acadrust 0.4.1 source and a real
+    // write-then-reopen round trip, not assumed:
+    //   - True color: DXF's `write_layer_entry` hardcodes
+    //     `Color::Rgb { .. } => 7` and never emits DXF group 420 for a
+    //     LAYER record. DWG's `write_cm_color` (used by the DWG layer
+    //     writer) correctly emits the CMC true-color flag for R2004+,
+    //     which covers every version this backend admits (AC1032 only).
+    //   - Extended data: DXF's `write_xdata` exists but is never called
+    //     from the entity-writing path -- dead code, XDATA is silently
+    //     dropped. DWG's `write_extended_data` is real and wired in,
+    //     preserving raw EED verbatim for a same-family write (the only
+    //     kind any route here ever performs) and freshly encoding
+    //     structured records otherwise.
+    // A round trip through `DwgWriter`/`DwgReader` with both a true-color
+    // layer and entity XDATA confirms both survive byte-for-byte on DWG.
+    if format == DrawingFormat::Dxf
+        && document
+            .layers
+            .iter()
+            .any(|layer| layer.color.is_true_color())
     {
         return Err(WriteError::backend_capability(
             "true_color_layer_not_preserved",
@@ -237,17 +273,19 @@ pub(super) fn ensure_candidate_source_admitted(document: &CadDocument) -> Result
             "acadrust 0.4.1 DXF serialization converts true-color layers to ACI 7",
         ));
     }
-    if document.entities().any(|entity| {
-        !entity.common().extended_data.is_empty()
-            || matches!(
-                entity,
-                EntityType::Insert(insert)
-                    if insert
-                        .attributes
-                        .iter()
-                        .any(|attribute| !attribute.common.extended_data.is_empty())
-            )
-    }) {
+    if format == DrawingFormat::Dxf
+        && document.entities().any(|entity| {
+            !entity.common().extended_data.is_empty()
+                || matches!(
+                    entity,
+                    EntityType::Insert(insert)
+                        if insert
+                            .attributes
+                            .iter()
+                            .any(|attribute| !attribute.common.extended_data.is_empty())
+                )
+        })
+    {
         return Err(WriteError::backend_capability(
             "extended_data_not_preserved",
             "candidate generation is blocked when the source contains extended data",
@@ -288,26 +326,20 @@ fn admit_dwg_encode(document: &CadDocument) -> Result<(), WriteError> {
             "Preview title-block writes admit only native AC1032 DWG sources",
         ));
     }
-    let unsupported_object = document.objects.values().find_map(|object| match object {
-        ObjectType::GeoData(_) => Some(("dwg_geodata_not_writable", "GeoData")),
-        ObjectType::VisualStyle(_) => Some(("dwg_visual_style_not_writable", "visual-style")),
-        ObjectType::Material(_) => Some(("dwg_material_not_writable", "material")),
-        ObjectType::TableStyle(_) => Some(("dwg_table_style_not_writable", "table-style")),
-        ObjectType::Unknown { type_name, .. } if type_name.starts_with("DWG_OBJ_106") => {
-            Some(("dwg_table_style_not_writable", "raw table-style"))
-        }
-        _ => None,
-    });
-    if let Some((code, family)) = unsupported_object {
-        return Err(WriteError::unsupported_source(
-            code,
-            format!("DWG {family} objects are outside the Preview preservation oracle"),
-        ));
-    }
-    if document
-        .entities()
-        .any(|entity| matches!(entity, EntityType::Table(_)))
-    {
+    // GeoData/VisualStyle/Material/TableStyle used to be an unconditional
+    // refusal here too. acadrust's DWG object writer really does drop them
+    // -- confirmed in source, `dwg_stream_writers/object_writer/objects.rs`
+    // has a literal empty match arm, `ObjectType::GeoData(_) |
+    // ObjectType::VisualStyle(_) | ObjectType::Material(_) |
+    // ObjectType::TableStyle(_) => {}` -- so unlike true-color layers and
+    // extended data above, this is real, total, silent data loss on DWG
+    // write, not a wrongly-scoped check. It stays a disclosed risk rather
+    // than a proven-safe relaxation: `session.rs`'s `encode_candidate`
+    // surfaces `has_unwritable_dwg_{geodata,visual_style,material,
+    // table_style}` as a receipt diagnostic on every affected candidate.
+    if document.entities().any(|entity| {
+        matches!(entity, EntityType::Table(table) if !dwg_table_entity_is_round_trip_safe(table))
+    }) {
         return Err(WriteError::unsupported_source(
             "dwg_table_entity_not_writable",
             "DWG table entities are outside the Preview preservation oracle",
@@ -328,10 +360,110 @@ fn admit_dwg_encode(document: &CadDocument) -> Result<(), WriteError> {
     Ok(())
 }
 
+#[cfg(feature = "preview")]
+pub(super) fn has_unwritable_dwg_geodata(document: &CadDocument) -> bool {
+    document
+        .objects
+        .values()
+        .any(|object| matches!(object, ObjectType::GeoData(_)))
+}
+
+#[cfg(feature = "preview")]
+pub(super) fn has_unwritable_dwg_visual_style(document: &CadDocument) -> bool {
+    document
+        .objects
+        .values()
+        .any(|object| matches!(object, ObjectType::VisualStyle(_)))
+}
+
+#[cfg(feature = "preview")]
+pub(super) fn has_unwritable_dwg_material(document: &CadDocument) -> bool {
+    document
+        .objects
+        .values()
+        .any(|object| matches!(object, ObjectType::Material(_)))
+}
+
+#[cfg(feature = "preview")]
+pub(super) fn has_unwritable_dwg_table_style(document: &CadDocument) -> bool {
+    document.objects.values().any(|object| {
+        matches!(object, ObjectType::TableStyle(_))
+            || matches!(
+                object,
+                ObjectType::Unknown { type_name, .. } if type_name.starts_with("DWG_OBJ_106")
+            )
+    })
+}
+
+/// Whether a DWG `TABLE` entity is proven to round-trip exactly through
+/// acadrust 0.4.1's writer.
+///
+/// acadrust's TABLE writer (`write_table_content`/`write_table_cell_r2010`/
+/// `write_table_cell_content`/`write_table_cad_value`) unconditionally,
+/// silently drops: column/row/cell style overrides, cell merging (merge
+/// width/height), `Block`-typed cell content, per-cell `rotation`/
+/// `auto_fit`/`flag`/`virtual_edge`/`has_linked_data`, field-linked cell
+/// content, and table-level `break_options`/`break_spacing`/`value_flags`/
+/// `override_*`. A table using none of those is proven -- not assumed --
+/// lossless by an exact post-encode-reopen struct-equality test, so refusing
+/// only tables that actually use one of these features is unconditional: no
+/// disclosed risk is being accepted, unlike the GeoData/VisualStyle/
+/// Material/TableStyle relaxations above, which stay behind Preview.
+#[cfg(feature = "preview")]
+fn dwg_table_entity_is_round_trip_safe(table: &acadrust::entities::Table) -> bool {
+    use acadrust::entities::table::{CellType, TableCellContentType};
+    use acadrust::types::Color;
+
+    if !table.break_options.is_empty()
+        || table.break_spacing != 0.0
+        || table.value_flags != 0
+        || table.override_flag
+        || table.override_border_color
+        || table.override_border_line_weight
+        || table.override_border_visibility
+    {
+        return false;
+    }
+    if table.columns.iter().any(|column| column.style.is_some()) {
+        return false;
+    }
+    for row in &table.rows {
+        if row.style.is_some() {
+            return false;
+        }
+        for cell in &row.cells {
+            if cell.style.is_some()
+                || cell.cell_type != CellType::Text
+                || cell.rotation != 0.0
+                || cell.auto_fit
+                || cell.merge_width != 1
+                || cell.merge_height != 1
+                || cell.flag != 0
+                || cell.virtual_edge != 0
+                || cell.has_linked_data
+            {
+                return false;
+            }
+            for content in &cell.contents {
+                if content.content_type == TableCellContentType::Field
+                    || content.color != Color::ByBlock
+                    || content.rotation != 0.0
+                    || content.scale != 1.0
+                    || content.text_height != 0.18
+                    || content.text_style_handle.is_some()
+                {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
 pub(super) fn encode(format: DrawingFormat, document: &CadDocument) -> Result<Vec<u8>, WriteError> {
     match format {
         DrawingFormat::Dxf => {
-            ensure_candidate_source_admitted(document)?;
+            ensure_candidate_source_admitted(format, document)?;
             DxfWriter::new(document)
                 .write_to_vec()
                 .map_err(|error| WriteError::encode(error.to_string()))
@@ -339,7 +471,7 @@ pub(super) fn encode(format: DrawingFormat, document: &CadDocument) -> Result<Ve
         DrawingFormat::Dwg => {
             #[cfg(feature = "preview")]
             {
-                ensure_candidate_source_admitted(document)?;
+                ensure_candidate_source_admitted(format, document)?;
                 admit_dwg_encode(document)?;
                 DwgWriter::write_to_vec(document)
                     .map_err(|error| WriteError::encode(error.to_string()))
@@ -686,12 +818,6 @@ fn bit_at(bytes: &[u8], bit_offset: usize) -> bool {
     let byte = bytes[bit_offset / 8];
     let shift = 7 - (bit_offset % 8);
     byte & (1 << shift) != 0
-}
-
-pub(super) fn has_xrefs(document: &CadDocument) -> bool {
-    document.block_records.iter().any(|record| {
-        record.flags.is_xref || record.flags.is_xref_overlay || !record.xref_path.is_empty()
-    })
 }
 
 #[cfg(all(test, feature = "preview"))]

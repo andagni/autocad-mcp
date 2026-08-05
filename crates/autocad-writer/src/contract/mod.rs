@@ -3,7 +3,8 @@ mod layers;
 mod title_blocks;
 mod xrefs;
 
-pub(crate) use capability::{blocker_code, capability};
+#[cfg(feature = "preview")]
+pub(crate) use capability::dwg_preview_qualified_route;
 pub use capability::{
     mutation_capabilities, CandidateFormat, MutationCapability, MutationRoute, MutationSupport,
     ALL_MUTATION_ROUTES,
@@ -28,7 +29,8 @@ pub use xrefs::{
 };
 
 pub use autocad_reader::contract::xrefs::{
-    InsertionUnit, ReferenceType, XrefAttachmentRecord, XrefInstanceRecord, XrefOwnerType,
-    XrefPoint3, XrefRectangularArray, XrefScale3, XrefVector3, XrefVisibility,
+    InsertionUnit, LoadState, ReferenceType, XrefAttachmentRecord, XrefInstanceRecord,
+    XrefOwnerType, XrefPathMode, XrefPlacementKind, XrefPoint3, XrefPointAvailability,
+    XrefRectangularArray, XrefScale3, XrefUnitScaling, XrefVector3, XrefVisibility,
 };
 pub use autocad_reader::contract::{LayerLineWeight, LayerRecord, LayerSelector};

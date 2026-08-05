@@ -1,8 +1,9 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{LayerLineWeight, LayerRecord, LayerSelector};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LayerProperties {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -10,6 +11,7 @@ pub struct LayerProperties {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_type: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "serde_json::Value")]
     pub line_weight: Option<LayerLineWeight>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frozen: Option<bool>,
@@ -33,7 +35,7 @@ impl LayerProperties {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CreateLayer {
     pub name: String,
@@ -41,23 +43,26 @@ pub struct CreateLayer {
     pub properties: LayerProperties,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateLayer {
+    #[schemars(with = "serde_json::Value")]
     pub selector: LayerSelector,
     pub properties: LayerProperties,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RenameLayer {
+    #[schemars(with = "serde_json::Value")]
     pub selector: LayerSelector,
     pub new_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteLayer {
+    #[schemars(with = "serde_json::Value")]
     pub selector: LayerSelector,
 }
 

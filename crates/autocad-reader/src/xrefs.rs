@@ -4,7 +4,7 @@ use std::io::Cursor;
 use acadrust::entities::EntityType;
 use acadrust::io::dwg::dwg_stream_readers::handle_reader::read_handles;
 use acadrust::io::dwg::dwg_stream_readers::object_reader::common::{
-    OBJ_BLOCK, OBJ_BLOCK_HEADER, OBJ_ENDBLK, OBJ_INSERT, OBJ_LAYER, OBJ_MINSERT,
+    OBJ_BLOCK, OBJ_BLOCK_CONTROL, OBJ_BLOCK_HEADER, OBJ_ENDBLK, OBJ_INSERT, OBJ_LAYER, OBJ_MINSERT,
 };
 use acadrust::io::dwg::dwg_stream_readers::object_reader::{entities, tables, DwgObjectReader};
 use acadrust::io::dwg::DwgReader;
@@ -18,9 +18,10 @@ use super::contract::xrefs::{
     PersistedInsertionUnits, ReferenceType, XrefAttachmentRecord, XrefDomainEvidence, XrefError,
     XrefInstanceListOptions, XrefInstanceRecord, XrefMembershipEvidence, XrefOwnerType,
     XrefPathMode, XrefPersistedInstanceEvidence, XrefPersistedPlacementEvidence, XrefPlacementKind,
-    XrefPoint3, XrefPointAvailability, XrefPortableClipEvidence, XrefPortableLayerProperties,
-    XrefRectangularArray, XrefScale3, XrefSelector, XrefSnapshotEvidence, XrefUnitBasis,
-    XrefUnitScaling, XrefUnitValue, XrefVector3, XrefVisibility,
+    XrefPoint3, XrefPointAvailability, XrefPortableClipEvidence, XrefPortableLayerColor,
+    XrefPortableLayerProperties, XrefRectangularArray, XrefScale3, XrefSelector,
+    XrefSnapshotEvidence, XrefUnitBasis, XrefUnitScaling, XrefUnitValue, XrefVector3,
+    XrefVisibility,
 };
 #[cfg(test)]
 use super::Reader;
@@ -979,7 +980,11 @@ fn raw_layer(object: &DxfObject) -> LayerEvidence {
                 frozen: flags & 1 != 0,
                 locked: flags & 4 != 0,
                 is_plottable: plottable == 1,
-                color_index: color.unsigned_abs() as i16,
+                // DXF True Color (group 420) and Color Book (group 430) are
+                // not read here yet — deliberately deferred, see memory
+                // `project-xref-bridge-identity-mismatch-root-cause`. Group
+                // 62 is always ACI on the wire for this reader today.
+                color: XrefPortableLayerColor::Aci(color.unsigned_abs() as i16),
                 line_type,
                 line_weight: line_weight as i16,
             })
@@ -1725,6 +1730,91 @@ fn verify_dwg_marker(
     Ok(())
 }
 
+/// Independently locates the DWG BLOCK_CONTROL record and reads its
+/// authoritative `*Model_Space` / `*Paper_Space` hard-owner handles. There is
+/// exactly one BLOCK_CONTROL per file; returns `None` if it cannot be found
+/// or decoded, in which case the caller falls back to the file header's
+/// (less reliable) `model_space_block_handle` / `paper_space_block_handle`.
+fn read_dwg_block_control(reader: &DwgObjectReader) -> Option<(u64, u64)> {
+    for handle in reader.handles() {
+        let offset = reader.offset_for(handle).filter(|offset| *offset >= 0)?;
+        let Ok((type_code, mut record)) = reader.read_record_at(offset as usize) else {
+            continue;
+        };
+        if type_code != OBJ_BLOCK_CONTROL {
+            continue;
+        }
+        let _common = reader.read_common_non_entity_data(&mut record, type_code);
+        let parsed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            tables::read_block_control(&mut record)
+        }));
+        if let Ok(data) = parsed {
+            return Some((data.model_space_handle, data.paper_space_handle));
+        }
+    }
+    None
+}
+
+/// Reproduces acadrust's own BLOCK_HEADER name-deduplication so the
+/// independent reader's block-definition name evidence agrees, handle for
+/// handle, with what ends up in acadrust's `document.block_records`.
+///
+/// The DWG binary format stores every paper-space block record on disk
+/// under the literal name `*Paper_Space`, and anonymous blocks (dimensions,
+/// hatches, …) share bases like `*D`, `*U`. Both acadrust and this reader
+/// parse the same raw per-record name via `acadrust::tables::read_block_header`,
+/// so without this step every duplicate-named handle here would carry the
+/// bare on-disk name while acadrust's document model carries its
+/// deduplicated name for all but one of them — see memory
+/// `project-xref-bridge-identity-mismatch-root-cause`.
+///
+/// Matches acadrust's algorithm exactly: group headers by raw name in
+/// ascending-handle order (the order `headers` is already in); a group of
+/// one is left alone; a larger group picks the entry whose handle equals
+/// the authoritative model/paper-space handle as canonical for the
+/// `*Model_Space` / `*Paper_Space` bases (falling back to the first entry,
+/// as for every other base), and suffixes every other member
+/// `{base}{index}` with `index` counting up from 0 in that same order.
+fn canonicalize_block_header_names(
+    headers: &mut [DwgBlockHeader],
+    model_space_handle: Option<u64>,
+    paper_space_handle: Option<u64>,
+) {
+    let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (idx, header) in headers.iter().enumerate() {
+        groups
+            .entry(header.data.name.clone())
+            .or_default()
+            .push(idx);
+    }
+    for (base_name, indices) in groups {
+        if indices.len() <= 1 {
+            continue;
+        }
+        let active_handle = match base_name.as_str() {
+            "*Model_Space" => model_space_handle,
+            "*Paper_Space" => paper_space_handle,
+            _ => None,
+        };
+        let canonical_idx = active_handle
+            .and_then(|active| {
+                indices
+                    .iter()
+                    .copied()
+                    .find(|&idx| u64::from_str_radix(&headers[idx].handle, 16).ok() == Some(active))
+            })
+            .unwrap_or(indices[0]);
+        let mut suffix = 0u32;
+        for idx in indices {
+            if idx == canonical_idx {
+                continue;
+            }
+            headers[idx].data.name = format!("{base_name}{suffix}");
+            suffix += 1;
+        }
+    }
+}
+
 fn read_dwg_headers(reader: &DwgObjectReader) -> Vec<DwgBlockHeader> {
     let mut result = Vec::new();
     let mut handles = reader.handles();
@@ -1821,20 +1911,31 @@ fn read_dwg_layers(reader: &DwgObjectReader, document: &CadDocument) -> Vec<Laye
                     .iter()
                     .filter(|line_type| line_type.handle.value() == data.linetype_handle)
                     .collect::<Vec<_>>();
-                let properties = match (data.color.index(), line_types.as_slice()) {
-                    (Some(color_index), [line_type]) if i16::try_from(color_index).is_ok() => {
-                        Fact::Proven(XrefPortableLayerProperties {
-                            off: data.off,
-                            frozen: data.frozen,
-                            locked: data.locked,
-                            is_plottable: data.plottable,
-                            color_index: color_index as i16,
-                            line_type: line_type.name.clone(),
-                            line_weight: data.line_weight,
-                        })
-                    }
+                // AutoCAD Color Index and True Color (RGB) are both fully
+                // round-trippable through the backend's own `Color` model —
+                // only `ByLayer`/`ByBlock` on a *layer itself* would be a
+                // genuinely nonsensical persisted value, which `index()`
+                // still resolves (0/256) so this covers every real case.
+                let color = if let acadrust::types::Color::Rgb { r, g, b } = data.color {
+                    Some(XrefPortableLayerColor::TrueColor { r, g, b })
+                } else {
+                    data.color
+                        .index()
+                        .and_then(|index| i16::try_from(index).ok())
+                        .map(XrefPortableLayerColor::Aci)
+                };
+                let properties = match (color, line_types.as_slice()) {
+                    (Some(color), [line_type]) => Fact::Proven(XrefPortableLayerProperties {
+                        off: data.off,
+                        frozen: data.frozen,
+                        locked: data.locked,
+                        is_plottable: data.plottable,
+                        color,
+                        line_type: line_type.name.clone(),
+                        line_weight: data.line_weight,
+                    }),
                     (None, _) => Fact::Unsupported(
-                        "DWG LAYER uses a non-ACI color that the mutation contract cannot project"
+                        "DWG LAYER color is outside the persisted ranges this reader can prove"
                             .into(),
                     ),
                     (_, []) => {
@@ -1862,24 +1963,37 @@ fn read_dwg_layers(reader: &DwgObjectReader, document: &CadDocument) -> Vec<Laye
     result
 }
 
-fn dwg_owner_catalog(headers: &[DwgBlockHeader], document: &CadDocument) -> Vec<OwnerEvidence> {
+fn dwg_owner_catalog(
+    headers: &[DwgBlockHeader],
+    document: &CadDocument,
+    model_space_handle: Option<u64>,
+) -> Vec<OwnerEvidence> {
     headers
         .iter()
         .map(|header| {
+            let numeric_handle = u64::from_str_radix(&header.handle, 16).unwrap_or_default();
             let layout_names = document
                 .objects
                 .values()
                 .filter_map(|object| match object {
-                    ObjectType::Layout(layout)
-                        if layout.block_record.value()
-                            == u64::from_str_radix(&header.handle, 16).unwrap_or_default() =>
-                    {
+                    ObjectType::Layout(layout) if layout.block_record.value() == numeric_handle => {
                         Some(layout.name.clone())
                     }
                     _ => None,
                 })
                 .collect::<Vec<_>>();
-            let (owner_type, name) = if header.data.name.eq_ignore_ascii_case("*Model_Space") {
+            // There is exactly one model space per document, and its
+            // handle — independently derived from the DWG BLOCK_CONTROL
+            // hard-owner reference, see `read_dwg_block_control` — is
+            // authoritative ground truth. A name-only check (even
+            // case-insensitive) trusts a convention a DGN-converted or
+            // otherwise non-standard file need not follow; fall back to it
+            // only when no independent handle was available at all.
+            let is_model_space = match model_space_handle {
+                Some(handle) => numeric_handle == handle,
+                None => header.data.name.eq_ignore_ascii_case("*Model_Space"),
+            };
+            let (owner_type, name) = if is_model_space {
                 (
                     Fact::Proven(XrefOwnerType::ModelSpace),
                     Fact::Proven("Model".into()),
@@ -2116,9 +2230,30 @@ fn derive_dwg_snapshot(
 ) -> Result<XrefSnapshotEvidence, XrefError> {
     reject_projection_errors(document)?;
     let reader = low_level_dwg_reader(bytes)?;
-    let headers = read_dwg_headers(&reader);
+    let mut headers = read_dwg_headers(&reader);
+    let (block_control_model, block_control_paper) =
+        read_dwg_block_control(&reader).unwrap_or((0, 0));
+    let model_space_handle = Some(block_control_model)
+        .filter(|&handle| handle != 0)
+        .or_else(|| {
+            document
+                .header
+                .model_space_block_handle
+                .is_valid()
+                .then(|| document.header.model_space_block_handle.value())
+        });
+    let paper_space_handle = Some(block_control_paper)
+        .filter(|&handle| handle != 0)
+        .or_else(|| {
+            document
+                .header
+                .paper_space_block_handle
+                .is_valid()
+                .then(|| document.header.paper_space_block_handle.value())
+        });
+    canonicalize_block_header_names(&mut headers, model_space_handle, paper_space_handle);
     let layers = read_dwg_layers(&reader, document);
-    let owners = dwg_owner_catalog(&headers, document);
+    let owners = dwg_owner_catalog(&headers, document, model_space_handle);
     let entity_owners = dwg_entity_owner_map(&headers);
     let host_units = persisted_units(Some(i64::from(document.header.insertion_units)));
     let instance_context = DwgInstanceContext {
@@ -2919,6 +3054,106 @@ mod tests {
             .expect("autocad-mcp should live under <repo>/crates")
             .join("tests/fixtures/xrefs")
             .join(name)
+    }
+
+    /// DWG stores every paper-space block record on disk under the literal
+    /// name `*Paper_Space`; a document with two layouts has two such
+    /// records that acadrust deduplicates on parse into `*Paper_Space` /
+    /// `*Paper_Space0`. The independent reader's block-definition name
+    /// evidence must assign the same name to the same handle acadrust does,
+    /// or `XrefHandleBridge` refuses the drawing outright — see memory
+    /// `project-xref-bridge-identity-mismatch-root-cause`.
+    #[test]
+    fn dwg_paper_space_block_names_match_acadrust_canonicalization_across_two_layouts() {
+        let mut document = CadDocument::new();
+        document.add_layout("Layout2").unwrap();
+        let bytes = DwgWriter::write_to_vec(&document).unwrap();
+
+        // Ground truth: reparse independently with acadrust and read the
+        // canonical names it assigned per handle.
+        let ground_truth = DwgReader::from_stream(Cursor::new(bytes.clone()))
+            .read()
+            .unwrap();
+        let expected: BTreeMap<Handle, String> = ground_truth
+            .block_records
+            .iter()
+            .filter(|record| record.name.starts_with("*Paper_Space"))
+            .map(|record| (record.handle, record.name.clone()))
+            .collect();
+        assert_eq!(
+            expected.len(),
+            2,
+            "expected two distinct paper-space block records in the ground truth"
+        );
+
+        let session =
+            Reader::open_snapshot(DrawingSnapshot::new(DrawingFormat::Dwg, bytes)).unwrap();
+        let xref_session = session.xref_session().unwrap();
+        let actual: BTreeMap<Handle, String> = xref_session
+            .evidence()
+            .attachments
+            .iter()
+            .filter_map(|attachment| match (&attachment.handle, &attachment.name) {
+                (Fact::Proven(handle), Fact::Proven(name)) if name.starts_with("*Paper_Space") => {
+                    let handle = Handle::new(u64::from_str_radix(handle, 16).unwrap());
+                    Some((handle, name.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(actual, expected);
+    }
+
+    /// True Color (RGB) layers are fully round-trippable through acadrust's
+    /// own `Color` model — the reader must prove them rather than declaring
+    /// layer evidence incomplete, or `XrefHandleBridge` refuses to open any
+    /// drawing with such a layer at all. See memory
+    /// `project-xref-bridge-identity-mismatch-root-cause`.
+    #[test]
+    fn dwg_true_color_layer_is_proven_not_unsupported() {
+        use acadrust::tables::Layer;
+        use acadrust::types::Color;
+        use acadrust::TableEntry;
+
+        let mut document = CadDocument::new();
+        let mut layer = Layer::with_color("TRUE_COLOR", Color::from_rgb(10, 20, 30));
+        layer.set_handle(document.allocate_handle());
+        document.layers.add(layer).unwrap();
+        let bytes = DwgWriter::write_to_vec(&document).unwrap();
+
+        let session =
+            Reader::open_snapshot(DrawingSnapshot::new(DrawingFormat::Dwg, bytes)).unwrap();
+        let xref_session = session.xref_session().unwrap();
+        let evidence = xref_session.evidence();
+        assert!(
+            evidence.layers_complete,
+            "a True Color layer must not make layer evidence incomplete"
+        );
+        let layer = evidence
+            .layers
+            .iter()
+            .find(|layer| layer.name == Fact::Proven("TRUE_COLOR".to_string()))
+            .expect("the true-color layer must be present in layer evidence");
+        let Fact::Proven(properties) = &layer.properties else {
+            panic!(
+                "true-color layer properties must be proven, got {:?}",
+                layer.properties
+            );
+        };
+        assert_eq!(
+            properties.color,
+            xref_contract::XrefPortableLayerColor::TrueColor {
+                r: 10,
+                g: 20,
+                b: 30
+            }
+        );
+        assert!(!properties.off);
+        assert!(!properties.frozen);
+        assert!(!properties.locked);
+        assert!(properties.is_plottable);
+        assert_eq!(properties.line_type, "Continuous");
     }
 
     #[test]

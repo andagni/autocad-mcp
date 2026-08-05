@@ -1,6 +1,7 @@
 use std::collections::{hash_map::Entry, BTreeMap, BTreeSet, HashMap};
 
 use acadrust::entities::{attribute_definition::MTextFlag, EntityType, Insert};
+use acadrust::objects::ObjectType;
 use acadrust::types::Handle;
 use acadrust::CadDocument;
 use autocad_reader::contract::TitleBlockInfo;
@@ -123,6 +124,46 @@ fn field_backed(value: &str) -> bool {
     value.contains("%<") && value.contains(">%")
 }
 
+/// The only extension-dictionary content on an ATTRIB that a plain value
+/// rewrite is known not to invalidate: a dictionary whose sole entry is the
+/// well-known, AutoCAD-reserved `AcDbContextDataManager` key.
+///
+/// Researched, not assumed: `AcDbContextDataManager` roots the annotation-
+/// scale context-data system (`ACDB_ANNOTATIONSCALES` -> one
+/// `ACDB_*CONTEXTDATA_CLASS` object per scale override). Every documented
+/// context-data class -- block-reference, text/mtext, and attribute -- only
+/// stores *geometric* per-scale overrides: insertion point, rotation,
+/// alignment, direction, width/height, scale factors. None stores the
+/// object's own text content; that would defeat the point of "annotative"
+/// (same content, different visual representation per scale). Confirmed at
+/// the code level too: `AttributeEntity::set_value` (what `write()` below
+/// calls) is `self.value = value.into()` and touches nothing else on the
+/// struct -- not `insertion_point`, not `rotation`, not `height`. The two
+/// are provably orthogonal.
+///
+/// Any dictionary that fails to resolve, or carries any entry beyond this
+/// one recognized key, is refused exactly as before -- this narrows what
+/// gets refused, it does not relax the fail-closed default for anything we
+/// haven't specifically verified.
+fn xdictionary_is_known_safe_for_value_rewrite(
+    document: &CadDocument,
+    xdictionary_handle: Option<Handle>,
+) -> bool {
+    let Some(handle) = xdictionary_handle else {
+        return true;
+    };
+    match document.objects.get(&handle) {
+        Some(ObjectType::Dictionary(dict)) => {
+            !dict.entries.is_empty()
+                && dict
+                    .entries
+                    .iter()
+                    .all(|(key, _)| key == "AcDbContextDataManager")
+        }
+        _ => false,
+    }
+}
+
 fn target_state(insert: &acadrust::entities::Insert) -> InsertState {
     InsertState {
         handle: insert.common.handle,
@@ -200,7 +241,10 @@ pub(super) fn write(
             if attribute.is_multiline
                 || attribute.mtext_flag != MTextFlag::SingleLine
                 || attribute.line_count != 1
-                || attribute.common.xdictionary_handle.is_some()
+                || !xdictionary_is_known_safe_for_value_rewrite(
+                    document,
+                    attribute.common.xdictionary_handle,
+                )
                 || field_backed(&attribute.value)
             {
                 return Err(WriteError::unsupported_source(

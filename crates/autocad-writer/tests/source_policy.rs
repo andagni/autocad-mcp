@@ -101,8 +101,23 @@ fn writer_candidate_contract_remains_narrow_and_noncertifying() {
     );
     for capability in &capabilities {
         if capability.support == MutationSupport::CandidateGeneration {
+            // Mirrors `autocad_writer`'s internal (crate-private)
+            // `dwg_preview_qualified_route`: the title-block writer (proven
+            // via whole-document CRC preservation) and the six real XREF
+            // mutation routes (proven via the independent reader
+            // postcondition and handle-bridge checks) are the only routes
+            // qualified to produce DWG bytes under Preview.
             #[cfg(feature = "preview")]
-            let expected_formats = if capability.route == MutationRoute::WriteTitleBlock {
+            let expected_formats = if matches!(
+                capability.route,
+                MutationRoute::WriteTitleBlock
+                    | MutationRoute::AttachXref
+                    | MutationRoute::UpdateXref
+                    | MutationRoute::DetachXref
+                    | MutationRoute::InsertXrefInstance
+                    | MutationRoute::UpdateXrefInstance
+                    | MutationRoute::DeleteXrefInstance
+            ) {
                 vec![CandidateFormat::Dwg, CandidateFormat::AsciiDxf]
             } else {
                 vec![CandidateFormat::AsciiDxf]
@@ -149,7 +164,6 @@ fn writer_candidate_contract_remains_narrow_and_noncertifying() {
             .expect("writer backend source should be readable");
     for guard in [
         "dwg_candidate_preservation_unqualified",
-        "xref_metadata_not_preserved",
         "extended_data_not_preserved",
         "color_book_not_preserved",
     ] {
@@ -158,4 +172,23 @@ fn writer_candidate_contract_remains_narrow_and_noncertifying() {
             "writer admission must retain the known unqualified-source guard: {guard}"
         );
     }
+    // `xref_metadata_not_preserved` used to sit in this list: a blanket
+    // refusal of any source containing an XREF, for any route. It was
+    // replaced, not silently dropped -- `XrefHandleBridge::from_source`
+    // (`session.rs`) now repairs the specific dropped state that refusal
+    // was guarding (BLOCK-record membership flags, the reverse INSERT
+    // index) against the independent reader's proven projection,
+    // unconditionally, before any mutation runs.
+    assert!(
+        !backend.contains("xref_metadata_not_preserved"),
+        "the blanket XREF-source refusal should stay retired now that XrefHandleBridge repairs \
+         the state it was guarding"
+    );
+    let xref_handle_bridge =
+        std::fs::read_to_string(repository.join("crates/autocad-writer/src/xref_handle_bridge.rs"))
+            .expect("writer XREF handle bridge source should be readable");
+    assert!(
+        xref_handle_bridge.contains("fn from_source"),
+        "the source-side XREF handle bridge that replaced the blanket refusal must still exist"
+    );
 }

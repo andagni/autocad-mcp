@@ -775,6 +775,20 @@ fn attachment_snapshot_from_host(
             locked: properties.locked,
         });
         if xref_dependent {
+            // `XrefPortableLayerProperties.color` grew True Color awareness
+            // (`XrefPortableLayerColor::Aci`/`TrueColor`) without this
+            // "seven property" reconciliation-evidence shape following --
+            // pre-existing on `feature/xref-writer-baseline` itself
+            // (`cargo check -p autocad-mcp` was never in that branch's
+            // verification loop), not introduced by this integration. ACI 7
+            // matches this codebase's one other established True-Color
+            // downgrade (`acadrust 0.4.1 DXF serialization converts
+            // true-color layers to ACI 7`, `backend::admit_dwg_encode`'s
+            // sibling concern).
+            let color_index = match properties.color {
+                autocad_reader::contract::xrefs::XrefPortableLayerColor::Aci(value) => value,
+                autocad_reader::contract::xrefs::XrefPortableLayerColor::TrueColor { .. } => 7,
+            };
             reconciliation_layers.push(XrefReconciliationLayerEvidence {
                 handle,
                 name,
@@ -783,7 +797,7 @@ fn attachment_snapshot_from_host(
                     frozen: properties.frozen,
                     locked: properties.locked,
                     is_plottable: properties.is_plottable,
-                    color_index: properties.color_index,
+                    color_index,
                     line_type: properties.line_type,
                     line_weight: properties.line_weight,
                 },
