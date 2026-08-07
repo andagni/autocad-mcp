@@ -33,6 +33,7 @@ xref-certification-failpoints = []
 [dependencies]
 acadrust = "=0.4.1"
 anyhow = "1"
+autocad-diagnostics = { path = "../autocad-diagnostics" }
 autocad-reader = { path = "../autocad-reader" }
 autocad-writer = { path = "../autocad-writer" }
 clap = { version = "4", features = ["derive"] }

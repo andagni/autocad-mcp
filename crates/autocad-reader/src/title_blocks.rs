@@ -1,42 +1,12 @@
 //! Reader-owned attributed-INSERT title-block projection.
 
 use std::collections::{hash_map::Entry, HashMap};
-use std::fmt;
 
 use acadrust::{entities::EntityType, CadDocument};
 
 use super::contract::TitleBlockInfo;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TitleBlockReadError {
-    code: &'static str,
-    message: String,
-}
-
-impl TitleBlockReadError {
-    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl fmt::Display for TitleBlockReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for TitleBlockReadError {}
+autocad_diagnostics::domain_error!(pub struct TitleBlockReadError, new = pub(crate));
 
 fn normalize_attribute_tag(tag: &str) -> String {
     tag.trim().to_uppercase()

@@ -68,6 +68,18 @@ pub enum ProfileResolutionError {
     Ambiguous {
         profile_ids: Vec<String>,
     },
+    /// A candidate looks title-block-shaped (it shares an attribute tag
+    /// with a known profile) but lives in an anonymous (`*`-prefixed)
+    /// block. AutoCAD reassigns anonymous block names per session — see
+    /// `list_blocks`'s equivalent `!name.starts_with('*')` filter in
+    /// `autocad-reader/src/blocks.rs` — so a profile can never target one
+    /// reliably; this is a distinct, more actionable diagnostic than a
+    /// generic `NoMatch`, per
+    /// preview-agent-findings-2026-08-05.md P2 #10's documented-constraint
+    /// direction: title-block content must live in a stably-named block.
+    AnonymousBlockName {
+        candidates: Vec<CandidateFingerprint>,
+    },
 }
 
 impl fmt::Display for ProfileResolutionError {
@@ -84,6 +96,16 @@ impl fmt::Display for ProfileResolutionError {
             ProfileResolutionError::Ambiguous { profile_ids } => {
                 write!(f, "ambiguous title-block profile match: {:?}", profile_ids)
             }
+            ProfileResolutionError::AnonymousBlockName { candidates } => write!(
+                f,
+                "title-block-shaped attributes found in an anonymous block {:?}; \
+                 title-block content must live in a stably-named block — AutoCAD \
+                 reassigns anonymous (`*`-prefixed) block names each session, so a \
+                 profile cannot target one reliably. Move these attributes to a \
+                 named block, or ask an administrator about a stable identifier for \
+                 this drawing's block-naming convention",
+                candidates
+            ),
         }
     }
 }
@@ -850,15 +872,84 @@ fn resolve_profile_from_registry<'a>(
     }
 
     match matches.len() {
-        0 => Err(ProfileResolutionError::NoMatch {
-            candidates: fingerprints,
-            known_profiles: profiles.iter().map(|p| p.profile_id.clone()).collect(),
-        }),
+        0 => {
+            // Only consider candidates that plausibly *are* title blocks —
+            // `read_title_blocks` returns every attributed INSERT in the
+            // drawing (door schedules, equipment tags, BOM balloons, ...),
+            // and echoing all of them here flooded output on real drawings
+            // with unrelated attributed content. A candidate is plausible if
+            // it shares its block name or at least one attribute tag with a
+            // known profile; see preview-agent-findings-2026-08-05.md P2 #8.
+            let plausible = candidates.iter().zip(&fingerprints).filter(
+                |(_, fingerprint): &(&TitleBlockInfo, &CandidateFingerprint)| {
+                    is_plausible_title_block(fingerprint, profiles)
+                },
+            );
+            // Report the block name exactly as read, not the normalized form
+            // used for matching (`fingerprints`, above). `read_title_blocks`
+            // preserves case; this error is the one place that read's output
+            // and the fingerprint machinery meet in front of a caller, so
+            // showing the normalized (upper-cased) name here made this
+            // diagnostic disagree with the read tool for the identical block
+            // — see preview-agent-findings-2026-08-05.md P1 #7. Attribute
+            // tags stay normalized: the reader already upper-cases tag keys
+            // (see autocad-reader/src/title_blocks.rs), so both sides agree
+            // there already.
+            let echo = |candidate: &TitleBlockInfo| CandidateFingerprint {
+                block_name: candidate.block_name.clone(),
+                attribute_tags: sorted_normalized_tags(candidate.attribute_tags()),
+            };
+            let mut plausible_named = Vec::new();
+            let mut plausible_anonymous = Vec::new();
+            for (candidate, fingerprint) in plausible {
+                if is_anonymous_block_name(&fingerprint.block_name) {
+                    plausible_anonymous.push(echo(candidate));
+                } else {
+                    plausible_named.push(echo(candidate));
+                }
+            }
+            // A plausible-but-anonymous candidate has a specific, actionable
+            // cause distinct from an ordinary non-match — see
+            // preview-agent-findings-2026-08-05.md P2 #10 — so surface that
+            // instead of folding it into the generic `NoMatch` list.
+            if !plausible_anonymous.is_empty() {
+                return Err(ProfileResolutionError::AnonymousBlockName {
+                    candidates: plausible_anonymous,
+                });
+            }
+            Err(ProfileResolutionError::NoMatch {
+                candidates: plausible_named,
+                known_profiles: profiles.iter().map(|p| p.profile_id.clone()).collect(),
+            })
+        }
         1 => Ok(*matches.values().next().expect("one profile match")),
         _ => Err(ProfileResolutionError::Ambiguous {
             profile_ids: matches.keys().map(|id| (*id).to_string()).collect(),
         }),
     }
+}
+
+/// True if a candidate is plausibly a title block: it shares its block name
+/// or at least one attribute tag with a known profile. `fingerprint` must
+/// already be normalized (see `CandidateFingerprint::from_title_block`) —
+/// `Profile::normalized_block_name`/`fingerprint_tags` are compared against
+/// as-is, with no further normalization here.
+fn is_plausible_title_block(fingerprint: &CandidateFingerprint, profiles: &[Profile]) -> bool {
+    profiles.iter().any(|profile| {
+        profile.normalized_block_name == fingerprint.block_name
+            || fingerprint
+                .attribute_tags
+                .iter()
+                .any(|tag| profile.fingerprint_tags.contains(tag))
+    })
+}
+
+/// AutoCAD's anonymous/dynamic block naming convention (`*U###`, `*D###`,
+/// ...). Matches `list_blocks`'s equivalent `!name.starts_with('*')` filter
+/// in `autocad-reader/src/blocks.rs`; `block_name` here is already
+/// normalized (trimmed/upper-cased) but the `*` prefix survives that as-is.
+fn is_anonymous_block_name(block_name: &str) -> bool {
+    block_name.starts_with('*')
 }
 
 #[cfg(test)]
@@ -1379,6 +1470,99 @@ mod tests {
         assert!(err
             .to_string()
             .contains("no recognised title-block profile"));
+    }
+
+    #[test]
+    fn no_match_diagnostic_preserves_the_read_block_name_case() {
+        // Regression test for preview-agent-findings-2026-08-05.md P1 #7:
+        // fingerprinting normalized (upper-cased) block names for matching,
+        // but `NoMatch` echoed that normalized form back as if it were the
+        // block name that was actually read — disagreeing with what
+        // `read_title_blocks` reports for the identical INSERT. The block
+        // name here must survive into the error exactly as read; only the
+        // (already reader-normalized) attribute tags are expected upper-cased.
+        let block = title_block("Mixed_Case_Block", &["revision"]);
+        let err = resolve_profile(&[block]).unwrap_err();
+        let ProfileResolutionError::NoMatch { candidates, .. } = &err else {
+            panic!("expected NoMatch, got {err:?}");
+        };
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].block_name, "Mixed_Case_Block");
+        assert_eq!(candidates[0].attribute_tags, vec!["REVISION".to_string()]);
+        assert!(err.to_string().contains("Mixed_Case_Block"), "got: {err}");
+        assert!(!err.to_string().contains("MIXED_CASE_BLOCK"), "got: {err}");
+    }
+
+    #[test]
+    fn no_match_omits_candidates_unrelated_to_any_known_profile() {
+        // Regression test for preview-agent-findings-2026-08-05.md P2 #8:
+        // `read_title_blocks` returns every attributed INSERT in the
+        // drawing, not just plausible title blocks, so a real drawing's
+        // door schedules/equipment tags/BOM balloons used to flood this
+        // error. A candidate that shares neither the block name nor any
+        // attribute tag with a known profile must not appear; a plausible
+        // one (sharing a tag, even with the wrong name) still should.
+        let unrelated = title_block("DOOR_SCHEDULE", &["DOOR_NUMBER", "FIRE_RATING"]);
+        let plausible = title_block("Unknown_Title_Block", &["revision"]);
+        let err = resolve_profile(&[unrelated, plausible]).unwrap_err();
+        let ProfileResolutionError::NoMatch { candidates, .. } = &err else {
+            panic!("expected NoMatch, got {err:?}");
+        };
+        assert_eq!(candidates.len(), 1, "got: {candidates:?}");
+        assert_eq!(candidates[0].block_name, "Unknown_Title_Block");
+        assert!(!err.to_string().contains("DOOR_SCHEDULE"), "got: {err}");
+        assert!(!err.to_string().contains("DOOR_NUMBER"), "got: {err}");
+    }
+
+    #[test]
+    fn no_match_omits_every_candidate_when_none_are_plausible() {
+        let a = title_block("DOOR_SCHEDULE", &["DOOR_NUMBER"]);
+        let b = title_block("EQUIPMENT_TAG", &["ASSET_ID"]);
+        let err = resolve_profile(&[a, b]).unwrap_err();
+        let ProfileResolutionError::NoMatch { candidates, .. } = &err else {
+            panic!("expected NoMatch, got {err:?}");
+        };
+        assert!(candidates.is_empty(), "got: {candidates:?}");
+    }
+
+    #[test]
+    fn anonymous_block_candidate_gets_a_distinct_actionable_diagnostic() {
+        // preview-agent-findings-2026-08-05.md P2 #10, documented-constraint
+        // direction: title-block content in an anonymous (`*`-prefixed)
+        // block can't be reliably targeted by a profile, since AutoCAD
+        // reassigns those names per session. That must be a distinct,
+        // actionable diagnostic, not a silent match or a generic NoMatch.
+        let block = title_block("*U123", &["revision"]);
+        let err = resolve_profile(&[block]).unwrap_err();
+        let ProfileResolutionError::AnonymousBlockName { candidates } = &err else {
+            panic!("expected AnonymousBlockName, got {err:?}");
+        };
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].block_name, "*U123");
+        assert!(err.to_string().contains("anonymous block"), "got: {err}");
+        assert!(err.to_string().contains("stably-named block"), "got: {err}");
+    }
+
+    #[test]
+    fn anonymous_block_candidate_without_title_block_shaped_tags_is_ignored() {
+        // An anonymous block with no plausible title-block content (no
+        // shared tags with any known profile) is still just noise — the
+        // anonymous-block diagnostic is only for candidates that otherwise
+        // look like a title block.
+        let block = title_block("*U123", &["ASSET_ID"]);
+        let err = resolve_profile(&[block]).unwrap_err();
+        let ProfileResolutionError::NoMatch { candidates, .. } = &err else {
+            panic!("expected NoMatch, got {err:?}");
+        };
+        assert!(candidates.is_empty(), "got: {candidates:?}");
+    }
+
+    #[test]
+    fn anonymous_block_name_detection_matches_the_reader_list_blocks_filter() {
+        assert!(is_anonymous_block_name("*U123"));
+        assert!(is_anonymous_block_name("*D45"));
+        assert!(!is_anonymous_block_name("AUTOCAD_MCP_GENERIC"));
+        assert!(!is_anonymous_block_name(""));
     }
 
     #[test]

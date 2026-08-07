@@ -178,17 +178,23 @@ impl MutationPathError {
     pub fn reason(&self) -> MutationPathErrorReason {
         self.reason
     }
+
+    /// The detail text without the `code=<code> ` prefix `Display` adds.
+    ///
+    /// Use this rather than `to_string()` when folding a `MutationPathError`
+    /// into another error's message; `to_string()` would bake a second,
+    /// redundant `code=invalid_xref_path` into the new error's detail text.
+    pub fn detail(&self) -> String {
+        format!(
+            "invalid mutation XREF path `{}`: {:?}",
+            self.path, self.reason
+        )
+    }
 }
 
 impl fmt::Display for MutationPathError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "code={} invalid mutation XREF path `{}`: {:?}",
-            self.code(),
-            self.path,
-            self.reason
-        )
+        write!(formatter, "code={} {}", self.code(), self.detail())
     }
 }
 
@@ -570,18 +576,24 @@ impl SearchPathValidationError {
     pub fn reason(&self) -> SearchPathErrorReason {
         self.reason
     }
+
+    /// The detail text without the `code=<code> ` prefix `Display` adds.
+    ///
+    /// Use this rather than `to_string()` when folding a
+    /// `SearchPathValidationError` into another error's message;
+    /// `to_string()` would bake a second, redundant
+    /// `code=invalid_search_path` into the new error's detail text.
+    pub fn detail(&self) -> String {
+        format!(
+            "invalid search_paths[{}] `{}`: {:?}",
+            self.index, self.path, self.reason
+        )
+    }
 }
 
 impl fmt::Display for SearchPathValidationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "code={} invalid search_paths[{}] `{}`: {:?}",
-            self.code(),
-            self.index,
-            self.path,
-            self.reason
-        )
+        write!(formatter, "code={} {}", self.code(), self.detail())
     }
 }
 

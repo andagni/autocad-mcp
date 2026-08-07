@@ -270,7 +270,9 @@ where
 }
 
 fn transaction_error_from_xref(error: XrefError) -> XrefTransactionError {
-    domain_error(error.code(), error.to_string())
+    // Raw message, not `to_string()` — see the matching comment on
+    // `map_domain_error` in xref_attachment_mutation.rs.
+    domain_error(error.code(), error.message())
 }
 
 fn domain_error(code: &str, detail: impl Into<String>) -> XrefTransactionError {
@@ -4630,5 +4632,26 @@ mod tests {
         assert_eq!(reader.hosts.len(), 1);
         let facts = reader.into_fact_source();
         assert_eq!(facts.0.layers.len(), 3);
+    }
+
+    #[test]
+    fn transaction_error_from_xref_does_not_duplicate_the_code_into_the_detail() {
+        // Same anti-pattern, same fix, as
+        // xref_attachment_mutation::map_domain_error — see the regression
+        // test there and preview-agent-findings-2026-08-05.md P1 #6.
+        let inner = XrefError::new(
+            xrefs::xref_failure_code::UNSUPPORTED_XREF_DATA,
+            "cannot prove saved XREFOVERRIDE: reader cannot decode raw EED",
+        );
+        let mapped = transaction_error_from_xref(inner);
+        assert_eq!(
+            error_code(mapped.clone()),
+            xrefs::xref_failure_code::UNSUPPORTED_XREF_DATA
+        );
+        assert_eq!(
+            mapped.detail,
+            "cannot prove saved XREFOVERRIDE: reader cannot decode raw EED"
+        );
+        assert_eq!(mapped.detail.matches("unsupported_xref_data").count(), 0);
     }
 }

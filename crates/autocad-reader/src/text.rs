@@ -7,7 +7,6 @@ use acadrust::entities::{
 };
 use acadrust::types::{Handle, Vector3};
 use acadrust::CadDocument;
-use serde::Serialize;
 
 use super::{
     contract::{
@@ -80,37 +79,7 @@ fn finite_optional_point(
     value.map(|value| finite_point(value, field)).transpose()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct TextReadError {
-    code: String,
-    message: String,
-}
-
-impl TextReadError {
-    pub(super) fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl std::fmt::Display for TextReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for TextReadError {}
+autocad_diagnostics::domain_error!(pub struct TextReadError, new = pub(super));
 
 fn canonical_handle(handle: Handle) -> Result<String, TextReadError> {
     if handle.is_null() {
@@ -256,7 +225,7 @@ fn validated_filters(
         (owner_handle, owner_identity.as_ref())
     {
         let resolved = resolve_direct_owner(doc, owner_handle)
-            .map_err(|error| TextReadError::new("unsupported_text_data", error.to_string()))?;
+            .map_err(|error| TextReadError::new("unsupported_text_data", error.message()))?;
         let agrees = resolved
             .as_ref()
             .and_then(DirectOwnerContext::available_identity)
@@ -313,7 +282,7 @@ fn entity_matches_scope(
         return Ok(true);
     };
     let owner_context = resolve_direct_owner(doc, common.owner_handle)
-        .map_err(|error| TextReadError::new("unsupported_text_data", error.to_string()))?;
+        .map_err(|error| TextReadError::new("unsupported_text_data", error.message()))?;
     Ok(owner_context
         .as_ref()
         .and_then(DirectOwnerContext::available_identity)
@@ -413,7 +382,7 @@ fn drawing_direction(value: AcadDrawingDirection) -> MTextDrawingDirection {
 
 fn text_record(doc: &CadDocument, text: &Text) -> Result<TextRecord, TextReadError> {
     let owner_context = resolve_direct_owner(doc, text.common.owner_handle)
-        .map_err(|error| TextReadError::new("unsupported_text_data", error.to_string()))?;
+        .map_err(|error| TextReadError::new("unsupported_text_data", error.message()))?;
     Ok(TextRecord {
         handle: canonical_handle(text.common.handle)?,
         text_type: TextEntityKind::Text,
@@ -445,7 +414,7 @@ fn text_record(doc: &CadDocument, text: &Text) -> Result<TextRecord, TextReadErr
 
 fn mtext_record(doc: &CadDocument, text: &MText) -> Result<TextRecord, TextReadError> {
     let owner_context = resolve_direct_owner(doc, text.common.owner_handle)
-        .map_err(|error| TextReadError::new("unsupported_text_data", error.to_string()))?;
+        .map_err(|error| TextReadError::new("unsupported_text_data", error.message()))?;
     Ok(TextRecord {
         handle: canonical_handle(text.common.handle)?,
         text_type: TextEntityKind::MText,
@@ -485,7 +454,7 @@ pub(super) fn list_text(
     let filters = validated_filters(doc, options)?;
     if !filters.is_scoped() {
         validate_semantic_entity_handles(doc)
-            .map_err(|error| TextReadError::new(error.code(), error.message()))?;
+            .map_err(|error| TextReadError::new(error.code().to_string(), error.message()))?;
     }
     let mut text_entities = Vec::new();
     for entity in doc.entities() {

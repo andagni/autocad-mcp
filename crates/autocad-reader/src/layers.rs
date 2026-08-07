@@ -10,43 +10,12 @@ use std::collections::BTreeSet;
 use acadrust::tables::TableEntry;
 use acadrust::types::{Color, Handle, LineWeight};
 use acadrust::CadDocument;
-use serde::Serialize;
 
 use super::contract::{LayerLineWeight, LayerRecord, LayerSelector};
 use super::owners::is_xref_definition;
 use super::{DrawingFormat, DrawingSnapshot};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct LayerReadError {
-    code: String,
-    message: String,
-}
-
-impl LayerReadError {
-    pub(super) fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl std::fmt::Display for LayerReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for LayerReadError {}
+autocad_diagnostics::domain_error!(pub struct LayerReadError, new = pub(super));
 
 fn canonical_handle(handle: Handle) -> Result<String, LayerReadError> {
     if handle.is_null() {

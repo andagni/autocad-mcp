@@ -1,0 +1,16 @@
+[package]
+name = "autocad-diagnostics"
+version = "0.0.1"
+edition = "2021"
+license.workspace = true
+description = "Shared coded-error primitive for AutoCAD-MCP's reader/writer/mcp diagnostic surface"
+publish = false
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lib]
+path = "src/lib.rs"

@@ -1,0 +1,10 @@
+# Internal Rust shared-diagnostics crate source only.
+/*
+!/.gitignore
+!/Cargo.toml
+!/src/
+
+/src/**
+!/src/**/
+!/src/*.rs
+!/src/**/*.rs

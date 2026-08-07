@@ -2,13 +2,14 @@ use super::{
     xref_path::{
         build_resolution_plan, resolve_candidate_plan, validate_search_paths, AbsolutePathKind,
         CanonicalDisplayPath, FilesystemIdentity, PathPlatform, ResolutionCandidateProbe,
-        SearchPathInspector, ValidatedSearchPaths, XrefPathResolution,
+        SearchPathInspector, SearchPathValidationError, ValidatedSearchPaths, XrefPathResolution,
     },
     xrefs::{
         canonical_input_handle, sort_xref_attachment_records, xref_failure_code, xref_name_eq,
         ListXrefDependenciesRequest, ReferenceType, XrefAttachmentRecord, XrefDependencyRecord,
-        XrefDependencyTraversalEnvelope, XrefError, XrefInspectionState, XrefPropagationState,
-        XrefResolutionState, XrefSelector, XrefTraversalLimitReason, XrefTraversalTruncation,
+        XrefDependencyTraversalEnvelope, XrefError, XrefInspectionState, XrefPathMode,
+        XrefPropagationState, XrefResolutionState, XrefSelector, XrefTraversalLimitReason,
+        XrefTraversalTruncation,
     },
 };
 
@@ -252,8 +253,8 @@ fn select_roots(
     Ok(vec![source.attachments[index].clone()])
 }
 
-fn map_search_path_error(error: impl std::fmt::Display) -> XrefError {
-    XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.to_string())
+fn map_search_path_error(error: SearchPathValidationError) -> XrefError {
+    XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.detail())
 }
 
 /// Adapts the public list request to the pure traversal engine.
@@ -399,9 +400,29 @@ pub fn require_complete_dependency_graph_for_mutation(
                         ));
                     }
                 };
+                // Mirror `resolve_xref_path`'s shape: name the attempted path and
+                // whether it was recorded as saved-absolute or saved-relative,
+                // rather than surfacing only the attachment chain. The actual
+                // search-path candidates tried aren't retained per dependency
+                // node, so this can't yet show every location probed the way
+                // `resolve_xref_path` does for a single, directly-queried XREF —
+                // but the saved path itself was always available and is the
+                // detail most useful for diagnosing why a dependency couldn't
+                // be resolved during traversal.
+                let saved_path = &dependency.attachment.saved_path;
+                let path_mode = match dependency.attachment.path_mode {
+                    XrefPathMode::Absolute => "saved as an absolute path",
+                    XrefPathMode::Relative => "saved as a host-relative path",
+                    XrefPathMode::FilenameOnly => "saved as a filename-only reference",
+                    XrefPathMode::Url => "saved as a URL",
+                    XrefPathMode::Unsupported => "saved with an unsupported path syntax",
+                };
                 Some(XrefError::new(
                     code,
-                    format!("dependency `{chain}` source {description}"),
+                    format!(
+                        "dependency `{chain}` source {description}; attempted path \
+                         `{saved_path}` ({path_mode})"
+                    ),
                 ))
             }
         };
@@ -1401,6 +1422,23 @@ mod tests {
             )
             .unwrap_err();
             assert_eq!(error.code(), expected_code, "{saved_path}");
+            // The diagnostic must name the attempted path and how it was
+            // saved, not just the attachment chain — mirrors the shape
+            // `resolve_xref_path` already used for its own not-found case.
+            assert!(
+                error
+                    .message()
+                    .contains(&format!("attempted path `{saved_path}`")),
+                "{saved_path}: {}",
+                error.message()
+            );
+            assert!(
+                error
+                    .message()
+                    .contains("saved as a filename-only reference"),
+                "{saved_path}: {}",
+                error.message()
+            );
         }
 
         let proxy_root = source(vec![attachment(

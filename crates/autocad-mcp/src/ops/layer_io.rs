@@ -2197,10 +2197,24 @@ fn run_layer_dwg_script<T: serde::de::DeserializeOwned>(
         }
     }
     .map_err(|err| {
-        LayerError::new(
-            "mutation_state_unknown",
-            format!("{tool}: drawing_may_be_modified=true accoreconsole failed: {err}"),
-        )
+        // accoreconsole never running (command build or spawn failed) means
+        // the drawing provably wasn't touched — that's an ordinary
+        // pre-launch setup failure, same category as the staging/LSP/script
+        // failures above it, not a genuine "unknown state." Only a failure
+        // *after* a confirmed launch keeps the conservative
+        // drawing_may_be_modified=true: see
+        // preview-agent-findings-2026-08-05.md P2 #11.
+        if engine::accoreconsole_never_launched(&err) {
+            LayerError::new(
+                "write_failed",
+                format!("{tool}: accoreconsole did not launch: {err}"),
+            )
+        } else {
+            LayerError::new(
+                "mutation_state_unknown",
+                format!("{tool}: drawing_may_be_modified=true accoreconsole failed: {err}"),
+            )
+        }
     })?;
     parse_layer_result_output(tool, &output)
 }
@@ -2664,7 +2678,7 @@ fn parse_layer_result_output<T: serde::de::DeserializeOwned>(
         }
         if let Some(rest) = line.strip_prefix("RESULT:ERROR:") {
             let (code, message) = rest.split_once(':').unwrap_or((rest, ""));
-            return Err(LayerError::new(code, message.to_string()));
+            return Err(LayerError::new(code.to_string(), message.to_string()));
         }
         if let Some(message) = line.strip_prefix("RESULT:WARN:") {
             return Err(LayerError::new(

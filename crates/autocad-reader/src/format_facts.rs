@@ -5,37 +5,16 @@ use acadrust::CadDocument;
 use super::contract::DrawingFormatFacts;
 use super::{ReadError, ReadErrorKind};
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FormatFactsReadError {
-    code: &'static str,
-    message: &'static str,
-}
+autocad_diagnostics::domain_error!(pub struct FormatFactsReadError, new = pub(super));
 
 impl FormatFactsReadError {
     pub(super) fn unsupported_diagnostic() -> Self {
-        Self {
-            code: "unsupported_format_facts_data",
-            message:
-                "reader reported an unsupported diagnostic that may affect drawing format facts",
-        }
-    }
-
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &'static str {
-        self.message
+        Self::new(
+            "unsupported_format_facts_data",
+            "reader reported an unsupported diagnostic that may affect drawing format facts",
+        )
     }
 }
-
-impl std::fmt::Display for FormatFactsReadError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for FormatFactsReadError {}
 
 pub fn map_snapshot_open_error(error: ReadError) -> FormatFactsReadError {
     let (code, message) = match error.kind() {
@@ -56,7 +35,7 @@ pub fn map_snapshot_open_error(error: ReadError) -> FormatFactsReadError {
             "reader reported incomplete data while decoding the captured drawing snapshot",
         ),
     };
-    FormatFactsReadError { code, message }
+    FormatFactsReadError::new(code, message)
 }
 
 pub(super) fn read_format_facts(document: &CadDocument) -> DrawingFormatFacts {

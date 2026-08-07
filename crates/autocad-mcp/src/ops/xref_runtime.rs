@@ -960,8 +960,10 @@ impl XrefInstanceMutationFactSource for ProductionInstanceFactSource {
         &mut self,
         host: &xref_io::LoadedXrefHost,
     ) -> Result<XrefInstanceMutationEnvironment, XrefTransactionError> {
+        // Raw message, not `to_string()` — see the matching comment on
+        // `map_domain_error` in xref_attachment_mutation.rs.
         instance_environment(host)
-            .map_err(|error| domain_transaction_error(error.code(), error.to_string()))
+            .map_err(|error| domain_transaction_error(error.code(), error.message()))
     }
 
     fn read_preservation_snapshot(
@@ -969,7 +971,7 @@ impl XrefInstanceMutationFactSource for ProductionInstanceFactSource {
         host: &xref_io::LoadedXrefHost,
     ) -> Result<XrefAttachmentMutationSnapshot, XrefTransactionError> {
         attachment_snapshot_from_host(host)
-            .map_err(|error| domain_transaction_error(error.code(), error.to_string()))
+            .map_err(|error| domain_transaction_error(error.code(), error.message()))
     }
 
     fn verify_preservation(
@@ -978,7 +980,7 @@ impl XrefInstanceMutationFactSource for ProductionInstanceFactSource {
     ) -> Result<(), XrefTransactionError> {
         ProductionAttachmentServices::default()
             .verify_attachment_preservation(verification)
-            .map_err(|error| domain_transaction_error(error.code(), error.to_string()))
+            .map_err(|error| domain_transaction_error(error.code(), error.message()))
     }
 }
 
@@ -1110,9 +1112,7 @@ fn graph_with_virtual_root_for_host(
     )?;
     let mut provider = FilesystemXrefProvider::with_host(host);
     let search_paths = validate_search_paths(search_paths, source.platform(), &mut provider)
-        .map_err(|error| {
-            XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.to_string())
-        })?;
+        .map_err(|error| XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.detail()))?;
     traverse_xref_dependencies_for_mutation(
         &source,
         Some(&XrefSelector {
@@ -1140,9 +1140,7 @@ fn graph_for_existing(
     let source = host.graph_source()?;
     let mut provider = FilesystemXrefProvider::with_host(&host);
     let search_paths = validate_search_paths(search_paths, source.platform(), &mut provider)
-        .map_err(|error| {
-            XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.to_string())
-        })?;
+        .map_err(|error| XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.detail()))?;
     let graph = traverse_xref_dependencies_for_mutation(
         &source,
         Some(&XrefSelector { handle, name }),
@@ -1191,7 +1189,7 @@ fn attach_xref_file_impl(
             validate_attach_request(&request)
         })?;
     let source_path = validate_mutation_source_path(&request.xref_path)
-        .map_err(|error| XrefError::new(xref_failure_code::INVALID_XREF_PATH, error.to_string()))?;
+        .map_err(|error| XrefError::new(xref_failure_code::INVALID_XREF_PATH, error.detail()))?;
     let graph = graph_with_virtual_root(
         &request.drawing_path,
         XrefAttachmentRecord {
@@ -1244,7 +1242,7 @@ fn update_xref_file_impl(
             )
         })?;
         let path = validate_mutation_source_path(&path).map_err(|error| {
-            XrefError::new(xref_failure_code::INVALID_XREF_PATH, error.to_string())
+            XrefError::new(xref_failure_code::INVALID_XREF_PATH, error.detail())
         })?;
         let host = xref_io::load_xref_host(&host_path, "xref_mutation")?;
         let mut selected = host.get_attachment(&XrefSelector {

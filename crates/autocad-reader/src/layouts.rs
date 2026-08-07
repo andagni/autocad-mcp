@@ -14,7 +14,6 @@ use acadrust::objects::{
 };
 use acadrust::types::{DxfVersion, Handle};
 use acadrust::{CadDocument, DwgReader};
-use serde::{Deserialize, Serialize};
 
 use super::{
     contract::{
@@ -29,37 +28,7 @@ use super::{
     DrawingFormat, DrawingSnapshot,
 };
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct LayoutReadError {
-    code: String,
-    message: String,
-}
-
-impl LayoutReadError {
-    pub(super) fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl std::fmt::Display for LayoutReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for LayoutReadError {}
+autocad_diagnostics::domain_error!(pub struct LayoutReadError, new = pub(super));
 
 fn require_finite(value: f64, field: &str) -> Result<(), LayoutReadError> {
     if !value.is_finite() {
@@ -314,7 +283,7 @@ fn expanded_layout_owner_type(
     layout: &Layout,
 ) -> Result<DirectOwnerType, LayoutReadError> {
     let owner_type = match resolve_direct_owner(doc, layout.block_record)
-        .map_err(|error| LayoutReadError::new("unsupported_layout_data", error.to_string()))?
+        .map_err(|error| LayoutReadError::new("unsupported_layout_data", error.message()))?
     {
         Some(DirectOwnerContext::Available {
             owner_type: DirectOwnerType::ModelSpace,
@@ -840,7 +809,7 @@ fn layout_viewport_record(
 
 fn validate_viewport_handles(doc: &CadDocument) -> Result<(), LayoutReadError> {
     validate_semantic_entity_handles(doc)
-        .map_err(|error| LayoutReadError::new(error.code(), error.message()))?;
+        .map_err(|error| LayoutReadError::new(error.code().to_string(), error.message()))?;
     let mut handles = doc
         .entities()
         .filter_map(|entity| match entity {

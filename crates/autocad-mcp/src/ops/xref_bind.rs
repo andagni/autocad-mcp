@@ -36,20 +36,9 @@ const SENTINEL_PREFIX: &str = "AUTOCAD_MCP_XREF_BIND_V1|";
 const SCRIPT_FILE_NAME: &str = "xref-bind-operation.lsp";
 const EVIDENCE_FILE_NAME: &str = "xref-bind-evidence.jsonl";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BindError {
-    code: &'static str,
-    detail: String,
-}
+autocad_diagnostics::domain_error!(pub(crate) struct BindError, new = pub(self));
 
 impl BindError {
-    fn new(code: &'static str, detail: impl Into<String>) -> Self {
-        Self {
-            code,
-            detail: detail.into(),
-        }
-    }
-
     fn unsupported(detail: impl Into<String>) -> Self {
         Self::new(xref_failure_code::UNSUPPORTED_XREF_CONTENT, detail)
     }
@@ -57,20 +46,7 @@ impl BindError {
     pub(crate) fn verification(detail: impl Into<String>) -> Self {
         Self::new(xref_failure_code::VERIFICATION_FAILED, detail)
     }
-
-    #[cfg(test)]
-    pub(crate) fn code(&self) -> &'static str {
-        self.code
-    }
 }
-
-impl std::fmt::Display for BindError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.detail)
-    }
-}
-
-impl std::error::Error for BindError {}
 
 impl From<XrefError> for BindError {
     fn from(error: XrefError) -> Self {
@@ -1652,14 +1628,14 @@ fn replace_once<T>(slot: &mut Option<T>, value: T, label: &str) -> Result<(), Bi
 
 fn canonicalize_bound_block(block: &XrefBoundBlock, label: &str) -> Result<(), BindError> {
     let canonical = canonical_non_null_handle(&block.handle, label)
-        .map_err(|error| BindError::verification(error.detail))?;
+        .map_err(|error| BindError::verification(error.message()))?;
     if canonical != block.handle {
         return Err(BindError::verification(format!(
             "{label} handle '{}' is not canonical",
             block.handle
         )));
     }
-    validate_symbol_name(&block.name).map_err(|error| BindError::verification(error.detail))
+    validate_symbol_name(&block.name).map_err(|error| BindError::verification(error.message()))
 }
 
 fn sort_bound_dependencies(dependencies: &mut [XrefBoundDependency]) -> Result<(), BindError> {
@@ -3037,13 +3013,13 @@ where
 
 fn bind_validation_transaction_error(error: BindError) -> XrefTransactionError {
     XrefTransactionError::new(
-        XrefTransactionErrorCode::Domain(error.code.to_string()),
-        error.detail,
+        XrefTransactionErrorCode::Domain(error.code().to_string()),
+        error.message(),
     )
 }
 
 fn bind_execution_transaction_error(error: BindError) -> XrefTransactionError {
-    XrefTransactionError::new(XrefTransactionErrorCode::WriteFailed, error.to_string())
+    XrefTransactionError::new(XrefTransactionErrorCode::WriteFailed, error.message())
 }
 
 fn bind_verification_transaction_error(error: BindError) -> XrefTransactionError {

@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub const ACCORECONSOLE_PATH_ENV: &str = "AUTOCAD_MCP_ACCORECONSOLE_PATH";
+pub const STAGING_DIR_OVERRIDE_ENV: &str = "AUTOCAD_MCP_STAGING_DIR";
 const STAGED_CERTIFIED_PROFILE_FILE_NAME: &str = "certified-profile.arg";
 #[cfg(target_os = "windows")]
 const WINDOWS_FILE_SHARE_READ: u32 = 0x0000_0001;
@@ -81,11 +82,53 @@ impl StagedCertifiedProfile {
 
 /// Create a temporary staging directory for accoreconsole operations.
 ///
-/// The returned `TempDir` cleans itself up on drop. Callers that need the
-/// directory to outlive the call must call `.into_path()` and manage cleanup
-/// themselves.
+/// Root directory resolution order:
+///   1. Exact `AUTOCAD_MCP_STAGING_DIR` override
+///   2. The OS default temp directory (Windows: `%TMP%` / `%TEMP%` /
+///      `%USERPROFILE%` / the Windows install directory, in that order —
+///      see `std::env::temp_dir`)
+///
+/// A uniquely named `autocad-mcp-*` subdirectory is created under whichever
+/// root is selected. The returned `TempDir` cleans itself up on drop. Callers
+/// that need the directory to outlive the call must call `.into_path()` and
+/// manage cleanup themselves.
+///
+/// `accoreconsole_command` points the child's own TEMP/TMP at this same
+/// directory whenever the child would not otherwise have a usable one, so an
+/// `AUTOCAD_MCP_STAGING_DIR` override also determines where accoreconsole's
+/// own scratch files land in that case.
 pub fn create_staging_dir() -> Result<tempfile::TempDir> {
-    Ok(tempfile::Builder::new().prefix("autocad-mcp-").tempdir()?)
+    let override_root =
+        resolve_staging_dir_override(std::env::var_os(STAGING_DIR_OVERRIDE_ENV).as_deref())?;
+    create_staging_dir_under(override_root.as_deref())
+}
+
+fn create_staging_dir_under(root: Option<&Path>) -> Result<tempfile::TempDir> {
+    let mut builder = tempfile::Builder::new();
+    builder.prefix("autocad-mcp-");
+    Ok(match root {
+        Some(root) => builder.tempdir_in(root)?,
+        None => builder.tempdir()?,
+    })
+}
+
+/// Resolves an exact staging-directory override without reading process
+/// state.
+///
+/// `None` preserves the OS default temp directory. A present but defective
+/// value is an error and must never fall through to the OS default.
+pub fn resolve_staging_dir_override(value: Option<&OsStr>) -> Result<Option<PathBuf>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let path = Path::new(value);
+    if !path.is_absolute() {
+        return Err(anyhow!(
+            "{STAGING_DIR_OVERRIDE_ENV} must be an absolute path: {}",
+            path.display()
+        ));
+    }
+    canonical_regular_directory(path, STAGING_DIR_OVERRIDE_ENV).map(Some)
 }
 
 /// Locate the accoreconsole executable.
@@ -233,6 +276,29 @@ fn canonical_regular_file(path: &Path, label: &str) -> Result<PathBuf> {
     if !canonical_metadata.is_file() {
         return Err(anyhow!(
             "{label} canonical target must be a regular file: {}",
+            canonical.display()
+        ));
+    }
+    Ok(canonical)
+}
+
+fn canonical_regular_directory(path: &Path, label: &str) -> Result<PathBuf> {
+    let metadata = std::fs::metadata(path)
+        .map_err(|error| anyhow!("{label} is not accessible at {}: {error}", path.display()))?;
+    if !metadata.is_dir() {
+        return Err(anyhow!("{label} must name a directory: {}", path.display()));
+    }
+    let canonical = std::fs::canonicalize(path)
+        .map_err(|error| anyhow!("canonicalize {label} {}: {error}", path.display()))?;
+    let canonical_metadata = std::fs::metadata(&canonical).map_err(|error| {
+        anyhow!(
+            "{label} canonical target is not accessible at {}: {error}",
+            canonical.display()
+        )
+    })?;
+    if !canonical_metadata.is_dir() {
+        return Err(anyhow!(
+            "{label} canonical target must be a directory: {}",
             canonical.display()
         ));
     }
@@ -1970,7 +2036,7 @@ impl BoundedProcessCapture {
             "{label}_total_bytes={}; {label}_truncated={}; {label}_retained={:?}",
             self.total_bytes,
             self.truncated,
-            String::from_utf8_lossy(retained)
+            decode_accoreconsole_bytes(retained)
         )
     }
 }
@@ -2076,6 +2142,54 @@ pub(crate) fn run_accoreconsole_probe_bounded(
     }
 }
 
+/// Marks an error returned before accoreconsole's process could possibly
+/// have been created — building the command line, or the OS spawn call
+/// itself. A drawing cannot have been modified by a process that was never
+/// launched; see `accoreconsole_never_launched` and
+/// preview-agent-findings-2026-08-05.md P2 #11.
+///
+/// Only wraps the two failure points that are provably pre-spawn (building
+/// the `Command`, and `Command::spawn` itself) rather than every possible
+/// upstream failure in the wider guarded-launch machinery (profile staging,
+/// XREF registry mutex acquisition, launch lease acquisition, ...) — those
+/// keep the existing conservative "may have modified" default. Narrowing
+/// the specific case the finding named is worth doing; enumerating every
+/// theoretically-provable-safe failure site across that machinery is not,
+/// for the size of the win.
+///
+/// Wraps the original error's `Display`/`source` rather than replacing
+/// them, so this stays invisible in the error text callers already show —
+/// it only changes what `error.downcast_ref::<AccoreconsoleNeverLaunched>()`
+/// finds.
+// Only constructed on Windows (accoreconsole is a Windows-only binary; the
+// non-Windows branch below never spawns anything to mark), plus by this
+// module's own portable unit tests — so a plain non-Windows build sees it
+// as dead code without `allow` here, same as `accoreconsole_never_launched`.
+#[derive(Debug)]
+#[allow(dead_code)]
+struct AccoreconsoleNeverLaunched(anyhow::Error);
+
+impl std::fmt::Display for AccoreconsoleNeverLaunched {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::error::Error for AccoreconsoleNeverLaunched {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+/// True if `error` (from any `run_accoreconsole*` call) was returned before
+/// accoreconsole's process could possibly have been created, so a caller
+/// tracking `drawing_may_be_modified` can safely say `false` instead of
+/// defaulting to the conservative `true`.
+#[allow(dead_code)]
+pub(crate) fn accoreconsole_never_launched(error: &anyhow::Error) -> bool {
+    error.downcast_ref::<AccoreconsoleNeverLaunched>().is_some()
+}
+
 fn run_accoreconsole_process_with_profile_and_support_paths(
     exe: &Path,
     drawing: &Path,
@@ -2095,12 +2209,19 @@ fn run_accoreconsole_process_with_profile_and_support_paths(
             profile,
             support_paths,
             locale,
-        )?;
-        let output = command.output()?;
+        )
+        .map_err(|error| anyhow::Error::new(AccoreconsoleNeverLaunched(error)))?;
+        command
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        let child = command
+            .spawn()
+            .map_err(|error| anyhow::Error::new(AccoreconsoleNeverLaunched(error.into())))?;
+        let output = child.wait_with_output()?;
         let combined = format!(
             "{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+            decode_accoreconsole_bytes(&output.stdout),
+            decode_accoreconsole_bytes(&output.stderr)
         );
         if !output.status.success() {
             return Err(anyhow!(
@@ -2126,6 +2247,63 @@ fn run_accoreconsole_process_with_profile_and_support_paths(
             "accoreconsole is a Windows-only binary; cannot run on this platform"
         ))
     }
+}
+
+/// accoreconsole writes wide-character (UTF-16LE) text to stdout/stderr when
+/// they are redirected to a pipe rather than a real console, and does not
+/// appear to emit a byte-order mark. Blindly decoding that as UTF-8 turns the
+/// zero high byte of every ASCII-range UTF-16 code unit into a literal NUL,
+/// corrupting output text and any sentinel matching done against it
+/// downstream.
+///
+/// Detect UTF-16LE two ways: an explicit BOM, or — the case actually observed
+/// in practice — a strong majority of odd-position bytes being 0x00, which is
+/// the unmistakable signature of ASCII-range text encoded as UTF-16LE. Real
+/// UTF-8 output does not exhibit that pattern (ASCII UTF-8 bytes are
+/// essentially never 0x00), so this does not risk misdecoding genuine UTF-8
+/// accoreconsole output.
+fn decode_accoreconsole_bytes(bytes: &[u8]) -> String {
+    const UTF16LE_BOM: [u8; 2] = [0xFF, 0xFE];
+    if let Some(rest) = bytes.strip_prefix(&UTF16LE_BOM) {
+        if let Some(text) = decode_utf16le(rest) {
+            return text;
+        }
+    }
+    if looks_like_utf16le(bytes) {
+        if let Some(text) = decode_utf16le(bytes) {
+            return text;
+        }
+    }
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+fn decode_utf16le(bytes: &[u8]) -> Option<String> {
+    if bytes.is_empty() || !bytes.len().is_multiple_of(2) {
+        return None;
+    }
+    let units: Vec<u16> = bytes
+        .chunks_exact(2)
+        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .collect();
+    String::from_utf16(&units).ok()
+}
+
+fn looks_like_utf16le(bytes: &[u8]) -> bool {
+    // Require a handful of code units before trusting the heuristic; short
+    // output is ambiguous and safer to leave to the UTF-8 fallback.
+    const MIN_SAMPLE_UNITS: usize = 4;
+    if bytes.len() < MIN_SAMPLE_UNITS * 2 || !bytes.len().is_multiple_of(2) {
+        return false;
+    }
+    let mut sampled = 0usize;
+    let mut zero_high_byte = 0usize;
+    for high_byte in bytes.iter().skip(1).step_by(2) {
+        sampled += 1;
+        if *high_byte == 0 {
+            zero_high_byte += 1;
+        }
+    }
+    sampled > 0 && zero_high_byte * 100 >= sampled * 90
 }
 
 #[cfg(target_os = "windows")]
@@ -2648,6 +2826,22 @@ fn run_windows_command_bounded_with_before_resume(
     }
 }
 
+/// Returns `value` if it is non-empty and currently names a directory.
+///
+/// This is deliberately stricter than the real `GetTempPathW`, which returns
+/// the first non-empty `%TMP%`/`%TEMP%`/`%USERPROFILE%` candidate regardless
+/// of whether it actually exists — a set-but-broken value should still be
+/// treated as unusable here rather than trusted as-is.
+#[cfg(any(target_os = "windows", test))]
+fn existing_directory_env_value(value: Option<&OsStr>) -> Option<PathBuf> {
+    let value = value?;
+    if value.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(value);
+    path.is_dir().then_some(path)
+}
+
 #[cfg(target_os = "windows")]
 fn accoreconsole_command(
     exe: &Path,
@@ -2662,6 +2856,26 @@ fn accoreconsole_command(
     use std::process::Command;
 
     let mut command = Command::new(exe);
+    // accoreconsole creates its own scratch files (e.g. plot/export temporaries)
+    // through the Windows temp-file API, which falls back to the drive root when
+    // TEMP/TMP are absent or invalid. We otherwise inherit whatever environment
+    // the MCP host launched this process with, which is not guaranteed to carry
+    // a usable TEMP/TMP (some MCP hosts launch child servers with a stripped
+    // environment). Only step in when the child would not already have a
+    // usable one (mirroring GetTempPathW's own TMP-then-TEMP priority, plus an
+    // existence check GetTempPathW itself does not make) — an already-valid
+    // TEMP/TMP is left alone rather than being clobbered. When we do step in,
+    // both are pinned to the staging directory we already own, already pass
+    // as /i /s /b's current_dir, and already clean up on drop, so
+    // accoreconsole's scratch files land somewhere writable and get cleaned up
+    // for free. `AUTOCAD_MCP_STAGING_DIR` (see `create_staging_dir`) decides
+    // where that ends up when the fallback applies.
+    let child_already_has_a_usable_temp_dir =
+        existing_directory_env_value(std::env::var_os("TMP").as_deref()).is_some()
+            || existing_directory_env_value(std::env::var_os("TEMP").as_deref()).is_some();
+    if !child_already_has_a_usable_temp_dir {
+        command.env("TEMP", staging).env("TMP", staging);
+    }
     if locale.is_empty()
         || locale.len() > 35
         || !locale
@@ -2729,6 +2943,36 @@ pub fn register_trusted_path(path: &Path) -> Result<()> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn accoreconsole_never_launched_is_detected_through_a_plain_question_mark_chain() {
+        // preview-agent-findings-2026-08-05.md P2 #11: a pre-spawn failure
+        // must be distinguishable from a post-spawn one after propagating
+        // through ordinary `?`/`From` conversions (as every
+        // `run_accoreconsole*` wrapper does), not just at the exact call
+        // site that first wraps it.
+        fn wraps_it() -> anyhow::Result<()> {
+            fn inner() -> anyhow::Result<()> {
+                Err(anyhow::Error::new(AccoreconsoleNeverLaunched(anyhow!(
+                    "accoreconsole not found on PATH"
+                ))))
+            }
+            inner()?;
+            Ok(())
+        }
+
+        let error = wraps_it().unwrap_err();
+        assert!(accoreconsole_never_launched(&error));
+        // The original message stays the visible Display text — the marker
+        // must not replace it with something like "never launched".
+        assert_eq!(error.to_string(), "accoreconsole not found on PATH");
+    }
+
+    #[test]
+    fn ordinary_errors_are_not_mistaken_for_a_never_launched_accoreconsole() {
+        let error = anyhow!("accoreconsole exited with status 1: some AutoLISP error");
+        assert!(!accoreconsole_never_launched(&error));
+    }
+
     fn create_file(path: &Path) {
         std::fs::create_dir_all(path.parent().expect("test file must have a parent")).unwrap();
         std::fs::write(path, b"test executable bytes").unwrap();
@@ -2746,6 +2990,51 @@ mod tests {
 
     fn sha256_hex(bytes: &[u8]) -> String {
         format!("{:x}", Sha256::digest(bytes))
+    }
+
+    fn utf16le_bytes(text: &str) -> Vec<u8> {
+        text.encode_utf16()
+            .flat_map(|unit| unit.to_le_bytes())
+            .collect()
+    }
+
+    #[test]
+    fn decode_accoreconsole_bytes_reads_bom_prefixed_utf16le() {
+        let mut bytes = vec![0xFF, 0xFE];
+        bytes.extend(utf16le_bytes("Regenerating model.\r\n"));
+        assert_eq!(
+            decode_accoreconsole_bytes(&bytes),
+            "Regenerating model.\r\n"
+        );
+    }
+
+    #[test]
+    fn decode_accoreconsole_bytes_reads_bom_less_utf16le_ascii_output() {
+        let bytes = utf16le_bytes("Command: PLOT\r\nDone plotting.\r\n");
+        assert_eq!(
+            decode_accoreconsole_bytes(&bytes),
+            "Command: PLOT\r\nDone plotting.\r\n"
+        );
+    }
+
+    #[test]
+    fn decode_accoreconsole_bytes_leaves_genuine_utf8_output_alone() {
+        let bytes = "Command: PLOT\r\nDone plotting.\r\n".as_bytes();
+        assert_eq!(
+            decode_accoreconsole_bytes(bytes),
+            "Command: PLOT\r\nDone plotting.\r\n"
+        );
+    }
+
+    #[test]
+    fn decode_accoreconsole_bytes_leaves_short_output_as_utf8() {
+        let bytes = b"OK\n";
+        assert_eq!(decode_accoreconsole_bytes(bytes), "OK\n");
+    }
+
+    #[test]
+    fn decode_accoreconsole_bytes_handles_empty_output() {
+        assert_eq!(decode_accoreconsole_bytes(&[]), "");
     }
 
     #[test]
@@ -3043,6 +3332,73 @@ mod tests {
                 .to_string()
                 .contains("regular file")
         );
+    }
+
+    #[test]
+    fn staging_dir_override_is_optional_and_canonical() {
+        assert_eq!(resolve_staging_dir_override(None).unwrap(), None);
+
+        let directory = tempfile::tempdir().unwrap();
+        assert_eq!(
+            resolve_staging_dir_override(Some(directory.path().as_os_str())).unwrap(),
+            Some(std::fs::canonicalize(directory.path()).unwrap())
+        );
+    }
+
+    #[test]
+    fn staging_dir_override_fails_closed_on_every_defect() {
+        let relative = resolve_staging_dir_override(Some(OsStr::new("staging"))).unwrap_err();
+        assert!(relative.to_string().contains("absolute path"));
+
+        let directory = tempfile::tempdir().unwrap();
+        let missing = directory.path().join("does-not-exist");
+        assert!(resolve_staging_dir_override(Some(missing.as_os_str()))
+            .unwrap_err()
+            .to_string()
+            .contains("not accessible"));
+
+        let not_dir = directory.path().join("staging-file");
+        create_file(&not_dir);
+        assert!(resolve_staging_dir_override(Some(not_dir.as_os_str()))
+            .unwrap_err()
+            .to_string()
+            .contains("must name a directory"));
+    }
+
+    #[test]
+    fn create_staging_dir_honors_an_explicit_root() {
+        let root = tempfile::tempdir().unwrap();
+        let staged = create_staging_dir_under(Some(root.path())).unwrap();
+        assert!(staged.path().starts_with(root.path()));
+    }
+
+    #[test]
+    fn create_staging_dir_falls_back_to_the_os_default_without_a_root() {
+        let staged = create_staging_dir_under(None).unwrap();
+        assert!(staged.path().exists());
+        assert!(staged.path().is_dir());
+    }
+
+    #[test]
+    fn existing_directory_env_value_requires_a_real_directory() {
+        assert_eq!(existing_directory_env_value(None), None);
+        assert_eq!(existing_directory_env_value(Some(OsStr::new(""))), None);
+
+        let directory = tempfile::tempdir().unwrap();
+        assert_eq!(
+            existing_directory_env_value(Some(directory.path().as_os_str())),
+            Some(directory.path().to_path_buf())
+        );
+
+        let missing = directory.path().join("does-not-exist");
+        assert_eq!(
+            existing_directory_env_value(Some(missing.as_os_str())),
+            None
+        );
+
+        let file = directory.path().join("not-a-dir");
+        create_file(&file);
+        assert_eq!(existing_directory_env_value(Some(file.as_os_str())), None);
     }
 
     #[test]

@@ -54,18 +54,17 @@ struct CandidatePlan {
 
 #[derive(Debug)]
 pub(crate) struct PreviewTitleBlockWriteError {
-    code: &'static str,
-    message: String,
+    domain: autocad_diagnostics::DomainError,
     installation_may_have_occurred: bool,
 }
 
 impl PreviewTitleBlockWriteError {
-    pub(crate) fn code(&self) -> &'static str {
-        self.code
+    pub(crate) fn code(&self) -> &str {
+        self.domain.code()
     }
 
     pub(crate) fn message(&self) -> &str {
-        &self.message
+        self.domain.message()
     }
 
     pub(crate) fn installation_may_have_occurred(&self) -> bool {
@@ -75,7 +74,7 @@ impl PreviewTitleBlockWriteError {
 
 impl std::fmt::Display for PreviewTitleBlockWriteError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.message)
+        std::fmt::Display::fmt(&self.domain, formatter)
     }
 }
 
@@ -90,8 +89,10 @@ pub(crate) fn write(
         build_candidate_from_locked_source(locked_source, registry, canonical_fields)
     });
     let (plan, install_receipt) = result.map_err(|error| PreviewTitleBlockWriteError {
-        code: error.code(),
-        message: error.detail().to_string(),
+        domain: autocad_diagnostics::DomainError::new(
+            error.code().to_string(),
+            error.detail().to_string(),
+        ),
         installation_may_have_occurred: error.disposition()
             == GuardedCandidateInstallDisposition::InstallationMayHaveOccurred,
     })?;
@@ -100,9 +101,10 @@ pub(crate) fn write(
         || plan.writer_receipt.candidate_sha256 != install_receipt.installed_sha256
     {
         return Err(PreviewTitleBlockWriteError {
-            code: "preview_writer_install_outcome_unknown",
-            message: "installed drawing digests do not join to the verified writer receipt"
-                .to_string(),
+            domain: autocad_diagnostics::DomainError::new(
+                "preview_writer_install_outcome_unknown",
+                "installed drawing digests do not join to the verified writer receipt",
+            ),
             installation_may_have_occurred: true,
         });
     }

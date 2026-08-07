@@ -2,7 +2,7 @@ AutoCAD-MCP third-party licence evidence bundle
 =================================================
 
 Scope: every third-party registry package in the exact locked Rust workspace.
-Cargo.lock SHA-256: bc4f2ebd3fb18996866e6610a635f567ca9e2d2559852145876b6da98edc9e28
+Cargo.lock SHA-256: a0193d489e88af44a98b2722a54df051a4b94f461cf9df24046c70d3a5222b4f
 
 This bundle reproduces the top-level LICEN[CS]E, COPYING, NOTICE, and
 UNLICENSE files read directly from each cached .crate archive after verifying

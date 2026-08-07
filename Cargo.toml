@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/autolisp-lsp",
     "crates/autolisp-validate",
+    "crates/autocad-diagnostics",
     "crates/autocad-mcp",
     "crates/autocad-reader",
     "crates/autocad-writer",

@@ -38,6 +38,7 @@ portable-plot-qualification = ["portable-plotting", "dep:hayro", "dep:lopdf"]
 
 [dependencies]
 acadrust = "=0.4.1"
+autocad-diagnostics = { path = "../autocad-diagnostics" }
 autocad-reader = { path = "../autocad-reader" }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 hayro = { version = "=0.7.1", default-features = false, optional = true }

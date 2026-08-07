@@ -15,7 +15,7 @@ use crate::ops::xref_graph::{
 use crate::ops::xref_path::{
     self, AbsolutePathKind, CandidateProbeResult, CanonicalDisplayPath, CanonicalExistingPath,
     FilesystemIdentity, PathPlatform, ResolutionCandidate, ResolutionCandidateProbe,
-    SearchPathInspection, SearchPathInspector,
+    SearchPathInspection, SearchPathInspector, SearchPathValidationError,
 };
 use crate::ops::xrefs::{
     self, xref_failure_code, ListXrefDependenciesRequest, ListXrefInstancesRequest,
@@ -367,8 +367,8 @@ fn path_platform(path: &CanonicalDisplayPath) -> PathPlatform {
     }
 }
 
-fn map_search_path_error(error: impl std::fmt::Display) -> XrefError {
-    XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.to_string())
+fn map_search_path_error(error: SearchPathValidationError) -> XrefError {
+    XrefError::new(xref_failure_code::INVALID_SEARCH_PATH, error.detail())
 }
 
 fn validate_selector_syntax(

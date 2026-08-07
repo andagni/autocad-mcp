@@ -1831,8 +1831,7 @@ pub(crate) enum GuardedCandidateInstallDisposition {
 #[cfg(feature = "preview")]
 #[derive(Debug)]
 pub(crate) struct GuardedCandidateInstallError {
-    code: &'static str,
-    detail: String,
+    domain: autocad_diagnostics::DomainError,
     disposition: GuardedCandidateInstallDisposition,
 }
 
@@ -1844,14 +1843,13 @@ impl GuardedCandidateInstallError {
         disposition: GuardedCandidateInstallDisposition,
     ) -> Self {
         Self {
-            code,
-            detail: detail.into(),
+            domain: autocad_diagnostics::DomainError::new(code, detail),
             disposition,
         }
     }
 
-    pub(crate) fn code(&self) -> &'static str {
-        self.code
+    pub(crate) fn code(&self) -> &str {
+        self.domain.code()
     }
 
     pub(crate) fn disposition(&self) -> GuardedCandidateInstallDisposition {
@@ -1859,14 +1857,14 @@ impl GuardedCandidateInstallError {
     }
 
     pub(crate) fn detail(&self) -> &str {
-        &self.detail
+        self.domain.message()
     }
 }
 
 #[cfg(feature = "preview")]
 impl fmt::Display for GuardedCandidateInstallError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.detail)
+        std::fmt::Display::fmt(&self.domain, formatter)
     }
 }
 

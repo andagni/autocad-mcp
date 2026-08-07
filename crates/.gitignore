@@ -1,6 +1,7 @@
 # Whitelist-only workspace-crate policy. Add each crate deliberately.
 /*
 !/.gitignore
+!/autocad-diagnostics/
 !/autocad-mcp/
 !/autocad-reader/
 !/autocad-writer/

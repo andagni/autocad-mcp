@@ -9,7 +9,7 @@
 //! entity invisibility: distinct persisted states may have identical member
 //! sets, and the pinned reader does not retain the selected state value.
 
-use std::{collections::BTreeSet, fmt};
+use std::collections::BTreeSet;
 
 use acadrust::{
     entities::Insert,
@@ -28,34 +28,13 @@ pub use super::contract::{
 const MAX_OWNER_CHAIN_NODES: usize = 16;
 const UNSUPPORTED_DYNAMIC_BLOCK_DATA: &str = "unsupported_dynamic_block_data";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DynamicBlockReadError {
-    message: String,
-}
+autocad_diagnostics::domain_error!(pub struct DynamicBlockReadError, new = pub(self));
 
 impl DynamicBlockReadError {
     fn unsupported(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &'static str {
-        UNSUPPORTED_DYNAMIC_BLOCK_DATA
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
+        Self::new(UNSUPPORTED_DYNAMIC_BLOCK_DATA, message)
     }
 }
-
-impl fmt::Display for DynamicBlockReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "code={} {}", self.code(), self.message)
-    }
-}
-
-impl std::error::Error for DynamicBlockReadError {}
 
 /// Resolve bounded dynamic-block metadata for an already selected INSERT.
 ///

@@ -187,11 +187,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "autocad-diagnostics"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "autocad-mcp"
 version = "0.0.1"
 dependencies = [
  "acadrust",
  "anyhow",
+ "autocad-diagnostics",
  "autocad-reader",
  "autocad-writer",
  "clap",
@@ -215,6 +224,7 @@ name = "autocad-reader"
 version = "0.0.1"
 dependencies = [
  "acadrust",
+ "autocad-diagnostics",
  "schemars",
  "serde",
  "serde_json",
@@ -227,6 +237,7 @@ name = "autocad-writer"
 version = "0.0.1"
 dependencies = [
  "acadrust",
+ "autocad-diagnostics",
  "autocad-reader",
  "flate2",
  "hayro",

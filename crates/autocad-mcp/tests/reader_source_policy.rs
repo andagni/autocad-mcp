@@ -56,6 +56,26 @@ fn normalized_identifier(identifier: &proc_macro2::Ident) -> String {
     identifier.unraw().to_string()
 }
 
+/// Recovers the declared type name from a `domain_error!(... struct Name,
+/// new = ...)` invocation's token stream: the identifier immediately after
+/// the `struct` keyword. Doesn't attempt full macro-input parsing — the
+/// macro's own grammar is intentionally this simple (see
+/// `autocad-diagnostics/src/lib.rs`), so scanning for `struct` then taking
+/// the next identifier is exact, not a heuristic approximation.
+fn domain_error_struct_name(tokens: TokenStream) -> Option<String> {
+    let mut iter = tokens.into_iter();
+    while let Some(token) = iter.next() {
+        if let TokenTree::Ident(identifier) = &token {
+            if identifier == "struct" {
+                if let Some(TokenTree::Ident(name)) = iter.next() {
+                    return Some(normalized_identifier(&name));
+                }
+            }
+        }
+    }
+    None
+}
+
 fn path_is_identifier(path: &syn::Path, expected: &str) -> bool {
     path.get_ident()
         .is_some_and(|identifier| normalized_identifier(identifier) == expected)
@@ -325,6 +345,30 @@ impl<'ast> Visit<'ast> for ProductionFactsVisitor {
             .function_definitions
             .push(normalized_identifier(&item.sig.ident));
         visit::visit_item_fn(self, item);
+    }
+
+    /// `autocad_diagnostics::domain_error!(pub struct Name, new = ...)`
+    /// expands to a struct definition, but it's a macro invocation in the
+    /// AST (`syn::Item::Macro`), not a `syn::ItemStruct` — the visitor can't
+    /// see through the expansion, so without this override every
+    /// `domain_error!`-declared type would silently vanish from
+    /// `type_definitions` and canonical-definition checks like the one below
+    /// would report zero definitions instead of one. Parse just enough of
+    /// the invocation's token stream to recover the declared name.
+    fn visit_item_macro(&mut self, item: &'ast syn::ItemMacro) {
+        if item.mac.path.is_ident("domain_error")
+            || item
+                .mac
+                .path
+                .segments
+                .last()
+                .is_some_and(|segment| segment.ident == "domain_error")
+        {
+            if let Some(name) = domain_error_struct_name(item.mac.tokens.clone()) {
+                self.facts.type_definitions.push(name);
+            }
+        }
+        self.record_token_stream(item.mac.tokens.clone());
     }
 
     fn visit_item_use(&mut self, item: &'ast syn::ItemUse) {

@@ -10,7 +10,7 @@
 //! list responses. TABLE, MULTILEADER, 3DSOLID, and ACAD_SURFACE projections
 //! remain unsupported until representative committed decoder proof exists.
 
-use std::{collections::BTreeSet, fmt};
+use std::collections::BTreeSet;
 
 use acadrust::{
     entities::{BoundaryEdge, EntityType},
@@ -37,36 +37,7 @@ use super::{
     owners::resolve_direct_owner,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntityReadError {
-    code: &'static str,
-    message: String,
-}
-
-impl EntityReadError {
-    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl fmt::Display for EntityReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for EntityReadError {}
+autocad_diagnostics::domain_error!(pub struct EntityReadError, new = pub(crate));
 
 struct EntityFilters {
     entity_types: Option<BTreeSet<String>>,
@@ -76,7 +47,7 @@ struct EntityFilters {
 
 fn validate_semantic_entity_handles(doc: &CadDocument) -> Result<(), EntityReadError> {
     validate_reader_entity_handles(doc)
-        .map_err(|error| EntityReadError::new(error.code(), error.message()))
+        .map_err(|error| EntityReadError::new(error.code().to_string(), error.message()))
 }
 
 /// List entities in canonical handle order using bounded pagination.
@@ -257,7 +228,7 @@ fn entity_record(doc: &CadDocument, entity: &EntityType) -> Result<EntityRecord,
         entity_type: entity_type_name(entity),
         owner_handle: optional_handle(common.owner_handle),
         owner_context: resolve_direct_owner(doc, common.owner_handle)
-            .map_err(|error| EntityReadError::new("unsupported_entity_data", error.to_string()))?,
+            .map_err(|error| EntityReadError::new("unsupported_entity_data", error.message()))?,
         layer: common.layer.clone(),
         visible: !common.invisible,
         color: entity_color(common.color),
@@ -555,7 +526,7 @@ fn entity_detail(
             row_count: insert.row_count,
             attribute_count: insert.attributes.len(),
             dynamic_block: resolve_dynamic_block_link(document, insert)
-                .map_err(|error| EntityReadError::new(error.code(), error.message()))?,
+                .map_err(|error| EntityReadError::new(error.code().to_string(), error.message()))?,
         },
         EntityType::AttributeEntity(attribute) => EntityDetail::Attribute {
             tag: attribute.tag.clone(),

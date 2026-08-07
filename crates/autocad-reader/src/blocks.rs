@@ -5,7 +5,6 @@ use acadrust::objects::ObjectType;
 use acadrust::tables::BlockRecord;
 use acadrust::types::{Handle, Vector3};
 use acadrust::CadDocument;
-use serde::Serialize;
 
 use super::{
     dynamic_blocks::resolve_dynamic_block_link,
@@ -78,37 +77,7 @@ fn finite_point(value: Vector3, field: &str) -> Result<BlockPoint3, BlockReadErr
     })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct BlockReadError {
-    code: String,
-    message: String,
-}
-
-impl BlockReadError {
-    pub(super) fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl std::fmt::Display for BlockReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for BlockReadError {}
+autocad_diagnostics::domain_error!(pub struct BlockReadError, new = pub(super));
 
 fn canonical_handle(handle: Handle, resource: &str) -> Result<String, BlockReadError> {
     if handle.is_null() {
@@ -264,7 +233,7 @@ fn definition_record(
 ) -> Result<BlockDefinitionRecord, BlockReadError> {
     let layout_handle = resolved_layout_handle(doc, definition)?;
     let owner_context = resolve_direct_owner(doc, definition.handle)
-        .map_err(|error| BlockReadError::new("unsupported_block_data", error.to_string()))?;
+        .map_err(|error| BlockReadError::new("unsupported_block_data", error.message()))?;
     let (is_model_space, is_paper_space) = match owner_context {
         Some(DirectOwnerContext::Available {
             owner_type: DirectOwnerType::ModelSpace,
@@ -491,7 +460,7 @@ fn insert_record(
     definition: &BlockRecord,
 ) -> Result<BlockInsertRecord, BlockReadError> {
     let owner_context = resolve_direct_owner(doc, insert.common.owner_handle)
-        .map_err(|error| BlockReadError::new("unsupported_block_data", error.to_string()))?;
+        .map_err(|error| BlockReadError::new("unsupported_block_data", error.message()))?;
     let mut attributes = insert
         .attributes
         .iter()
@@ -516,7 +485,7 @@ fn insert_record(
         definition_handle: canonical_handle(definition.handle, "block definition")?,
         block_name: insert.block_name.clone(),
         dynamic_block: resolve_dynamic_block_link(doc, insert)
-            .map_err(|error| BlockReadError::new(error.code(), error.message()))?,
+            .map_err(|error| BlockReadError::new(error.code().to_string(), error.message()))?,
         owner_handle: canonical_optional_handle(insert.common.owner_handle),
         owner_context,
         layer: insert.common.layer.clone(),
@@ -542,7 +511,7 @@ fn insert_record(
 /// the result.
 pub fn list_block_inserts(doc: &CadDocument) -> Result<Vec<BlockInsertRecord>, BlockReadError> {
     validate_semantic_entity_handles(doc)
-        .map_err(|error| BlockReadError::new(error.code(), error.message()))?;
+        .map_err(|error| BlockReadError::new(error.code().to_string(), error.message()))?;
     let mut inserts = Vec::new();
     for entity in doc.entities() {
         let EntityType::Insert(insert) = entity else {
@@ -575,7 +544,7 @@ pub fn get_block_insert(
 ) -> Result<BlockInsertRecord, BlockReadError> {
     let wanted = parse_handle(&selector.handle)?;
     validate_semantic_entity_handles(doc)
-        .map_err(|error| BlockReadError::new(error.code(), error.message()))?;
+        .map_err(|error| BlockReadError::new(error.code().to_string(), error.message()))?;
     let matches = doc
         .entities()
         .filter_map(|entity| match entity {

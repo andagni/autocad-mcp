@@ -554,16 +554,24 @@ pub struct PlotToPdfParams {
 }
 
 fn unsupported_expanded_read_format(drawing_path: &str) -> CallToolResult {
-    CallToolResult::error(vec![Content::text(format!(
-        "code=unsupported_format expanded read tools require a DWG drawing_path; got `{drawing_path}`"
-    ))])
+    CallToolResult::error(vec![Content::text(
+        autocad_diagnostics::DomainError::new(
+            "unsupported_format",
+            format!("drawing_path must be a DWG file; got `{drawing_path}`"),
+        )
+        .to_string(),
+    )])
 }
 
 fn expanded_read_path_error(drawing_path: &str) -> Option<CallToolResult> {
     if !Path::new(drawing_path).is_absolute() {
-        return Some(CallToolResult::error(vec![Content::text(format!(
-            "code=invalid_drawing_path expanded read tools require an absolute drawing_path; got `{drawing_path}`"
-        ))]));
+        return Some(CallToolResult::error(vec![Content::text(
+            autocad_diagnostics::DomainError::new(
+                "invalid_drawing_path",
+                format!("drawing_path must be an absolute path; got `{drawing_path}`"),
+            )
+            .to_string(),
+        )]));
     }
     (!is_dwg_path(Path::new(drawing_path))).then(|| unsupported_expanded_read_format(drawing_path))
 }
@@ -677,26 +685,7 @@ fn layer_selector(
     }
 }
 
-#[derive(Debug)]
-struct LayerReadOpenError {
-    code: &'static str,
-    message: String,
-}
-
-impl LayerReadOpenError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-}
-
-impl std::fmt::Display for LayerReadOpenError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.message)
-    }
-}
+autocad_diagnostics::domain_error!(struct LayerReadOpenError, new = pub(self));
 
 fn validated_layer_read_path(
     path: &Path,

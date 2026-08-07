@@ -639,11 +639,12 @@ mod tests {
             .into()
     }
 
-    fn error_code(bytes: Arc<[u8]>) -> &'static str {
+    fn error_code(bytes: Arc<[u8]>) -> String {
         let digest = ResourceDigest::of(&bytes);
         super::super::PlotStyleResource::from_ctb("test.ctb", bytes, digest)
             .unwrap_err()
             .code()
+            .to_string()
     }
 
     #[test]

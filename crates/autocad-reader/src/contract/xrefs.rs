@@ -552,32 +552,7 @@ pub enum XrefPortableClipEvidence {
     Unproven,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct XrefError {
-    code: &'static str,
-    message: String,
-}
-
-impl XrefError {
-    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        self.code
-    }
-}
-
-impl std::fmt::Display for XrefError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for XrefError {}
+autocad_diagnostics::domain_error!(pub struct XrefError, new = pub);
 
 const NORMAL_LENGTH_TOLERANCE: f64 = 1e-12;
 const NORMAL_COMPONENT_ZERO_TOLERANCE: f64 = 1e-15;

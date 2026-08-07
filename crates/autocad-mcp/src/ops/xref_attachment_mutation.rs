@@ -820,7 +820,12 @@ fn domain_error(code: &str, detail: impl Into<String>) -> XrefTransactionError {
 }
 
 fn map_domain_error(error: XrefError) -> XrefTransactionError {
-    domain_error(error.code(), error.to_string())
+    // Use the raw message, not `to_string()`/`Display` — the latter prefixes
+    // `code=<code> `, which would double up with the `code` we're already
+    // carrying separately below (see the P1 #6 finding in
+    // preview-agent-findings-2026-08-05.md: `update_xref` emitting
+    // `unsupported_xref_data` twice for one failure).
+    domain_error(error.code(), error.message())
 }
 
 fn write_failed(detail: impl Into<String>) -> XrefTransactionError {
@@ -4220,6 +4225,31 @@ mod tests {
     fn duplicate_expected_instance_handles_fail_as_invalid_parameters() {
         let error = canonicalize_exact_handle_set(&["0xA".to_owned(), "a".to_owned()]).unwrap_err();
         assert_eq!(error_code(error), xref_failure_code::INVALID_PARAMETERS);
+    }
+
+    #[test]
+    fn map_domain_error_does_not_duplicate_the_code_into_the_detail() {
+        // Regression test for preview-agent-findings-2026-08-05.md P1 #6:
+        // `update_xref` emitted `unsupported_xref_data` twice for one
+        // failure. Root cause was `map_domain_error` building the wrapped
+        // error's detail from `error.to_string()` (which is `Display`,
+        // prefixing `code=<code> `), while also carrying that same code
+        // separately — so the final message read
+        // "code=unsupported_xref_data code=unsupported_xref_data ...".
+        let inner = XrefError::new(
+            xref_failure_code::UNSUPPORTED_XREF_DATA,
+            "cannot prove saved XREFOVERRIDE: reader cannot decode raw EED",
+        );
+        let mapped = map_domain_error(inner);
+        assert_eq!(
+            error_code(mapped.clone()),
+            xref_failure_code::UNSUPPORTED_XREF_DATA
+        );
+        assert_eq!(
+            mapped.detail,
+            "cannot prove saved XREFOVERRIDE: reader cannot decode raw EED"
+        );
+        assert_eq!(mapped.detail.matches("unsupported_xref_data").count(), 0);
     }
 
     #[test]

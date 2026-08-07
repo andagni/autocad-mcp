@@ -52,41 +52,10 @@ pub use worker::{
     PortableWorkerReceipt, PortableWorkerRequest,
 };
 
-use std::fmt;
-
-/// Stable semantic failure returned before renderer-specific conversion.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PortablePlotError {
-    code: &'static str,
-    message: String,
-}
-
-impl PortablePlotError {
-    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-
-    /// Stable machine-readable failure code.
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    /// Human-readable diagnostic without source drawing content.
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl fmt::Display for PortablePlotError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for PortablePlotError {}
+autocad_diagnostics::domain_error!(
+    /// Stable semantic failure returned before renderer-specific conversion.
+    pub struct PortablePlotError, new = pub(crate)
+);
 
 pub(crate) fn non_finite_input(name: &str) -> PortablePlotError {
     PortablePlotError::new(

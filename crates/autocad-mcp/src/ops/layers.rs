@@ -92,32 +92,7 @@ pub struct DeleteLayerResult {
     pub layer: DeletedLayer,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct LayerError {
-    code: String,
-    message: String,
-}
-
-impl LayerError {
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-}
-
-impl std::fmt::Display for LayerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for LayerError {}
+autocad_diagnostics::domain_error!(pub struct LayerError, new = pub);
 
 pub fn canonical_handle(handle: Handle) -> Result<String, LayerError> {
     if handle.is_null() {

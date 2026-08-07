@@ -7,39 +7,8 @@ use super::contract::{
 use acadrust::tables::{DimStyle, LineType, Table, TableEntry, TextStyle, Ucs, View};
 use acadrust::types::Handle;
 use acadrust::CadDocument;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct SymbolReadError {
-    code: String,
-    message: String,
-}
-
-impl SymbolReadError {
-    pub(crate) fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl std::fmt::Display for SymbolReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for SymbolReadError {}
+autocad_diagnostics::domain_error!(pub struct SymbolReadError, new = pub(crate));
 
 #[derive(Clone, Copy)]
 struct ResourceKind {

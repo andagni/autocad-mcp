@@ -3,19 +3,20 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "AutoCAD-MCP Cargo.lock source dependency graph",
-  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-b856a7bbb064f6c78911a8ad997ac89c0836e9ce6191f29b8726eb4d77d20849",
+  "documentNamespace": "https://andagni.invalid/spdx/autocad-mcp/source-closure-e67b78c7216363ebe1d19b0fe1cd5e9d7437191703ca85177c82aabf594293bb",
   "creationInfo": {
     "created": "2026-08-03T13:24:34Z",
     "creators": [
       "Tool: AutoCAD-MCP distribution-evidence-8"
     ],
-    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1 --all-features`, including workspace, every declared feature, development, build, and all-target dependencies. Cargo.lock SHA-256: bc4f2ebd3fb18996866e6610a635f567ca9e2d2559852145876b6da98edc9e28. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
+    "comment": "Generated deterministically from the complete Cargo.lock graph and `cargo metadata --locked --offline --format-version 1 --all-features`, including workspace, every declared feature, development, build, and all-target dependencies. Cargo.lock SHA-256: a0193d489e88af44a98b2722a54df051a4b94f461cf9df24046c70d3a5222b4f. Registry-package retained licence evidence is read directly from cached .crate archives after their SHA-256 values are checked against Cargo.lock, and each unpacked registry Cargo.toml is required to equal the archived manifest consumed for package metadata. Workspace Cargo.toml bytes are bound directly by the evidence input-closure digest. This is a source-lock SBOM, not an exact inventory of packages linked into either shipped executable. Exact executable/source-build identity remains a separate release gate. This is technical inventory evidence, not a legal conclusion. filesAnalyzed is false."
   },
   "documentDescribes": [
     "SPDXRef-Package-130ec320e51ed7c366c24c909c227797f31ec6a016ac64b4553aa4aab5a2a576",
     "SPDXRef-Package-257a5d66df15944cc1b1a9df307b4537d158880743703d7eb208cd65c70b7a5a",
     "SPDXRef-Package-6167a2da47fe49f386a5c4f2a628aecf6425abf5433f9cee8b98916c85ec9b42",
     "SPDXRef-Package-6db2d98021a45cafd33191df44a5dbbd3e403f97b115e76d59b48df643c04fc5",
+    "SPDXRef-Package-7676222743b2f226cb2c7aad2c7fb2283f5c99bc0d3e54d45bee8cf6631d9210",
     "SPDXRef-Package-780741a7c473d10f2c9d878d7b37ae422647efa250f375ef0fbef2f3eed6ab22",
     "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
     "SPDXRef-Package-9ab067c26c0134609c16f5c4ee09430c1a9d16e87f2b0ebc37dbe96193dc24e6",
@@ -366,6 +367,18 @@
       "licenseComments": "Cargo manifest licence metadata: MIT OR Apache-2.0. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Checksum-verified .crate archive evidence: LICENSE-APACHE sha256:8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90, LICENSE-MIT sha256:aecd978992e074f652c672cc628d9f37846ac9ffdc5365c7c5b31e8d89f7a621.",
       "copyrightText": "NOASSERTION",
       "sourceInfo": "Resolved by Cargo.lock from registry+https://github.com/rust-lang/crates.io-index; SHA-256 checksum is the Cargo.lock package checksum."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-7676222743b2f226cb2c7aad2c7fb2283f5c99bc0d3e54d45bee8cf6631d9210",
+      "name": "autocad-diagnostics",
+      "versionInfo": "0.0.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "GPL-3.0-or-later",
+      "licenseComments": "Cargo manifest licence metadata: GPL-3.0-or-later. The Cargo value is emitted as SPDX licenseDeclared. No governing licence conclusion or legal approval is asserted. Workspace package: no .crate archive or Cargo.lock package checksum applies; licence metadata is read from the workspace Cargo.toml bound by the evidence input-closure digest.",
+      "copyrightText": "NOASSERTION",
+      "sourceInfo": "AutoCAD-MCP workspace package."
     },
     {
       "SPDXID": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
@@ -8381,6 +8394,16 @@
       "relatedSpdxElement": "SPDXRef-Package-881cd31a0a5f6fbf81a224e8b67f5eef2cb82fef6047d46498552a6e73ef56d5"
     },
     {
+      "spdxElementId": "SPDXRef-Package-7676222743b2f226cb2c7aad2c7fb2283f5c99bc0d3e54d45bee8cf6631d9210",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-82c47d7fc3af0a64cf039ac3b23786c4f6cf9380a5d07f68a4507d51c803491b"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-7676222743b2f226cb2c7aad2c7fb2283f5c99bc0d3e54d45bee8cf6631d9210",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-cab2a12f19cc8872e810a22399fb8c6de167f56c3aa9ab771ab1df5875e0b6b5"
+    },
+    {
       "spdxElementId": "SPDXRef-Package-7782b632698152cc9e2f84b94338ce8cb6077dbfd7045a4e07cf35a8382cfe65",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-6fc18a7398ecb2f21440ac93754cb2334f725246f3ad127214d3fd1322a308de"
@@ -8494,6 +8517,11 @@
       "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-69d3e273886da5e254af64088d03ff5e20b1332e68352cdb17fcafa826132c3d"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-7676222743b2f226cb2c7aad2c7fb2283f5c99bc0d3e54d45bee8cf6631d9210"
     },
     {
       "spdxElementId": "SPDXRef-Package-7833205b3dccb252dfc0123f159c007491524c25e0f802fff07add140e7932cc",
@@ -9169,6 +9197,11 @@
       "spdxElementId": "SPDXRef-Package-9ab067c26c0134609c16f5c4ee09430c1a9d16e87f2b0ebc37dbe96193dc24e6",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-9ab067c26c0134609c16f5c4ee09430c1a9d16e87f2b0ebc37dbe96193dc24e6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-7676222743b2f226cb2c7aad2c7fb2283f5c99bc0d3e54d45bee8cf6631d9210"
     },
     {
       "spdxElementId": "SPDXRef-Package-9ab067c26c0134609c16f5c4ee09430c1a9d16e87f2b0ebc37dbe96193dc24e6",
@@ -10414,6 +10447,11 @@
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-5f42f8d6be4c3b7e83adf5e3288a8dd412b78f65fc9e94c1c6c9cd818386881b"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-7676222743b2f226cb2c7aad2c7fb2283f5c99bc0d3e54d45bee8cf6631d9210"
     },
     {
       "spdxElementId": "SPDXRef-Package-f0fc655dea465aab9ad17cec9572300785d27fad0a44145484f16a983ac206be",

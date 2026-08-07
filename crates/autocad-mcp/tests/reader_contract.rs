@@ -565,16 +565,14 @@ fn drawing_route_matches_exact_cli_and_mcp_json_and_admission_contract() {
         &mut client,
         "get_drawing",
         &serde_json::json!({"drawing_path": dxf}),
-        &format!(
-            "code=unsupported_format expanded read tools require a DWG drawing_path; got `{dxf}`"
-        ),
+        &format!("code=unsupported_format drawing_path must be a DWG file; got `{dxf}`"),
     );
     assert_public_error(
         &mut client,
         "get_drawing",
         &serde_json::json!({"drawing_path": DYNAMIC_BLOCK_DWG}),
         &format!(
-            "code=invalid_drawing_path expanded read tools require an absolute drawing_path; got `{DYNAMIC_BLOCK_DWG}`"
+            "code=invalid_drawing_path drawing_path must be an absolute path; got `{DYNAMIC_BLOCK_DWG}`"
         ),
     );
 }
@@ -823,9 +821,8 @@ fn layout_routes_preserve_admission_and_diagnostic_contracts() {
         ),
     );
 
-    let dxf_error = format!(
-        "code=unsupported_format expanded read tools require a DWG drawing_path; got `{project_dxf}`"
-    );
+    let dxf_error =
+        format!("code=unsupported_format drawing_path must be a DWG file; got `{project_dxf}`");
     for (tool, params) in [
         (
             "get_layout",
@@ -852,7 +849,7 @@ fn layout_routes_preserve_admission_and_diagnostic_contracts() {
     }
 
     let relative_path_error = format!(
-        "code=invalid_drawing_path expanded read tools require an absolute drawing_path; got `{DYNAMIC_BLOCK_DWG}`"
+        "code=invalid_drawing_path drawing_path must be an absolute path; got `{DYNAMIC_BLOCK_DWG}`"
     );
     for (tool, params) in [
         (
@@ -1161,9 +1158,8 @@ fn text_routes_preserve_exact_json_diagnostics_and_path_policy() {
         ),
     );
 
-    let dxf_error = format!(
-        "code=unsupported_format expanded read tools require a DWG drawing_path; got `{project_dxf}`"
-    );
+    let dxf_error =
+        format!("code=unsupported_format drawing_path must be a DWG file; got `{project_dxf}`");
     for (tool, params) in [
         (
             "list_text",
@@ -1178,7 +1174,7 @@ fn text_routes_preserve_exact_json_diagnostics_and_path_policy() {
     }
 
     let relative_path_error = format!(
-        "code=invalid_drawing_path expanded read tools require an absolute drawing_path; got `{DYNAMIC_BLOCK_DWG}`"
+        "code=invalid_drawing_path drawing_path must be an absolute path; got `{DYNAMIC_BLOCK_DWG}`"
     );
     for (tool, params) in [
         (
@@ -1228,9 +1224,8 @@ fn block_route_path_format_and_selector_errors_are_exact() {
         diagnostic_error,
     );
 
-    let rich_dxf_error = format!(
-        "code=unsupported_format expanded read tools require a DWG drawing_path; got `{project_dxf}`"
-    );
+    let rich_dxf_error =
+        format!("code=unsupported_format drawing_path must be a DWG file; got `{project_dxf}`");
     for (tool, params) in [
         (
             "list_block_definitions",
@@ -1254,7 +1249,7 @@ fn block_route_path_format_and_selector_errors_are_exact() {
 
     let relative_dwg = DYNAMIC_BLOCK_DWG;
     let relative_path_error = format!(
-        "code=invalid_drawing_path expanded read tools require an absolute drawing_path; got `{relative_dwg}`"
+        "code=invalid_drawing_path drawing_path must be an absolute path; got `{relative_dwg}`"
     );
     for (tool, params) in [
         (
@@ -1507,11 +1502,9 @@ fn symbol_routes_preserve_list_get_transport_path_and_error_contracts() {
         );
     }
 
-    let dxf_error = format!(
-        "code=unsupported_format expanded read tools require a DWG drawing_path; got `{dxf}`"
-    );
+    let dxf_error = format!("code=unsupported_format drawing_path must be a DWG file; got `{dxf}`");
     let relative_error = format!(
-        "code=invalid_drawing_path expanded read tools require an absolute drawing_path; got `{DYNAMIC_BLOCK_DWG}`"
+        "code=invalid_drawing_path drawing_path must be an absolute path; got `{DYNAMIC_BLOCK_DWG}`"
     );
     for (tool, mut params) in [
         ("list_linetypes", serde_json::json!({})),

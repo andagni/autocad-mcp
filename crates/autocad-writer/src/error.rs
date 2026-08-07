@@ -13,10 +13,17 @@ pub enum WriteErrorKind {
     VerificationFailed,
 }
 
+/// A candidate-generation failure.
+///
+/// Composes [`autocad_diagnostics::DomainError`] for the shared `code` +
+/// `message` shape rather than duplicating it, and adds the two fields that
+/// shape doesn't cover: `kind` for programmatic dispatch (matching on a
+/// closed enum instead of a code string), and `internal_detail`, which is
+/// deliberately kept out of `Display`/`message()` — it can carry raw
+/// `io::Error` text that isn't meant for the public-facing message.
 pub struct WriteError {
     kind: WriteErrorKind,
-    code: &'static str,
-    message: String,
+    domain: autocad_diagnostics::DomainError,
     internal_detail: Option<String>,
 }
 
@@ -25,8 +32,8 @@ impl std::fmt::Debug for WriteError {
         formatter
             .debug_struct("WriteError")
             .field("kind", &self.kind)
-            .field("code", &self.code)
-            .field("message", &self.message)
+            .field("code", &self.domain.code())
+            .field("message", &self.domain.message())
             .field("has_internal_detail", &self.internal_detail.is_some())
             .finish()
     }
@@ -40,8 +47,7 @@ impl WriteError {
     ) -> Self {
         Self {
             kind,
-            code,
-            message: message.into(),
+            domain: autocad_diagnostics::DomainError::new(code, message),
             internal_detail: None,
         }
     }
@@ -145,12 +151,12 @@ impl WriteError {
         self.kind
     }
 
-    pub fn code(&self) -> &'static str {
-        self.code
+    pub fn code(&self) -> &str {
+        self.domain.code()
     }
 
     pub fn message(&self) -> &str {
-        &self.message
+        self.domain.message()
     }
 
     #[cfg(test)]
@@ -161,7 +167,7 @@ impl WriteError {
 
 impl std::fmt::Display for WriteError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.message)
+        std::fmt::Display::fmt(&self.domain, formatter)
     }
 }
 

@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 acadrust = "=0.4.1"
+autocad-diagnostics = { path = "../autocad-diagnostics" }
 schemars = "1"
 serde.workspace = true
 

@@ -12,33 +12,15 @@ use acadrust::{
 pub use super::contract::{DirectOwnerContext, DirectOwnerType, DirectOwnerUnavailableReason};
 use super::entity_identity::entity_type_name;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DirectOwnerError {
-    code: &'static str,
-    message: String,
-}
-
-impl DirectOwnerError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-
-    #[cfg(test)]
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-}
-
-impl std::fmt::Display for DirectOwnerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for DirectOwnerError {}
+// Was missing a `message()` accessor for its first several years, which
+// meant every caller that folds a `DirectOwnerError` into its own coded
+// error (see `blocks.rs`, `drawing.rs`, `entities.rs`, `layouts.rs`,
+// `text.rs`) had to go through `Display`/`to_string()` instead — doubling
+// the `code=<code>` prefix in the resulting message, the same bug class
+// `e4ee102` fixed for `XrefError`. `domain_error!` gives every domain error
+// `message()` unconditionally so this can't recur; the call sites were
+// fixed alongside this migration.
+autocad_diagnostics::domain_error!(pub struct DirectOwnerError, new = pub(crate));
 
 pub fn owner_name_eq(left: &str, right: &str) -> bool {
     left.to_uppercase() == right.to_uppercase()

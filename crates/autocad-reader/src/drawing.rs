@@ -66,36 +66,7 @@ impl DrawingInsertionUnit {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DrawingReadError {
-    code: &'static str,
-    message: String,
-}
-
-impl DrawingReadError {
-    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
-impl std::fmt::Display for DrawingReadError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "code={} {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for DrawingReadError {}
+autocad_diagnostics::domain_error!(pub struct DrawingReadError, new = pub(crate));
 
 fn validate_block_record_identities(doc: &CadDocument) -> Result<(), DrawingReadError> {
     let mut records = doc.block_records.iter().collect::<Vec<_>>();
@@ -315,9 +286,8 @@ fn block_owner_classes(
 ) -> Result<HashMap<Handle, BlockOwnerClass>, DrawingReadError> {
     let mut classes = HashMap::new();
     for block in doc.block_records.iter() {
-        let context = resolve_direct_owner(doc, block.handle).map_err(|error| {
-            DrawingReadError::new("unsupported_drawing_data", error.to_string())
-        })?;
+        let context = resolve_direct_owner(doc, block.handle)
+            .map_err(|error| DrawingReadError::new("unsupported_drawing_data", error.message()))?;
         let class = match context {
             Some(DirectOwnerContext::Available {
                 owner_type: DirectOwnerType::ModelSpace,
@@ -1039,7 +1009,14 @@ mod tests {
 
         let error = super::get_drawing(&doc).unwrap_err();
         assert_eq!(error.code(), "unsupported_drawing_data");
-        assert!(error.message().contains("duplicate_owner_layout"));
+        // Prior to the diagnostics-standardization pass, this assertion only
+        // passed because `DrawingReadError` wrapped the inner
+        // `DirectOwnerError` via `to_string()`, which bakes in a
+        // `code=duplicate_owner_layout ` prefix — the same double-`code=`
+        // bug fixed in `e4ee102` for `XrefError`, just not yet noticed here.
+        // Now that the wrap uses `message()`, assert on the actual detail
+        // text instead of incidentally matching the inner error's code.
+        assert!(error.message().contains("resolves to multiple layouts"));
     }
 
     #[test]

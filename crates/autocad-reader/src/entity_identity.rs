@@ -2,21 +2,7 @@ use acadrust::{entities::EntityType, types::Handle, CadDocument};
 
 pub(crate) const ACADRUST_INSERT_SCALE_SENTINEL: f64 = 1e-12;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct SemanticEntityHandleError {
-    code: &'static str,
-    message: &'static str,
-}
-
-impl SemanticEntityHandleError {
-    pub(crate) fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub(crate) fn message(&self) -> &'static str {
-        self.message
-    }
-}
+autocad_diagnostics::domain_error!(pub(crate) struct SemanticEntityHandleError, new = pub(crate));
 
 pub(crate) fn validate_semantic_entity_handles(
     document: &CadDocument,
@@ -27,10 +13,10 @@ pub(crate) fn validate_semantic_entity_handles(
         .map(|entity| entity.common().handle)
         .collect::<Vec<_>>();
     if handles.iter().any(|handle| handle.is_null()) {
-        return Err(SemanticEntityHandleError {
-            code: "invalid_entity_handle",
-            message: "drawing contains an entity with handle 0",
-        });
+        return Err(SemanticEntityHandleError::new(
+            "invalid_entity_handle",
+            "drawing contains an entity with handle 0",
+        ));
     }
     for entity in document.entities() {
         if let EntityType::Insert(insert) = entity {
@@ -45,11 +31,10 @@ pub(crate) fn validate_semantic_entity_handles(
     }
     handles.sort_by_key(Handle::value);
     if handles.windows(2).any(|pair| pair[0] == pair[1]) {
-        return Err(SemanticEntityHandleError {
-            code: "duplicate_entity_handle",
-            message:
-                "drawing contains multiple public entities or attached attributes with the same handle",
-        });
+        return Err(SemanticEntityHandleError::new(
+            "duplicate_entity_handle",
+            "drawing contains multiple public entities or attached attributes with the same handle",
+        ));
     }
     Ok(())
 }
